@@ -1,13 +1,32 @@
-# Career Guidance AI App
+# 🎓 Career Guidance AI App (Mock Version)
 
-A simple LLM-powered app that suggests career options based on resume or skill inputs.
+This is a simple **Streamlit app** that provides mock career suggestions based on your resume, skills, or interests.
 
-## How to Run
+🧠 This version does **not use any API key** or external services — it returns a fixed set of 5 realistic career paths for testing purposes.
 
-1. Install requirements:
+---
 
+## ✅ Features
 
-2. Run the app:
+- Accepts resume summary or skill list
+- Returns 5 predefined career suggestions
+- Runs fully offline (no API or internet required)
+- Beginner-friendly and ideal for demos or submissions
 
+---
 
-3. Enter your OpenAI API key in the input box when prompted.
+## 📦 Requirements
+
+- Python 3.8+
+- pip (Python package manager)
+- Streamlit
+
+---
+
+## ▶️ How to Run
+
+### 1. Clone or download the repository
+
+```bash
+git clone https://github.com/Thunderdoc/career_guidance_llm_app.git
+cd career_guidance_llm_app
