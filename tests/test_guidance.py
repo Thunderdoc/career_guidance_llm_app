@@ -1,7 +1,7 @@
 """Tests for guidance orchestration and fallback behavior."""
 
 from career_guidance.config import Settings
-from career_guidance.models import CareerSuggestion, ProviderError
+from career_guidance.models import CareerRecommendation, CareerSuggestion, ProviderError
 from career_guidance.providers import SuggestionProvider
 from career_guidance.suggestions import generate_guidance
 
@@ -15,6 +15,9 @@ class FailingProvider(SuggestionProvider):
     def suggest(self, profile_text):
         raise ProviderError("boom")
 
+    def recommend(self, profile):
+        raise ProviderError("boom")
+
 
 class StaticProvider(SuggestionProvider):
     name = "Static"
@@ -22,6 +25,13 @@ class StaticProvider(SuggestionProvider):
 
     def suggest(self, profile_text):
         return [CareerSuggestion(title="Dev", rationale="Codes well.")]
+
+    def recommend(self, profile):
+        return [
+            CareerRecommendation(
+                title="Dev", match_reason="Codes well.", suitability="beginner"
+            )
+        ]
 
 
 def test_generate_guidance_uses_given_provider():

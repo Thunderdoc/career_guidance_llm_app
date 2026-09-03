@@ -22,6 +22,10 @@ report.xml
 .env
 .env.*
 
+# Local database
+data/
+*.db
+
 # Editors / OS
 .idea/
 .vscode/

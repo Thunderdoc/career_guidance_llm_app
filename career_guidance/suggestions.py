@@ -1,9 +1,9 @@
 """Core career guidance orchestration.
 
 This module is UI-agnostic so it can be unit-tested and reused by any
-front end (Streamlit, CLI, API). Suggestions are produced by pluggable
+front end (Streamlit, CLI, API). Recommendations are produced by pluggable
 providers (see ``career_guidance.providers``), with automatic fallback
-to offline demo suggestions when the AI provider fails.
+to offline demo results when the AI provider fails.
 """
 
 import logging
@@ -11,10 +11,12 @@ from dataclasses import dataclass
 
 from career_guidance.config import Settings, load_settings
 from career_guidance.models import (
+    CareerRecommendation,
     CareerSuggestion,
     InvalidInputError,
     ProviderError,
 )
+from career_guidance.profile import CareerProfile
 from career_guidance.providers import MockProvider, SuggestionProvider, get_provider
 
 logger = logging.getLogger("career_guidance.suggestions")
@@ -23,8 +25,11 @@ __all__ = [
     "CareerSuggestion",
     "GuidanceResult",
     "InvalidInputError",
+    "RecommendationResult",
+    "format_recommendations_markdown",
     "format_suggestions_markdown",
     "generate_guidance",
+    "generate_recommendations",
     "get_career_suggestions",
     "validate_input",
 ]
@@ -32,7 +37,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class GuidanceResult:
-    """Outcome of a guidance run, including provenance metadata."""
+    """Outcome of a simple guidance run, including provenance metadata."""
 
     suggestions: list[CareerSuggestion]
     provider_name: str
@@ -40,15 +45,18 @@ class GuidanceResult:
     used_fallback: bool
 
 
+@dataclass(frozen=True)
+class RecommendationResult:
+    """Outcome of a structured recommendation run."""
+
+    recommendations: list[CareerRecommendation]
+    provider_name: str
+    is_demo: bool
+    used_fallback: bool
+
+
 def validate_input(raw_input: str, settings: Settings | None = None) -> str:
     """Validate and normalize user input.
-
-    Args:
-        raw_input: Free-text skills, resume summary, or interests.
-        settings: Optional settings; loaded from environment if omitted.
-
-    Returns:
-        The stripped, validated input text.
 
     Raises:
         InvalidInputError: If the input is empty, too short, or too long.
@@ -74,10 +82,7 @@ def generate_guidance(
     settings: Settings | None = None,
     provider: SuggestionProvider | None = None,
 ) -> GuidanceResult:
-    """Generate career guidance for the given skills/resume text.
-
-    Falls back to the offline demo provider when the configured provider
-    fails, so the user always receives usable results.
+    """Generate simple career suggestions with automatic fallback.
 
     Raises:
         InvalidInputError: If the input fails validation.
@@ -91,23 +96,41 @@ def generate_guidance(
     )
     try:
         suggestions = provider.suggest(text)
-        return GuidanceResult(
-            suggestions=suggestions,
-            provider_name=provider.name,
-            is_demo=provider.is_demo,
-            used_fallback=False,
-        )
+        return GuidanceResult(suggestions, provider.name, provider.is_demo, False)
     except ProviderError:
         logger.exception(
             "Provider %s failed; falling back to offline suggestions", provider.name
         )
         fallback = MockProvider()
-        return GuidanceResult(
-            suggestions=fallback.suggest(text),
-            provider_name=fallback.name,
-            is_demo=True,
-            used_fallback=True,
+        return GuidanceResult(fallback.suggest(text), fallback.name, True, True)
+
+
+def generate_recommendations(
+    profile: CareerProfile,
+    settings: Settings | None = None,
+    provider: SuggestionProvider | None = None,
+) -> RecommendationResult:
+    """Generate structured career recommendations with automatic fallback.
+
+    Raises:
+        InvalidInputError: If the profile fails validation.
+    """
+    settings = settings or load_settings()
+    profile.validate(settings.min_input_length, settings.max_input_length)
+    provider = provider or get_provider(settings)
+
+    logger.info("Generating recommendations via %s", provider.name)
+    try:
+        recommendations = provider.recommend(profile)
+        return RecommendationResult(
+            recommendations, provider.name, provider.is_demo, False
         )
+    except ProviderError:
+        logger.exception(
+            "Provider %s failed; falling back to offline matching", provider.name
+        )
+        fallback = MockProvider()
+        return RecommendationResult(fallback.recommend(profile), fallback.name, True, True)
 
 
 def get_career_suggestions(
@@ -118,8 +141,31 @@ def get_career_suggestions(
 
 
 def format_suggestions_markdown(suggestions: list[CareerSuggestion]) -> str:
-    """Render suggestions as a numbered Markdown list."""
+    """Render simple suggestions as a numbered Markdown list."""
     return "\n".join(
         f"{index}. **{item.title}** – {item.rationale}"
         for index, item in enumerate(suggestions, start=1)
     )
+
+
+def format_recommendations_markdown(
+    recommendations: list[CareerRecommendation],
+) -> str:
+    """Render structured recommendations as a Markdown document."""
+    blocks = []
+    for index, rec in enumerate(recommendations, start=1):
+        lines = [
+            f"## {index}. {rec.title} ({rec.suitability})",
+            "",
+            rec.match_reason,
+            "",
+            "**Matching skills:** " + (", ".join(rec.matching_skills) or "none detected"),
+            "**Skills to learn:** " + (", ".join(rec.missing_skills) or "none"),
+            "",
+            "**Learning path:**",
+        ]
+        lines += [f"{i}. {step}" for i, step in enumerate(rec.learning_path, start=1)]
+        lines += ["", "**Next steps:**"]
+        lines += [f"- {step}" for step in rec.next_steps]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
