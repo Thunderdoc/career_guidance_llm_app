@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
     "streamlit>=1.36,<2.0",
+    "openai>=1.30,<2.0",
 ]
 
 [project.optional-dependencies]

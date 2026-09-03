@@ -1,68 +1,43 @@
-"""Core career suggestion logic.
+"""Core career guidance orchestration.
 
 This module is UI-agnostic so it can be unit-tested and reused by any
-front end (Streamlit, CLI, API). The current implementation returns
-curated mock suggestions; an LLM-backed provider can be plugged in later
-without changing the public interface.
+front end (Streamlit, CLI, API). Suggestions are produced by pluggable
+providers (see ``career_guidance.providers``), with automatic fallback
+to offline demo suggestions when the AI provider fails.
 """
 
 import logging
 from dataclasses import dataclass
 
 from career_guidance.config import Settings, load_settings
+from career_guidance.models import (
+    CareerSuggestion,
+    InvalidInputError,
+    ProviderError,
+)
+from career_guidance.providers import MockProvider, SuggestionProvider, get_provider
 
 logger = logging.getLogger("career_guidance.suggestions")
 
+__all__ = [
+    "CareerSuggestion",
+    "GuidanceResult",
+    "InvalidInputError",
+    "format_suggestions_markdown",
+    "generate_guidance",
+    "get_career_suggestions",
+    "validate_input",
+]
+
 
 @dataclass(frozen=True)
-class CareerSuggestion:
-    """A single career path recommendation."""
+class GuidanceResult:
+    """Outcome of a guidance run, including provenance metadata."""
 
-    title: str
-    rationale: str
-
-
-class InvalidInputError(ValueError):
-    """Raised when the user-provided input fails validation."""
-
-
-_MOCK_SUGGESTIONS: tuple[CareerSuggestion, ...] = (
-    CareerSuggestion(
-        title="Software Developer",
-        rationale=(
-            "Your programming and web development skills make you suitable "
-            "for roles in full-stack or backend development."
-        ),
-    ),
-    CareerSuggestion(
-        title="Data Analyst",
-        rationale=(
-            "With knowledge of Python, Excel, and data visualization, you "
-            "can work on data-driven decision making."
-        ),
-    ),
-    CareerSuggestion(
-        title="Technical Writer",
-        rationale=(
-            "Your communication and tech background fit well with "
-            "documenting software, APIs, and guides."
-        ),
-    ),
-    CareerSuggestion(
-        title="QA Engineer",
-        rationale=(
-            "Your detail-oriented nature and coding skills are perfect for "
-            "testing and quality assurance roles."
-        ),
-    ),
-    CareerSuggestion(
-        title="Product Support Specialist",
-        rationale=(
-            "Strong communication and tech awareness are a great match for "
-            "user support and troubleshooting."
-        ),
-    ),
-)
+    suggestions: list[CareerSuggestion]
+    provider_name: str
+    is_demo: bool
+    used_fallback: bool
 
 
 def validate_input(raw_input: str, settings: Settings | None = None) -> str:
@@ -94,24 +69,52 @@ def validate_input(raw_input: str, settings: Settings | None = None) -> str:
     return text
 
 
-def get_career_suggestions(
-    raw_input: str, settings: Settings | None = None
-) -> list[CareerSuggestion]:
-    """Return career suggestions for the given skills/resume text.
+def generate_guidance(
+    raw_input: str,
+    settings: Settings | None = None,
+    provider: SuggestionProvider | None = None,
+) -> GuidanceResult:
+    """Generate career guidance for the given skills/resume text.
 
-    Args:
-        raw_input: Free-text skills, resume summary, or interests.
-        settings: Optional settings; loaded from environment if omitted.
-
-    Returns:
-        A list of career suggestions.
+    Falls back to the offline demo provider when the configured provider
+    fails, so the user always receives usable results.
 
     Raises:
         InvalidInputError: If the input fails validation.
     """
+    settings = settings or load_settings()
     text = validate_input(raw_input, settings)
-    logger.info("Generating career suggestions for input of length %d", len(text))
-    return list(_MOCK_SUGGESTIONS)
+    provider = provider or get_provider(settings)
+
+    logger.info(
+        "Generating suggestions via %s for input of length %d", provider.name, len(text)
+    )
+    try:
+        suggestions = provider.suggest(text)
+        return GuidanceResult(
+            suggestions=suggestions,
+            provider_name=provider.name,
+            is_demo=provider.is_demo,
+            used_fallback=False,
+        )
+    except ProviderError:
+        logger.exception(
+            "Provider %s failed; falling back to offline suggestions", provider.name
+        )
+        fallback = MockProvider()
+        return GuidanceResult(
+            suggestions=fallback.suggest(text),
+            provider_name=fallback.name,
+            is_demo=True,
+            used_fallback=True,
+        )
+
+
+def get_career_suggestions(
+    raw_input: str, settings: Settings | None = None
+) -> list[CareerSuggestion]:
+    """Backwards-compatible helper returning only the suggestion list."""
+    return generate_guidance(raw_input, settings).suggestions
 
 
 def format_suggestions_markdown(suggestions: list[CareerSuggestion]) -> str:
