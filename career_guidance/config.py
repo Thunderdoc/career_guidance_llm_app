@@ -26,6 +26,7 @@ class Settings:
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 30.0
+    database_path: str = "data/career_guidance.db"
 
 
 def load_settings() -> Settings:
@@ -38,6 +39,7 @@ def load_settings() -> Settings:
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
         openai_timeout_seconds=float(os.getenv("OPENAI_TIMEOUT_SECONDS", "30")),
+        database_path=os.getenv("DATABASE_PATH", "data/career_guidance.db"),
     )
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "career-guidance-llm-app"
-version = "1.0.0"
+version = "1.1.0"
 description = "Streamlit app that suggests career paths based on skills or resume input"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +12,7 @@ license = { text = "MIT" }
 dependencies = [
     "streamlit>=1.36,<2.0",
     "openai>=1.30,<2.0",
+    "pypdf>=4.0,<7.0",
 ]
 
 [project.optional-dependencies]
