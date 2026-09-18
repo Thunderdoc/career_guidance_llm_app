@@ -1,0 +1,166 @@
+# Curated labour-market seeds.
+#
+# These numbers are *curated estimates*, not live postings data. Every surface
+# that shows them prints the `label` below. Occupations are grouped into
+# families; a future free API key (Adzuna / CareerOneStop) overrides these
+# values automatically at runtime — see career_guidance/market_seed.py.
+#
+# Salary figures are annual gross, in the local currency of `currency`:
+#   * INR (₹) — India, mid-market, 2026 money
+#   * USD ($) — United States
+#
+# trend:    rising | stable | declining
+# demand:   1 (very low) … 5 (very high) — hiring pressure over the next ~2 years
+version: 1
+updated: "2026-09"
+label: "Source: curated, updated 2026-09"
+currency_in: INR
+currency_us: USD
+
+# Defaults applied when an occupation is not matched by any rule below.
+defaults:
+  trend: stable
+  demand: 3
+  remote: false
+  salary_in: [400000, 700000, 1200000] # p25, p50, p75
+  salary_us: [45000, 65000, 95000]
+
+# Rules are matched (in order) against an occupation's title and O*NET family
+# code prefix (e.g. 15-xxxx is Computer & Mathematical). The first match wins.
+families:
+  - id: software-engineering
+    match: ["software", "developer", "programmer", "web", "full stack", "devops", "computer systems", "applications", "qa", "test", "site reliab", "cloud", "mobile"]
+    code_prefixes: ["15-11", "15-12", "15-13", "15-1199"]
+    inr: [600000, 1200000, 2200000]
+    usd: [78000, 112000, 160000]
+    trend: rising
+    demand: 5
+    remote: true
+    indian_titles: ["Software Engineer", "SDE-1", "Full Stack Developer", "Backend Engineer", "MERN Developer", "Java Developer", ".NET Developer", "SDET"]
+  - id: data-and-analytics
+    match: ["data", "statistic", "analyst", "business intelligence", "machine learning", "operations research", "actuar", "market research"]
+    code_prefixes: ["15-20", "15-2041", "15-2031", "15-2051", "19-30"]
+    inr: [550000, 1100000, 2000000]
+    usd: [65000, 100000, 145000]
+    trend: rising
+    demand: 5
+    remote: true
+    indian_titles: ["Data Analyst", "Business Analyst", "Data Scientist", "Analytics Consultant", "MIS Executive", "BI Developer"]
+  - id: it-support-and-security
+    match: ["network", "security", "administrator", "support", "help desk", "database admin", "systems engineer", "information technology", "cyber"]
+    code_prefixes: ["15-12", "15-1241", "15-1211", "15-1231", "15-1299"]
+    inr: [350000, 700000, 1300000]
+    usd: [52000, 72000, 105000]
+    trend: rising
+    demand: 4
+    remote: true
+    indian_titles: ["IT Support Engineer", "System Administrator", "SOC Analyst", "Network Engineer"]
+  - id: engineering-technical
+    match: ["engineer", "engineering", "drafter", "architectural", "civil", "mechanical", "electrical", "electronics", "industrial", "chemical", "surveyor", "technician"]
+    code_prefixes: ["17-", "17-2"]
+    inr: [400000, 850000, 1600000]
+    usd: [60000, 85000, 120000]
+    trend: stable
+    demand: 4
+    remote: false
+    indian_titles: ["Design Engineer", "Site Engineer", "Production Engineer", "Graduate Engineer Trainee (GET)", "Maintenance Engineer"]
+  - id: healthcare
+    match: ["nurse", "nursing", "physician", "surgeon", "medical", "dental", "pharmacist", "therapist", "health", "clinical", "laboratory", "radiolog", "emergency medical", "midwife", "dietit"]
+    code_prefixes: ["29-", "31-", "32-"]
+    inr: [350000, 750000, 1500000]
+    usd: [62000, 95000, 150000]
+    trend: rising
+    demand: 5
+    remote: false
+    indian_titles: ["Staff Nurse", "Clinical Pharmacist", "Medical Coder", "Lab Technician", "Physician Assistant"]
+  - id: education
+    match: ["teacher", "instructor", "lecturer", "professor", "tutor", "librarian", "education", "training", "curriculum", "instructional"]
+    code_prefixes: ["25-"]
+    inr: [300000, 600000, 1200000]
+    usd: [42000, 62000, 95000]
+    trend: stable
+    demand: 3
+    remote: false
+    indian_titles: ["Teacher", "Assistant Professor", "Academic Counsellor", "Academic Content Writer", "PGT/TGT Faculty"]
+  - id: finance-accounting
+    match: ["account", "audit", "tax", "financial", "loan", "credit", "insurance", "bank", "budget", "treasur", "underwrit", "claims", "bookkeep", "gst"]
+    code_prefixes: ["13-", "43-30", "43-4"]
+    inr: [320000, 700000, 1500000]
+    usd: [48000, 72000, 110000]
+    trend: stable
+    demand: 4
+    remote: false
+    indian_titles: ["Accounts Executive", "Statutory Auditor", "GST Practitioner", "Credit Analyst", "Relationship Manager", "Financial Analyst"]
+  - id: sales-and-customer
+    match: ["sales", "marketing", "customer", "retail", "telemarket", "sales represent", "public relation", "advertis", "public relations", "promotion", "merchandis"]
+    code_prefixes: ["41-", "11-20", "43-40", "43-4"]
+    inr: [280000, 600000, 1300000]
+    usd: [40000, 62000, 100000]
+    trend: stable
+    demand: 4
+    remote: true
+    indian_titles: ["Sales Executive", "Business Development Executive", "Field Sales Officer", "Customer Success Manager", "Digital Marketing Executive"]
+  - id: operations-logistics
+    match: ["logistic", "supply", "warehouse", "inventory", "transport", "production plan", "purchas", "procurement", "operations", "quality", "manufactur", "plant"]
+    code_prefixes: ["53-", "11-30", "43-5"]
+    inr: [300000, 650000, 1300000]
+    usd: [45000, 68000, 100000]
+    trend: stable
+    demand: 4
+    remote: false
+    indian_titles: ["Supply Chain Executive", "Warehouse Manager", "Operations Executive", "Quality Inspector", "Production Supervisor"]
+  - id: creative-media
+    match: ["design", "graphic", "art ", "artist", "photograph", "video", "editor", "writer", "author", "broadcast", "announce", "media", "animat", "fashion", "interior", "architect"]
+    code_prefixes: ["27-", "27-10"]
+    inr: [300000, 600000, 1200000]
+    usd: [42000, 62000, 95000]
+    trend: stable
+    demand: 3
+    remote: true
+    indian_titles: ["Graphic Designer", "UI/UX Designer", "Video Editor", "Content Writer", "Motion Graphics Artist"]
+  - id: skilled-trades
+    match: ["weld", "plumb", "electrician", "carpenter", "machinist", "hvac", "mechanic", "installer", "repair", "maintenance", "construction", "operator", "crane", "tool"]
+    code_prefixes: ["47-", "49-", "51-"]
+    inr: [240000, 480000, 900000]
+    usd: [38000, 55000, 78000]
+    trend: stable
+    demand: 4
+    remote: false
+    indian_titles: ["Electrician", "Welder", "Machine Operator", "Retail Technician", "Service Engineer"]
+  - id: social-and-public
+    match: ["social", "counsel", "community", "police", "fire", "security guard", "probation", "clergy", "recreation", "childcare", "care "]
+    code_prefixes: ["21-", "33-", "39-", "21-10"]
+    inr: [260000, 520000, 950000]
+    usd: [40000, 58000, 85000]
+    trend: stable
+    demand: 3
+    remote: false
+    indian_titles: ["Counsellor", "Social Worker", "NGO Programme Coordinator", "Childcare Worker"]
+
+# India overrides: specific O*NET ids (or well-known Indian titles) get an exact
+# band, superseding the family rule. Keep this list short and factual.
+india_overrides:
+  - ids: ["15-1132.00", "15-1133.00", "15-1131.00", "15-1134.00", "15-1121.00", "15-1199.09"]
+    inr: [700000, 1400000, 2600000]
+    trend: rising
+    demand: 5
+    remote: true
+    note: "Indian product/service IT hiring bands, 2026"
+  - ids: ["15-1199.08", "15-2041.00", "15-2031.00", "15-1199.07", "15-2041.01"]
+    inr: [600000, 1250000, 2400000]
+    trend: rising
+    demand: 5
+    remote: true
+  - ids: ["29-1141.00", "29-2061.00", "29-2052.00", "29-1051.00"]
+    inr: [320000, 620000, 1100000]
+    trend: rising
+    demand: 5
+  - ids: ["13-2011.01", "13-2011.02", "13-2081.00", "13-2051.00"]
+    inr: [400000, 850000, 1600000]
+    demand: 4
+    note: "CA/CMA-qualified bands are higher; this is the broad market"
+  - ids: ["25-2021.00", "25-2031.00", "25-1081.00"]
+    inr: [280000, 540000, 1000000]
+  - ids: ["47-2111.00", "47-2152.02", "49-9021.01", "51-4121.06"]
+    inr: [220000, 420000, 780000]
+    demand: 4

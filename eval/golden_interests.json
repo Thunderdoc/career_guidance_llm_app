@@ -1,0 +1,127 @@
+[
+  {
+    "id": "investigative-conventional",
+    "scores": { "R": 2, "I": 7, "A": 3, "S": 3, "E": 2, "C": 6 },
+    "holland": "IC",
+    "expect": [
+      "Computer Programmers",
+      "Data Warehousing Specialists",
+      "Statisticians",
+      "Financial Quantitative Analysts",
+      "Biostatisticians",
+      "Social Science Research Assistants",
+      "Software Developers, Systems Software",
+      "Database Administrators",
+      "Business Intelligence Analysts",
+      "Operations Research Analysts",
+      "Actuaries",
+      "Computer and Information Research Scientists"
+    ]
+  },
+  {
+    "id": "social-enterprising",
+    "scores": { "R": 1, "I": 3, "A": 4, "S": 7, "E": 6, "C": 2 },
+    "holland": "SE",
+    "expect": [
+      "Child, Family, and School Social Workers",
+      "Health Educators",
+      "Political Science Teachers, Postsecondary",
+      "Secondary School Teachers, Except Special and Career/Technical Education",
+      "Adult Basic and Secondary Education and Literacy Teachers and Instructors",
+      "Arbitrators, Mediators, and Conciliators",
+      "Clergy",
+      "Education Administrators, Elementary and Secondary School",
+      "Social and Human Service Assistants",
+      "Sales Managers"
+    ]
+  },
+  {
+    "id": "realistic-conventional",
+    "scores": { "R": 7, "I": 3, "A": 2, "S": 2, "E": 3, "C": 6 },
+    "holland": "RC",
+    "expect": [
+      "Food Batchmakers",
+      "Drywall and Ceiling Tile Installers",
+      "Printing Press Operators",
+      "Subway and Streetcar Operators",
+      "Electronic Home Entertainment Equipment Installers and Repairers",
+      "Food Cooking Machine Operators and Tenders",
+      "Electricians",
+      "Welders, Cutters, and Welder Fitters",
+      "Plumbers",
+      "Heating and Air Conditioning Mechanics and Installers",
+      "Bookkeeping, Accounting, and Auditing Clerks"
+    ]
+  },
+  {
+    "id": "artistic",
+    "scores": { "R": 2, "I": 4, "A": 7, "S": 4, "E": 4, "C": 2 },
+    "holland": "A",
+    "expect": [
+      "Broadcast News Analysts",
+      "Reporters and Correspondents",
+      "Poets, Lyricists and Creative Writers",
+      "Music Directors",
+      "Film and Video Editors",
+      "Choreographers",
+      "Music Composers and Arrangers",
+      "Radio and Television Announcers",
+      "Graphic Designers",
+      "Sound Engineering Technicians",
+      "Public Relations Specialists"
+    ]
+  },
+  {
+    "id": "enterprising",
+    "scores": { "R": 2, "I": 3, "A": 3, "S": 5, "E": 7, "C": 5 },
+    "holland": "EC",
+    "expect": [
+      "Human Resources Specialists",
+      "Labor Relations Specialists",
+      "Human Resources Managers",
+      "Medical and Health Services Managers",
+      "Chief Executives",
+      "Education Administrators, Postsecondary",
+      "Agents and Business Managers of Artists, Performers, and Athletes",
+      "Sales Managers",
+      "Marketing Managers",
+      "Financial Managers, Branch or Department",
+      "Compensation, Benefits, and Job Analysis Specialists"
+    ]
+  },
+  {
+    "id": "social-investigative",
+    "scores": { "R": 2, "I": 6, "A": 3, "S": 7, "E": 3, "C": 4 },
+    "holland": "SI",
+    "expect": [
+      "Tutors",
+      "Health Specialties Teachers, Postsecondary",
+      "Social Work Teachers, Postsecondary",
+      "Library Science Teachers, Postsecondary",
+      "History Teachers, Postsecondary",
+      "Anthropology and Archeology Teachers, Postsecondary",
+      "Geography Teachers, Postsecondary",
+      "Economics Teachers, Postsecondary",
+      "Clinical Psychologists",
+      "School Psychologists",
+      "Marriage and Family Therapists"
+    ]
+  },
+  {
+    "id": "realistic-investigative",
+    "scores": { "R": 7, "I": 6, "A": 2, "S": 2, "E": 3, "C": 4 },
+    "holland": "RI",
+    "expect": [
+      "Electrical Engineering Technologists",
+      "Mechanical Engineering Technologists",
+      "Transportation Engineers",
+      "Solar Energy Systems Engineers",
+      "Electronics Engineering Technicians",
+      "Civil Engineers",
+      "Fuel Cell Engineers",
+      "Mechanical Engineers",
+      "Electrical Engineers",
+      "Industrial Engineering Technicians"
+    ]
+  }
+]
