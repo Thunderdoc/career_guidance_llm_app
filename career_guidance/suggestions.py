@@ -7,7 +7,7 @@ to offline demo results when the AI provider fails.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from career_guidance.config import Settings, load_settings
 from career_guidance.models import (
@@ -17,7 +17,12 @@ from career_guidance.models import (
     ProviderError,
 )
 from career_guidance.profile import CareerProfile
-from career_guidance.providers import MockProvider, SuggestionProvider, get_provider
+from career_guidance.providers import (
+    MockProvider,
+    SuggestionProvider,
+    get_offline_provider,
+    get_provider,
+)
 
 logger = logging.getLogger("career_guidance.suggestions")
 
@@ -53,6 +58,7 @@ class RecommendationResult:
     provider_name: str
     is_demo: bool
     used_fallback: bool
+    priority_skills: list[str] = field(default_factory=list)
 
 
 def validate_input(raw_input: str, settings: Settings | None = None) -> str:
@@ -71,9 +77,7 @@ def validate_input(raw_input: str, settings: Settings | None = None) -> str:
             f"Input must be at least {settings.min_input_length} characters long."
         )
     if len(text) > settings.max_input_length:
-        raise InvalidInputError(
-            f"Input must not exceed {settings.max_input_length} characters."
-        )
+        raise InvalidInputError(f"Input must not exceed {settings.max_input_length} characters.")
     return text
 
 
@@ -91,16 +95,12 @@ def generate_guidance(
     text = validate_input(raw_input, settings)
     provider = provider or get_provider(settings)
 
-    logger.info(
-        "Generating suggestions via %s for input of length %d", provider.name, len(text)
-    )
+    logger.info("Generating suggestions via %s for input of length %d", provider.name, len(text))
     try:
         suggestions = provider.suggest(text)
         return GuidanceResult(suggestions, provider.name, provider.is_demo, False)
     except ProviderError:
-        logger.exception(
-            "Provider %s failed; falling back to offline suggestions", provider.name
-        )
+        logger.exception("Provider %s failed; falling back to offline suggestions", provider.name)
         fallback = MockProvider()
         return GuidanceResult(fallback.suggest(text), fallback.name, True, True)
 
@@ -123,14 +123,30 @@ def generate_recommendations(
     try:
         recommendations = provider.recommend(profile)
         return RecommendationResult(
-            recommendations, provider.name, provider.is_demo, False
+            recommendations,
+            provider.name,
+            provider.is_demo,
+            False,
+            _priority_skills(recommendations),
         )
     except ProviderError:
-        logger.exception(
-            "Provider %s failed; falling back to offline matching", provider.name
+        logger.exception("Provider %s failed; falling back to offline matching", provider.name)
+        fallback = get_offline_provider()
+        recommendations = fallback.recommend(profile)
+        return RecommendationResult(
+            recommendations, fallback.name, True, True, _priority_skills(recommendations)
         )
-        fallback = MockProvider()
-        return RecommendationResult(fallback.recommend(profile), fallback.name, True, True)
+
+
+def _priority_skills(recommendations: list[CareerRecommendation], limit: int = 3) -> list[str]:
+    """Rank skill gaps by how many top recommendations need them."""
+    from collections import Counter
+
+    scores: Counter[str] = Counter()
+    for rank, rec in enumerate(recommendations):
+        for pos, skill in enumerate(rec.missing_skills[:6]):
+            scores[skill] += (1.0 / (rank + 1)) * (1.0 - 0.1 * pos)
+    return [skill for skill, _ in scores.most_common(limit)]
 
 
 def get_career_suggestions(

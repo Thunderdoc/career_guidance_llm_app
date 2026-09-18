@@ -16,13 +16,19 @@ def test_mock_provider_returns_five_suggestions():
     assert len(MockProvider().suggest("Python")) == 5
 
 
-def test_get_provider_defaults_to_demo_mode():
-    assert isinstance(get_provider(Settings()), MockProvider)
+def test_get_provider_defaults_to_offline_mode():
+    provider = get_provider(Settings())
+    assert provider.is_demo is True
 
 
-def test_get_provider_selects_openai_when_key_is_set():
+def test_get_provider_selects_ai_when_key_is_set():
     provider = get_provider(Settings(openai_api_key="test-key"))
-    assert isinstance(provider, OpenAIProvider)
+    assert provider.is_demo is False
+    assert "OpenAI" in provider.name
+
+
+def test_legacy_openai_provider_still_constructs():
+    assert OpenAIProvider(Settings(openai_api_key="k")).is_demo is False
 
 
 def test_parse_suggestions_accepts_valid_json():

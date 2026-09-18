@@ -23,9 +23,7 @@ def _db(tmp_path) -> Database:
 
 def test_save_and_list_runs(tmp_path):
     db = _db(tmp_path)
-    run_id = db.save_run(
-        {"skills": "python"}, [_recommendation()], provider="Demo", is_demo=True
-    )
+    run_id = db.save_run({"skills": "python"}, [_recommendation()], provider="Demo", is_demo=True)
     assert run_id > 0
     runs = db.list_runs()
     assert len(runs) == 1
@@ -59,9 +57,7 @@ def test_analytics_summary(tmp_path):
         provider="Demo",
         is_demo=True,
     )
-    db.save_run(
-        {"skills": "b"}, [_recommendation()], provider="OpenAI", is_demo=False
-    )
+    db.save_run({"skills": "b"}, [_recommendation()], provider="OpenAI", is_demo=False)
     summary = summarize(db.list_runs())
     assert summary.total_runs == 2
     assert summary.ai_runs == 1

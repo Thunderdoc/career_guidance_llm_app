@@ -39,9 +39,7 @@ class CareerProfile:
                 f"Profile content must be at least {min_length} characters long."
             )
         if len(core) > max_length:
-            raise InvalidInputError(
-                f"Profile content must not exceed {max_length} characters."
-            )
+            raise InvalidInputError(f"Profile content must not exceed {max_length} characters.")
 
     def to_prompt_text(self) -> str:
         """Render the profile as text for a suggestion provider."""
