@@ -1,0 +1,120 @@
+# Curated learning resources per canonical skill (lower-case keys).
+# Only well-known, stable URLs. No LLM-generated links.
+programming:
+  - {title: "CS50's Introduction to Computer Science", url: "https://cs50.harvard.edu/x/", provider: "Harvard / edX", free: true}
+  - {title: "NPTEL: Programming, Data Structures and Algorithms", url: "https://nptel.ac.in/courses/106106145", provider: "NPTEL", free: true}
+python:
+  - {title: "Python for Everybody", url: "https://www.py4e.com/", provider: "Univ. of Michigan", free: true}
+  - {title: "NPTEL: The Joy of Computing using Python", url: "https://nptel.ac.in/courses/106106182", provider: "NPTEL", free: true}
+sql:
+  - {title: "SQLBolt interactive lessons", url: "https://sqlbolt.com/", provider: "SQLBolt", free: true}
+  - {title: "Mode SQL Tutorial", url: "https://mode.com/sql-tutorial/", provider: "Mode", free: true}
+javascript:
+  - {title: "freeCodeCamp JavaScript Algorithms and Data Structures", url: "https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/", provider: "freeCodeCamp", free: true}
+  - {title: "MDN JavaScript Guide", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide", provider: "MDN", free: true}
+html:
+  - {title: "freeCodeCamp Responsive Web Design", url: "https://www.freecodecamp.org/learn/2022/responsive-web-design/", provider: "freeCodeCamp", free: true}
+css:
+  - {title: "MDN Learn CSS", url: "https://developer.mozilla.org/en-US/docs/Learn/CSS", provider: "MDN", free: true}
+react:
+  - {title: "React official tutorial", url: "https://react.dev/learn", provider: "react.dev", free: true}
+java:
+  - {title: "NPTEL: Programming in Java", url: "https://nptel.ac.in/courses/106105191", provider: "NPTEL", free: true}
+c++:
+  - {title: "learncpp.com", url: "https://www.learncpp.com/", provider: "LearnCpp", free: true}
+git:
+  - {title: "Pro Git book", url: "https://git-scm.com/book/en/v2", provider: "git-scm", free: true}
+linux:
+  - {title: "Linux Journey", url: "https://linuxjourney.com/", provider: "Linux Journey", free: true}
+docker:
+  - {title: "Docker Getting Started", url: "https://docs.docker.com/get-started/", provider: "Docker", free: true}
+amazon web services:
+  - {title: "AWS Skill Builder (free tier)", url: "https://skillbuilder.aws/", provider: "AWS", free: true}
+microsoft azure:
+  - {title: "Microsoft Learn: Azure Fundamentals", url: "https://learn.microsoft.com/training/paths/azure-fundamentals/", provider: "Microsoft Learn", free: true}
+machine learning:
+  - {title: "Machine Learning Specialization", url: "https://www.coursera.org/specializations/machine-learning-introduction", provider: "Coursera (audit free)", free: true}
+  - {title: "NPTEL: Introduction to Machine Learning", url: "https://nptel.ac.in/courses/106105152", provider: "NPTEL", free: true}
+statistics:
+  - {title: "Khan Academy Statistics & Probability", url: "https://www.khanacademy.org/math/statistics-probability", provider: "Khan Academy", free: true}
+mathematics:
+  - {title: "Khan Academy Math", url: "https://www.khanacademy.org/math", provider: "Khan Academy", free: true}
+data visualization:
+  - {title: "Tableau Public free training", url: "https://public.tableau.com/app/resources/learn", provider: "Tableau", free: true}
+excel:
+  - {title: "Microsoft Excel video training", url: "https://support.microsoft.com/office/excel-video-training-9bc05390-e94c-46af-a5b3-d7c22f6990bb", provider: "Microsoft", free: true}
+power bi:
+  - {title: "Microsoft Learn: Power BI", url: "https://learn.microsoft.com/training/powerplatform/power-bi", provider: "Microsoft Learn", free: true}
+tableau:
+  - {title: "Tableau free training videos", url: "https://www.tableau.com/learn/training", provider: "Tableau", free: true}
+data analytics:
+  - {title: "Google Data Analytics Certificate", url: "https://www.coursera.org/professional-certificates/google-data-analytics", provider: "Coursera", free: false}
+cybersecurity:
+  - {title: "Cisco Networking Academy: Introduction to Cybersecurity", url: "https://www.netacad.com/courses/introduction-to-cybersecurity", provider: "Cisco NetAcad", free: true}
+networking:
+  - {title: "Cisco Networking Academy: Networking Basics", url: "https://www.netacad.com/courses/networking-basics", provider: "Cisco NetAcad", free: true}
+testing:
+  - {title: "Test Automation University", url: "https://testautomationu.applitools.com/", provider: "Applitools", free: true}
+project management:
+  - {title: "Google Project Management Certificate", url: "https://www.coursera.org/professional-certificates/google-project-management", provider: "Coursera", free: false}
+technical writing:
+  - {title: "Google Technical Writing Courses", url: "https://developers.google.com/tech-writing", provider: "Google", free: true}
+writing:
+  - {title: "Purdue OWL Writing Resources", url: "https://owl.purdue.edu/owl/purdue_owl.html", provider: "Purdue", free: true}
+communication:
+  - {title: "SWAYAM: Soft Skills", url: "https://onlinecourses.nptel.ac.in/noc21_hs76/preview", provider: "SWAYAM / NPTEL", free: true}
+english:
+  - {title: "British Council LearnEnglish", url: "https://learnenglish.britishcouncil.org/", provider: "British Council", free: true}
+accounting:
+  - {title: "NPTEL: Financial Accounting", url: "https://nptel.ac.in/courses/110101131", provider: "NPTEL", free: true}
+finance:
+  - {title: "NPTEL: Introduction to Corporate Finance", url: "https://nptel.ac.in/courses/110107127", provider: "NPTEL", free: true}
+marketing:
+  - {title: "Google Digital Garage: Fundamentals of Digital Marketing", url: "https://learndigital.withgoogle.com/digitalgarage/course/digital-marketing", provider: "Google", free: true}
+user experience:
+  - {title: "Google UX Design Certificate", url: "https://www.coursera.org/professional-certificates/google-ux-design", provider: "Coursera", free: false}
+  - {title: "Figma: Learn design", url: "https://www.figma.com/resource-library/design-basics/", provider: "Figma", free: true}
+graphic design:
+  - {title: "Canva Design School", url: "https://www.canva.com/designschool/", provider: "Canva", free: true}
+adobe photoshop:
+  - {title: "Adobe Photoshop tutorials", url: "https://helpx.adobe.com/photoshop/tutorials.html", provider: "Adobe", free: true}
+autodesk autocad:
+  - {title: "Autodesk AutoCAD learning", url: "https://www.autodesk.com/learn/ondemand/collection/autocad-learning-path", provider: "Autodesk", free: true}
+mechanical engineering:
+  - {title: "NPTEL Mechanical Engineering courses", url: "https://nptel.ac.in/course.html", provider: "NPTEL", free: true}
+teaching:
+  - {title: "SWAYAM: Teacher education courses", url: "https://swayam.gov.in/explorer?category=Teacher_Education", provider: "SWAYAM", free: true}
+nursing:
+  - {title: "Coursera: Vital Signs", url: "https://www.coursera.org/learn/vital-signs", provider: "Coursera (audit free)", free: true}
+first aid:
+  - {title: "Indian Red Cross first aid training", url: "https://indianredcross.org/ircs/first-aid", provider: "Indian Red Cross", free: false}
+critical thinking:
+  - {title: "SWAYAM: Critical Thinking", url: "https://swayam.gov.in/explorer?searchText=critical%20thinking", provider: "SWAYAM", free: true}
+complex problem solving:
+  - {title: "SWAYAM: Problem solving courses", url: "https://swayam.gov.in/explorer?searchText=problem%20solving", provider: "SWAYAM", free: true}
+systems analysis:
+  - {title: "NPTEL: Systems Analysis and Design", url: "https://nptel.ac.in/courses/106108102", provider: "NPTEL", free: true}
+quality control analysis:
+  - {title: "NPTEL: Quality Control and Improvement", url: "https://nptel.ac.in/courses/110105088", provider: "NPTEL", free: true}
+operations analysis:
+  - {title: "NPTEL: Operations Research", url: "https://nptel.ac.in/courses/111107128", provider: "NPTEL", free: true}
+service orientation:
+  - {title: "Coursera: Customer Service Fundamentals", url: "https://www.coursera.org/learn/customer-service-fundamentals", provider: "Coursera (audit free)", free: true}
+persuasion:
+  - {title: "Coursera: Influencing People", url: "https://www.coursera.org/learn/influencing-people", provider: "Coursera (audit free)", free: true}
+negotiation:
+  - {title: "Coursera: Successful Negotiation", url: "https://www.coursera.org/learn/negotiation-skills", provider: "Coursera (audit free)", free: true}
+management of personnel resources:
+  - {title: "NPTEL: Human Resource Management", url: "https://nptel.ac.in/courses/110105069", provider: "NPTEL", free: true}
+instructing:
+  - {title: "SWAYAM: Teacher education courses", url: "https://swayam.gov.in/explorer?category=Teacher_Education", provider: "SWAYAM", free: true}
+science:
+  - {title: "Khan Academy Science", url: "https://www.khanacademy.org/science", provider: "Khan Academy", free: true}
+biology:
+  - {title: "Khan Academy Biology", url: "https://www.khanacademy.org/science/biology", provider: "Khan Academy", free: true}
+chemistry:
+  - {title: "Khan Academy Chemistry", url: "https://www.khanacademy.org/science/chemistry", provider: "Khan Academy", free: true}
+physics:
+  - {title: "Khan Academy Physics", url: "https://www.khanacademy.org/science/physics", provider: "Khan Academy", free: true}
+economics and accounting:
+  - {title: "NPTEL: Financial Accounting", url: "https://nptel.ac.in/courses/110101131", provider: "NPTEL", free: true}

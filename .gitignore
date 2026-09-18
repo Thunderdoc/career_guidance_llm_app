@@ -22,8 +22,9 @@ report.xml
 .env
 .env.*
 
-# Local database
-data/
+# Local database (the catalog and curated resources in data/ ARE tracked)
+data/*.db
+data/*.db-journal
 *.db
 
 # Editors / OS

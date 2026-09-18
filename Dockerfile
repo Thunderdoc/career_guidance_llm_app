@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY career_guidance ./career_guidance
 COPY backend ./backend
 COPY data ./data
-COPY app.py README.md ./
+COPY app.py streamlit_app.py README.md ./
 COPY --from=web /web/out ./frontend/out
 RUN useradd -m appuser && mkdir -p /app/data && chown -R appuser /app
 USER appuser
