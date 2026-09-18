@@ -1,0 +1,604 @@
+[
+ {
+  "skills": "Python, SQL, pandas, statistics, data visualization",
+  "goals": "data analyst",
+  "level": 1,
+  "expect": [
+   "Statisticians",
+   "Business Intelligence Analysts",
+   "Data Warehousing Specialists",
+   "Financial Quantitative Analysts",
+   "Computer and Information Research Scientists",
+   "Bioinformatics Technicians",
+   "Financial Analysts"
+  ]
+ },
+ {
+  "skills": "JavaScript, React, HTML, CSS, Git",
+  "goals": "frontend developer",
+  "level": 0,
+  "expect": [
+   "Web Developers",
+   "Computer Programmers",
+   "Software Developers, Applications"
+  ]
+ },
+ {
+  "skills": "Java, Spring Boot, SQL, Git, data structures",
+  "goals": "software engineer",
+  "level": 1,
+  "expect": [
+   "Software Developers, Applications",
+   "Computer Programmers",
+   "Software Developers, Systems Software",
+   "Web Developers",
+   "Database Administrators"
+  ]
+ },
+ {
+  "skills": "Tally, accounting, Excel, GST filing",
+  "goals": "accountant",
+  "level": 2,
+  "expect": [
+   "Accountants",
+   "Auditors",
+   "Bookkeeping, Accounting, and Auditing Clerks"
+  ]
+ },
+ {
+  "skills": "AutoCAD, SolidWorks, mechanical design, thermodynamics",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Mechanical Drafters",
+   "Mechanical Engineers",
+   "Mechanical Engineering Technicians"
+  ]
+ },
+ {
+  "skills": "Patient care, first aid, biology, communication",
+  "goals": "nurse",
+  "level": 0,
+  "expect": [
+   "Registered Nurses",
+   "Critical Care Nurses",
+   "Licensed Practical and Licensed Vocational Nurses",
+   "Nursing Assistants",
+   "Surgical Assistants",
+   "Cardiovascular Technologists and Technicians"
+  ]
+ },
+ {
+  "skills": "Photoshop, Illustrator, Figma, UI, UX",
+  "goals": "designer",
+  "level": 1,
+  "expect": [
+   "Graphic Designers",
+   "Web Developers",
+   "Art Directors",
+   "Interior Designers"
+  ]
+ },
+ {
+  "skills": "teaching, english, hindi, tamil, communication",
+  "goals": "teacher",
+  "level": 0,
+  "expect": [
+   "Interpreters and Translators",
+   "Foreign Language and Literature Teachers, Postsecondary",
+   "Teacher Assistants",
+   "Preschool Teachers, Except Special Education",
+   "Elementary School Teachers, Except Special Education"
+  ]
+ },
+ {
+  "skills": "cooking, baking, hospitality",
+  "goals": "chef",
+  "level": 0,
+  "expect": [
+   "Chefs and Head Cooks",
+   "Cooks, Restaurant",
+   "Cooks, Private Household",
+   "Cooks, Institution and Cafeteria",
+   "Bakers"
+  ]
+ },
+ {
+  "skills": "ethical hacking, networking, linux, python",
+  "goals": "cyber security",
+  "level": 1,
+  "expect": [
+   "Information Security Analysts",
+   "Computer Network Support Specialists",
+   "Security Management Specialists",
+   "Network and Computer Systems Administrators",
+   "Computer Network Architects"
+  ]
+ },
+ {
+  "skills": "AWS, Docker, Kubernetes, Linux, CI/CD, Python",
+  "goals": "devops engineer",
+  "level": 2,
+  "expect": [
+   "Network and Computer Systems Administrators",
+   "Computer Systems Engineers/Architects",
+   "Software Developers, Systems Software",
+   "Computer Network Architects",
+   "Information Security Analysts",
+   "Database Administrators"
+  ]
+ },
+ {
+  "skills": "machine learning, deep learning, python, statistics",
+  "goals": "data scientist",
+  "level": 1,
+  "expect": [
+   "Computer and Information Research Scientists",
+   "Statisticians",
+   "Data Warehousing Specialists",
+   "Business Intelligence Analysts",
+   "Bioinformatics Scientists",
+   "Mathematicians"
+  ]
+ },
+ {
+  "skills": "Android, Kotlin, Java, Firebase",
+  "goals": "mobile app developer",
+  "level": 0,
+  "expect": [
+   "Software Developers, Applications",
+   "Computer Programmers",
+   "Web Developers"
+  ]
+ },
+ {
+  "skills": "selenium, manual testing, test cases, JIRA",
+  "goals": "QA",
+  "level": 1,
+  "expect": [
+   "Software Quality Assurance Engineers and Testers",
+   "Computer Programmers",
+   "Computer Systems Analysts"
+  ]
+ },
+ {
+  "skills": "technical writing, documentation, markdown, editing",
+  "goals": "technical writer",
+  "level": 1,
+  "expect": [
+   "Technical Writers",
+   "Editors",
+   "Writers and Authors"
+  ]
+ },
+ {
+  "skills": "digital marketing, SEO, social media, content writing",
+  "goals": "marketing",
+  "level": 0,
+  "expect": [
+   "Search Marketing Strategists",
+   "Market Research Analysts and Marketing Specialists",
+   "Advertising and Promotions Managers",
+   "Public Relations Specialists",
+   "Marketing Managers"
+  ]
+ },
+ {
+  "skills": "sales, negotiation, customer service, communication",
+  "goals": "sales executive",
+  "level": 1,
+  "expect": [
+   "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products",
+   "Retail Salespersons",
+   "Sales Agents, Financial Services",
+   "Insurance Sales Agents",
+   "Sales Managers",
+   "Real Estate Sales Agents",
+   "Securities, Commodities, and Financial Services Sales Agents"
+  ]
+ },
+ {
+  "skills": "recruitment, HR, interviewing, payroll, Excel",
+  "goals": "HR",
+  "level": 2,
+  "expect": [
+   "Human Resources Specialists",
+   "Human Resources Managers",
+   "Compensation, Benefits, and Job Analysis Specialists",
+   "Payroll and Timekeeping Clerks",
+   "Training and Development Specialists"
+  ]
+ },
+ {
+  "skills": "financial modelling, Excel, valuation, accounting",
+  "goals": "financial analyst",
+  "level": 1,
+  "expect": [
+   "Financial Analysts",
+   "Financial Quantitative Analysts",
+   "Accountants",
+   "Budget Analysts",
+   "Credit Analysts"
+  ]
+ },
+ {
+  "skills": "civil engineering, AutoCAD, surveying, structural analysis",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Civil Engineers",
+   "Civil Engineering Technicians",
+   "Surveyors",
+   "Civil Drafters",
+   "Architectural and Civil Drafters"
+  ]
+ },
+ {
+  "skills": "electrical, circuits, PLC, wiring, troubleshooting",
+  "goals": "electrical engineer",
+  "level": 1,
+  "expect": [
+   "Electrical Engineers",
+   "Electricians",
+   "Electrical and Electronics Engineering Technicians",
+   "Electrical Engineering Technologists",
+   "Electronics Engineers, Except Computer",
+   "Electrical Engineering Technicians"
+  ]
+ },
+ {
+  "skills": "embedded systems, C, microcontrollers, Arduino, electronics",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Electronics Engineers, Except Computer",
+   "Computer Hardware Engineers",
+   "Electrical and Electronics Engineering Technicians",
+   "Software Developers, Systems Software",
+   "Electronics Engineering Technologists"
+  ]
+ },
+ {
+  "skills": "pharmacy, chemistry, biology, patient counselling",
+  "goals": "pharmacist",
+  "level": 0,
+  "expect": [
+   "Pharmacists",
+   "Pharmacy Technicians",
+   "Pharmacy Aides",
+   "Chemists"
+  ]
+ },
+ {
+  "skills": "physiotherapy, anatomy, exercise, patient care",
+  "goals": "physiotherapist",
+  "level": 0,
+  "expect": [
+   "Physical Therapists",
+   "Physical Therapist Assistants",
+   "Occupational Therapists",
+   "Exercise Physiologists",
+   "Athletic Trainers"
+  ]
+ },
+ {
+  "skills": "counselling, psychology, listening, empathy",
+  "goals": "counsellor",
+  "level": 0,
+  "expect": [
+   "Mental Health Counselors",
+   "Substance Abuse and Behavioral Disorder Counselors",
+   "Educational, Guidance, School, and Vocational Counselors",
+   "Clinical Psychologists",
+   "Counseling Psychologists",
+   "Marriage and Family Therapists",
+   "Rehabilitation Counselors",
+   "Psychiatric Technicians",
+   "Psychology Teachers, Postsecondary"
+  ]
+ },
+ {
+  "skills": "law, legal research, drafting, contracts",
+  "goals": "lawyer",
+  "level": 0,
+  "expect": [
+   "Lawyers",
+   "Paralegals and Legal Assistants",
+   "Judicial Law Clerks",
+   "Title Examiners, Abstractors, and Searchers"
+  ]
+ },
+ {
+  "skills": "journalism, writing, interviewing, video editing",
+  "goals": "journalist",
+  "level": 0,
+  "expect": [
+   "Reporters and Correspondents",
+   "Writers and Authors",
+   "Editors",
+   "Broadcast News Analysts",
+   "Film and Video Editors"
+  ]
+ },
+ {
+  "skills": "photography, Lightroom, Photoshop, video editing",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Photographers",
+   "Film and Video Editors",
+   "Camera Operators, Television, Video, and Motion Picture",
+   "Graphic Designers"
+  ]
+ },
+ {
+  "skills": "interior design, AutoCAD, SketchUp, space planning",
+  "goals": "interior designer",
+  "level": 0,
+  "expect": [
+   "Interior Designers",
+   "Architectural and Civil Drafters",
+   "Set and Exhibit Designers",
+   "Architects, Except Landscape and Naval"
+  ]
+ },
+ {
+  "skills": "architecture, Revit, AutoCAD, design",
+  "goals": "architect",
+  "level": 1,
+  "expect": [
+   "Architects, Except Landscape and Naval",
+   "Architectural and Civil Drafters",
+   "Landscape Architects",
+   "Interior Designers"
+  ]
+ },
+ {
+  "skills": "fashion design, tailoring, sketching, textiles",
+  "goals": "fashion designer",
+  "level": 0,
+  "expect": [
+   "Fashion Designers",
+   "Tailors, Dressmakers, and Custom Sewers",
+   "Fabric and Apparel Patternmakers",
+   "Sewers, Hand"
+  ]
+ },
+ {
+  "skills": "hotel management, front office, customer service, housekeeping",
+  "goals": "hospitality",
+  "level": 0,
+  "expect": [
+   "Lodging Managers",
+   "Hotel, Motel, and Resort Desk Clerks",
+   "Concierges",
+   "First-Line Supervisors of Housekeeping and Janitorial Workers",
+   "Maids and Housekeeping Cleaners"
+  ]
+ },
+ {
+  "skills": "event planning, coordination, vendor management, budgeting",
+  "goals": "event manager",
+  "level": 1,
+  "expect": [
+   "Meeting, Convention, and Event Planners",
+   "Public Relations Specialists",
+   "Administrative Services Managers",
+   "Fundraisers"
+  ]
+ },
+ {
+  "skills": "logistics, supply chain, inventory, Excel, procurement",
+  "goals": "",
+  "level": 1,
+  "expect": [
+   "Logisticians",
+   "Purchasing Agents, Except Wholesale, Retail, and Farm Products",
+   "Supply Chain Managers",
+   "Logistics Analysts",
+   "Storage and Distribution Managers",
+   "Production, Planning, and Expediting Clerks"
+  ]
+ },
+ {
+  "skills": "banking, loans, customer service, Excel",
+  "goals": "bank officer",
+  "level": 0,
+  "expect": [
+   "Loan Officers",
+   "Loan Interviewers and Clerks",
+   "Tellers",
+   "Credit Analysts",
+   "Personal Financial Advisors",
+   "New Accounts Clerks"
+  ]
+ },
+ {
+  "skills": "insurance, underwriting, risk, sales",
+  "goals": "",
+  "level": 1,
+  "expect": [
+   "Insurance Underwriters",
+   "Insurance Sales Agents",
+   "Claims Adjusters, Examiners, and Investigators",
+   "Insurance Claims and Policy Processing Clerks"
+  ]
+ },
+ {
+  "skills": "welding, fabrication, blueprint reading, grinding",
+  "goals": "welder",
+  "level": 0,
+  "expect": [
+   "Welders, Cutters, Solderers, and Brazers",
+   "Welding, Soldering, and Brazing Machine Setters, Operators, and Tenders",
+   "Structural Metal Fabricators and Fitters",
+   "Sheet Metal Workers",
+   "Boilermakers",
+   "Welders, Cutters, and Welder Fitters"
+  ]
+ },
+ {
+  "skills": "plumbing, pipe fitting, repair, troubleshooting",
+  "goals": "plumber",
+  "level": 0,
+  "expect": [
+   "Plumbers, Pipefitters, and Steamfitters",
+   "Helpers--Pipelayers, Plumbers, Pipefitters, and Steamfitters",
+   "Pipelayers",
+   "Maintenance and Repair Workers, General",
+   "Plumbers"
+  ]
+ },
+ {
+  "skills": "car repair, engines, diagnostics, mechanic",
+  "goals": "automobile technician",
+  "level": 0,
+  "expect": [
+   "Automotive Service Technicians and Mechanics",
+   "Automotive Master Mechanics",
+   "Automotive Specialty Technicians",
+   "Bus and Truck Mechanics and Diesel Engine Specialists",
+   "Motorcycle Mechanics"
+  ]
+ },
+ {
+  "skills": "carpentry, woodwork, furniture, measuring",
+  "goals": "carpenter",
+  "level": 0,
+  "expect": [
+   "Carpenters",
+   "Cabinetmakers and Bench Carpenters",
+   "Furniture Finishers",
+   "Woodworking Machine Setters, Operators, and Tenders, Except Sawing",
+   "Construction Carpenters"
+  ]
+ },
+ {
+  "skills": "child care, early childhood, teaching, patience",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Childcare Workers",
+   "Preschool Teachers, Except Special Education",
+   "Teacher Assistants",
+   "Nannies",
+   "Kindergarten Teachers, Except Special Education"
+  ]
+ },
+ {
+  "skills": "social work, NGO, community outreach, counselling",
+  "goals": "social worker",
+  "level": 0,
+  "expect": [
+   "Child, Family, and School Social Workers",
+   "Community Health Workers",
+   "Social and Human Service Assistants",
+   "Healthcare Social Workers",
+   "Mental Health and Substance Abuse Social Workers",
+   "Social and Community Service Managers",
+   "Rehabilitation Counselors"
+  ]
+ },
+ {
+  "skills": "agriculture, farming, soil, irrigation, horticulture",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Farmers, Ranchers, and Other Agricultural Managers",
+   "Agricultural Technicians",
+   "Soil and Plant Scientists",
+   "Farm and Home Management Advisors",
+   "Agricultural Inspectors",
+   "Nursery Workers",
+   "Farmworkers and Laborers, Crop, Nursery, and Greenhouse",
+   "Farm and Ranch Managers"
+  ]
+ },
+ {
+  "skills": "environmental science, sustainability, GIS, biology",
+  "goals": "",
+  "level": 0,
+  "expect": [
+   "Environmental Scientists and Specialists, Including Health",
+   "Environmental Science and Protection Technicians, Including Health",
+   "Conservation Scientists",
+   "Geographic Information Systems Technicians",
+   "Environmental Engineers",
+   "Geographers",
+   "Sustainability Specialists"
+  ]
+ },
+ {
+  "skills": "physics, mathematics, research, MATLAB",
+  "goals": "researcher",
+  "level": 0,
+  "expect": [
+   "Physicists",
+   "Mathematicians",
+   "Physics Teachers, Postsecondary",
+   "Statisticians",
+   "Astronomers",
+   "Operations Research Analysts"
+  ]
+ },
+ {
+  "skills": "game development, Unity, C#, 3D modelling",
+  "goals": "game developer",
+  "level": 0,
+  "expect": [
+   "Video Game Designers",
+   "Software Developers, Applications",
+   "Multimedia Artists and Animators",
+   "Computer Programmers"
+  ]
+ },
+ {
+  "skills": "data entry, typing, MS Office, filing",
+  "goals": "office job",
+  "level": 0,
+  "expect": [
+   "Data Entry Keyers",
+   "Office Clerks, General",
+   "Word Processors and Typists",
+   "Secretaries and Administrative Assistants, Except Legal, Medical, and Executive",
+   "File Clerks",
+   "Receptionists and Information Clerks"
+  ]
+ },
+ {
+  "skills": "driving, navigation, vehicle maintenance, customer service",
+  "goals": "driver",
+  "level": 0,
+  "expect": [
+   "Taxi Drivers and Chauffeurs",
+   "Heavy and Tractor-Trailer Truck Drivers",
+   "Light Truck or Delivery Services Drivers",
+   "Bus Drivers, Transit and Intercity",
+   "Driver/Sales Workers"
+  ]
+ },
+ {
+  "skills": "fitness, personal training, yoga, nutrition",
+  "goals": "fitness trainer",
+  "level": 0,
+  "expect": [
+   "Fitness Trainers and Aerobics Instructors",
+   "Exercise Physiologists",
+   "Dietitians and Nutritionists",
+   "Athletic Trainers",
+   "Recreation Workers"
+  ]
+ },
+ {
+  "skills": "cabin crew, customer service, safety, English, communication",
+  "goals": "air hostess",
+  "level": 0,
+  "expect": [
+   "Flight Attendants",
+   "Reservation and Transportation Ticket Agents and Travel Clerks",
+   "Concierges",
+   "Customer Service Representatives",
+   "Hotel, Motel, and Resort Desk Clerks"
+  ]
+ }
+]

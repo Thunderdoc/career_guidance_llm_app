@@ -4,6 +4,21 @@ _Date: 2026-09-18 · Companion to `RESEARCH_ROADMAP.md` (the why); this document
 
 ---
 
+## Status (2026-09-18)
+
+| Criterion | Status |
+| --- | --- |
+| R1 ≤60 s to results | ✅ offline path p95 ≈ 100 ms; single-screen composer |
+| R2 ≥300-career catalog, Hit@5 ≥ 0.70 | ✅ 974 O*NET occupations, **Hit@5 0.98 / MRR 0.82** (`python -m eval.run`) |
+| R3 AI faithfulness | ✅ grounded prompts + schema validation + provenance; offline fallback |
+| R4 salary + demand | ✅ market block per career (country-aware; source labelled) |
+| R5 saved progress | ✅ SQLite history, export md/json, sidebar/locale persisted |
+| R6 Lighthouse / reduced-motion | ✅ static export 177 kB first load; `prefers-reduced-motion` honoured |
+| R7 en / ta / hi | ✅ `frontend/lib/i18n.tsx`, switcher in sidebar |
+| R8 one-command deploy | ✅ `docker compose up --build` |
+| R9 security/privacy | ✅ rate limit 30/min, non-root container, no keys in repo, input limits |
+| R10 test coverage | ✅ 68 pytest + golden eval in CI (`.gitlab-ci.yml`) |
+
 ## 0. Definition of "fully ready and usable"
 
 The product is **done** when all of the following are true:

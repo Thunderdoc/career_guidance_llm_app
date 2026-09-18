@@ -5,6 +5,7 @@ import { ArrowUp, ChevronDown, FileText, Paperclip, Sparkles, Target, Wand2, X }
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n";
 import type { ProfileInput, RecommendResponse } from "@/lib/types";
 import { Disclosure, Magnetic, TextEffect } from "./motion";
 import { ExecutionPanel, type Step } from "./execution-panel";
@@ -39,6 +40,7 @@ export function RecommendView({
   aiMode: boolean;
   onGoAssess: () => void;
 }) {
+  const { t } = useI18n();
   const [skills, setSkills] = useState("");
   const [goals, setGoals] = useState("");
   const [interests, setInterests] = useState("");
@@ -98,11 +100,11 @@ export function RecommendView({
     setResult(null);
     setRunning(true);
     const plan: Step[] = [
-      { id: "parse", label: "Normalising your skills", state: "active", icon: "search" },
-      { id: "match", label: "Matching against 970+ O*NET occupations", state: "pending", icon: "globe" },
-      { id: "gaps", label: "Computing skill gaps & priorities", state: "pending", icon: "eye" },
-      { id: "market", label: "Attaching market signals & learning resources", state: "pending", icon: "pencil" },
-      ...(aiMode ? [{ id: "llm", label: "Asking the LLM to explain (grounded)", state: "pending" as const, icon: "sparkles" as const }] : []),
+      { id: "parse", label: t("step_parse"), state: "active", icon: "search" },
+      { id: "match", label: t("step_match"), state: "pending", icon: "globe" },
+      { id: "gaps", label: t("step_gaps"), state: "pending", icon: "eye" },
+      { id: "market", label: t("step_market"), state: "pending", icon: "pencil" },
+      ...(aiMode ? [{ id: "llm", label: t("step_llm"), state: "pending" as const, icon: "sparkles" as const }] : []),
     ];
     setSteps(plan);
     const advance = (i: number) =>
@@ -130,7 +132,7 @@ export function RecommendView({
     } finally {
       setRunning(false);
     }
-  }, [canSubmit, skills, goals, interests, education, experience, resume, interestsProfile, aiMode]);
+  }, [canSubmit, skills, goals, interests, education, experience, resume, interestsProfile, aiMode, t]);
 
   const onKey = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
@@ -142,11 +144,11 @@ export function RecommendView({
     <div className="flex flex-col gap-8">
       {/* Hero */}
       <header className="pt-6 text-center sm:pt-12">
-        <TextEffect as="h1" className="font-serif text-4xl leading-[1.1] tracking-tight sm:text-[52px]" per="word">
-          Find your next career move.
+        <TextEffect as="h1" className="font-serif text-4xl leading-[1.1] tracking-tight sm:text-[52px]" per="word" key={t("hero_title")}>
+          {t("hero_title")}
         </TextEffect>
         <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }} className="mx-auto mt-4 max-w-xl text-[15px] text-fg-2">
-          Tell us what you can do. We match you to real occupations, show exactly which skills you have and lack, and give you a roadmap — with salary bands and free courses.
+          {t("hero_sub")}
         </motion.p>
       </header>
 
@@ -158,7 +160,7 @@ export function RecommendView({
         className={cn("relative rounded-[20px] bg-bg-3 p-3 shadow-[var(--shadow-md)] ring-1 ring-white/5 transition", running && "border-trail")}
       >
         <label htmlFor="skills" className="sr-only">
-          Your skills
+          {t("skills_label")}
         </label>
         <textarea
           id="skills"
@@ -192,7 +194,7 @@ export function RecommendView({
                 <FileText size={14} className="text-accent" />
                 <span className="max-w-[200px] truncate">{resume.name}</span>
                 <span className="text-fg-3">· {resume.skills.length} skills</span>
-                <button onClick={() => setResume(null)} aria-label="Remove resume" className="ml-1 text-fg-3 hover:text-fg">
+                <button onClick={() => setResume(null)} aria-label={t("remove_resume")} className="ml-1 text-fg-3 hover:text-fg">
                   <X size={14} />
                 </button>
               </div>
@@ -202,9 +204,9 @@ export function RecommendView({
 
         <Disclosure open={more}>
           <div className="grid gap-2 px-2 pb-3 pt-1 sm:grid-cols-2">
-            <Field label="Career goal" value={goals} onChange={setGoals} placeholder="e.g. become a data analyst" />
-            <Field label="Interests" value={interests} onChange={setInterests} placeholder="e.g. AI, education" />
-            <Field label="Education" value={education} onChange={setEducation} placeholder="e.g. B.Sc. Computer Science" />
+            <Field label={t("goal")} value={goals} onChange={setGoals} placeholder={t("goal_ph")} />
+            <Field label={t("interests")} value={interests} onChange={setInterests} placeholder={t("interests_ph")} />
+            <Field label={t("education")} value={education} onChange={setEducation} placeholder={t("education_ph")} />
             <label className="flex flex-col gap-1 text-xs text-fg-2">
               Experience
               <select value={experience} onChange={(e) => setExperience(e.target.value)} className="rounded-[var(--radius-sm)] bg-bg-4 px-3 py-2 text-sm text-fg focus:outline-none focus:ring-1 focus:ring-accent">
@@ -219,14 +221,14 @@ export function RecommendView({
         <div className="flex items-center justify-between gap-2 border-t border-white/5 px-1 pt-2">
           <div className="flex items-center gap-1">
             <input ref={fileRef} type="file" accept=".txt,.md,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-            <IconBtn label="Attach resume (.pdf, .txt, .md)" onClick={() => fileRef.current?.click()}>
+            <IconBtn label={t("attach_resume")} onClick={() => fileRef.current?.click()}>
               <Paperclip size={16} />
             </IconBtn>
             <button onClick={() => setMore((m) => !m)} className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-xs transition", more ? "bg-accent/15 text-accent" : "text-fg-2 hover:bg-bg-4 hover:text-fg")}>
-              Details <ChevronDown size={14} className={cn("transition-transform", more && "rotate-180")} />
+              {t("details")} <ChevronDown size={14} className={cn("transition-transform", more && "rotate-180")} />
             </button>
             <button onClick={onGoAssess} className={cn("hidden items-center gap-1 rounded-full px-3 py-1.5 text-xs transition sm:flex", hollandCode ? "bg-accent/15 text-accent" : "text-fg-2 hover:bg-bg-4 hover:text-fg")}>
-              <Target size={14} /> {hollandCode ? `Interests ${hollandCode}` : "Not sure? Take the interest quiz"}
+              <Target size={14} /> {hollandCode ? `Interests ${hollandCode}` : t("quiz_cta")}
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -235,7 +237,7 @@ export function RecommendView({
               <button
                 onClick={run}
                 disabled={!canSubmit}
-                aria-label="Get recommendations"
+                aria-label={t("submit")}
                 className={cn(
                   "grid h-10 w-10 place-items-center rounded-full transition-all duration-200",
                   canSubmit ? "bg-accent text-black shadow-[0_0_24px_rgba(0,212,170,0.35)] hover:scale-105" : "bg-bg-4 text-fg-3",
@@ -250,7 +252,7 @@ export function RecommendView({
 
       {/* Quick examples */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="-mt-4 flex flex-wrap items-center justify-center gap-2">
-        <span className="text-xs text-fg-3">Try:</span>
+        <span className="text-xs text-fg-3">{t("try")}</span>
         {EXAMPLES.map((ex) => (
           <button
             key={ex.label}

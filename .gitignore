@@ -30,3 +30,4 @@ data/
 .idea/
 .vscode/
 .DS_Store
+eval/report.json

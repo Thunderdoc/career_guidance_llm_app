@@ -1,8 +1,31 @@
 # 🎓 Career Guidance AI
 
-A **Streamlit** career intelligence platform that turns a user's profile
+A career intelligence platform that turns a user's profile
 (skills, interests, education, experience, goals, and optionally a resume)
-into structured, actionable career recommendations.
+into structured, actionable career recommendations — grounded in the
+**O*NET taxonomy (974 occupations)**, with skill-gap analysis, learning
+roadmaps, salary/demand signals, a RIASEC interest quiz, and job-description fit.
+
+**v2 stack:** FastAPI backend (`backend/`) + animated Next.js / Motion / Tailwind
+front end (`frontend/`, Motion-Primitives style), available in English, Tamil and
+Hindi. The legacy Streamlit UI (`app.py`) is kept only for reference.
+
+## Quick start (one command)
+
+```bash
+docker compose up --build        # → http://localhost:8000
+```
+
+## Quick start (dev)
+
+```bash
+make install                     # python deps + frontend npm install
+make api                         # FastAPI on :8000  (docs at /api/docs)
+make web                         # Next.js dev on :3000 (proxies /api → :8000)
+```
+
+Quality gates: `make test` (pytest + golden-set Hit@5 ≥ 0.70), `make lint`,
+`make eval` (prints Hit@5 / MRR / p95 latency; currently **Hit@5 0.98**).
 
 It runs in two clearly separated modes:
 
@@ -92,7 +115,9 @@ cp .env.example .env             # then edit values as needed
 ## Run the app
 
 ```bash
-streamlit run app.py
+uvicorn backend.main:app --reload          # API + (after `make build`) the static UI
+cd frontend && npm run dev                 # animated UI with hot reload
+streamlit run app.py                       # legacy UI
 ```
 
 ## Configuration
@@ -123,17 +148,14 @@ The GitLab CI pipeline runs the same lint and test stages on every push.
 
 ## Deployment
 
-### Streamlit Community Cloud (simplest)
-
-1. Connect the repository at https://share.streamlit.io
-2. Select `app.py` as the entry point.
-3. Add `OPENAI_API_KEY` (optional) under app **Secrets**.
-
 ### Docker (Render, Railway, Fly.io, any container host)
+
+The multi-stage `Dockerfile` builds the static Next.js export and serves it,
+together with the API, from a single uvicorn process on port **8000**.
 
 ```bash
 docker build -t career-guidance-app .
-docker run -p 8501:8501 --env-file .env career-guidance-app
+docker run -p 8000:8000 --env-file .env career-guidance-app
 ```
 
 Mount a volume and set `DATABASE_PATH` to keep history across restarts.

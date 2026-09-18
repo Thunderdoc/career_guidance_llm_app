@@ -9,12 +9,14 @@ import {
   Compass,
   History,
   Info,
+  Languages,
   Sparkles,
   Target,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { LOCALES, useI18n, type Key } from "@/lib/i18n";
 import { Dock, ScrollProgress, Spotlight } from "./motion";
 import { RecommendView } from "./recommend-view";
 import { HistoryView } from "./history-view";
@@ -24,11 +26,11 @@ import { AboutModal } from "./about-modal";
 
 export type PageId = "recommend" | "assessment" | "jobfit" | "history";
 
-const NAV: { id: PageId; label: string; icon: React.ReactNode; hint: string }[] = [
-  { id: "recommend", label: "Recommend", icon: <Compass size={18} />, hint: "Profile → 5 careers" },
-  { id: "assessment", label: "Interests", icon: <Target size={18} />, hint: "18-question RIASEC" },
-  { id: "jobfit", label: "Job fit", icon: <Briefcase size={18} />, hint: "Paste a JD, see gaps" },
-  { id: "history", label: "History", icon: <History size={18} />, hint: "Saved runs & stats" },
+const NAV_DEF: { id: PageId; label: Key; icon: React.ReactNode; hint: Key }[] = [
+  { id: "recommend", label: "nav_recommend", icon: <Compass size={18} />, hint: "nav_recommend_hint" },
+  { id: "assessment", label: "nav_assessment", icon: <Target size={18} />, hint: "nav_assessment_hint" },
+  { id: "jobfit", label: "nav_jobfit", icon: <Briefcase size={18} />, hint: "nav_jobfit_hint" },
+  { id: "history", label: "nav_history", icon: <History size={18} />, hint: "nav_history_hint" },
 ];
 
 export function Shell() {
@@ -38,6 +40,8 @@ export function Shell() {
   const [health, setHealth] = useState<{ ai_mode: boolean; occupations: number; version: string } | null>(null);
   const [interestsProfile, setInterestsProfile] = useState<Record<string, number> | null>(null);
   const [hollandCode, setHollandCode] = useState<string | null>(null);
+  const { t, locale, setLocale } = useI18n();
+  const NAV = NAV_DEF.map((n) => ({ ...n, label: t(n.label), hint: t(n.hint) }));
 
   useEffect(() => {
     api.health().then(setHealth).catch(() => setHealth(null));
@@ -78,8 +82,8 @@ export function Shell() {
           <AnimatePresence initial={false}>
             {!collapsed && (
               <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }}>
-                <div className="text-sm font-semibold leading-tight">Career Guidance AI</div>
-                <div className="text-[11px] text-fg-3">{health ? `${health.occupations} careers · v${health.version}` : "connecting…"}</div>
+                <div className="text-sm font-semibold leading-tight">{t("app_name")}</div>
+                <div className="text-[11px] text-fg-3">{health ? `${t("careers_count", { n: health.occupations })} · v${health.version}` : t("connecting")}</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -120,23 +124,38 @@ export function Shell() {
             <div className="mb-2 rounded-[var(--radius-md)] bg-bg-3 p-3">
               <div className="flex items-center gap-2 text-xs">
                 <span className={cn("h-2 w-2 rounded-full", health?.ai_mode ? "bg-active status-pulse" : "bg-gold")} />
-                <span className="font-medium">{health?.ai_mode ? "AI mode" : "Offline mode"}</span>
+                <span className="font-medium">{health?.ai_mode ? t("ai_mode") : t("offline_mode")}</span>
               </div>
               <p className="mt-1 text-[11px] leading-snug text-fg-3">
-                {health?.ai_mode ? "LLM explanations grounded in O*NET." : "Semantic matching over 970+ O*NET occupations. Set OPENAI_API_KEY for AI explanations."}
+                {health?.ai_mode ? t("ai_mode_desc") : t("offline_mode_desc")}
               </p>
               {hollandCode && (
                 <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">
-                  <Target size={11} /> Interests: {hollandCode}
+                  <Target size={11} /> {t("interests_label")}: {hollandCode}
                 </div>
               )}
             </div>
           )}
           <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between")}>
-            <button onClick={() => setAbout(true)} className="rounded-[var(--radius-sm)] p-2 text-fg-3 transition hover:bg-bg-3 hover:text-fg" aria-label="About">
+            <button onClick={() => setAbout(true)} className="rounded-[var(--radius-sm)] p-2 text-fg-3 transition hover:bg-bg-3 hover:text-fg" aria-label={t("about")}>
               <Info size={16} />
             </button>
-            <button onClick={toggle} className="rounded-[var(--radius-sm)] p-2 text-fg-3 transition hover:bg-bg-3 hover:text-fg" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            <label className="relative flex items-center gap-1 rounded-[var(--radius-sm)] p-2 text-fg-3 transition hover:bg-bg-3 hover:text-fg" title={t("language")}>
+              <Languages size={16} />
+              <select
+                aria-label={t("language")}
+                value={locale}
+                onChange={(e) => setLocale(e.target.value as typeof locale)}
+                className={cn("bg-transparent text-xs text-fg-2 focus:outline-none", collapsed && "absolute inset-0 opacity-0")}
+              >
+                {LOCALES.map((l) => (
+                  <option key={l.id} value={l.id} className="bg-bg-3 text-fg">
+                    {l.native}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button onClick={toggle} className="rounded-[var(--radius-sm)] p-2 text-fg-3 transition hover:bg-bg-3 hover:text-fg" aria-label={collapsed ? t("expand_sidebar") : t("collapse_sidebar")}>
               {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
             </button>
           </div>
@@ -166,7 +185,7 @@ export function Shell() {
       <Dock
         items={[
           ...NAV.map((n) => ({ id: n.id, label: n.label, icon: n.icon })),
-          { id: "about", label: "About", icon: <BarChart3 size={18} /> },
+          { id: "about", label: t("about"), icon: <BarChart3 size={18} /> },
         ]}
         active={page}
         onSelect={(id) => (id === "about" ? setAbout(true) : setPage(id as PageId))}

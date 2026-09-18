@@ -147,6 +147,8 @@ class Matcher:
         # Direct title intent: goals/interests naming a career or its alt titles.
         goal_text = f"{profile.goals} {profile.interests}".lower()
         goal_ids = self._title_intent(goal_text)
+        # Weaker intent from the skills box itself ("Android", "welding", "plumbing").
+        skill_ids = self._title_intent(profile.skills.lower(), stem=True)
         target_zone = _ZONE_FOR_LEVEL.get(profile.experience_level, 3.0)
         has_signal = bool(user) or bool(interests)
 
@@ -188,6 +190,8 @@ class Matcher:
             )
             if occ.id in goal_ids:
                 base += 0.20 * goal_ids[occ.id]
+            elif occ.id in skill_ids:
+                base += 0.10 * skill_ids[occ.id]
             if interests:
                 base = 0.85 * base + 0.15 * interest
             score = base * zone_factor
@@ -211,14 +215,29 @@ class Matcher:
 
     # ------------------------------------------------------------------ #
 
-    def _title_intent(self, text: str) -> dict[str, float]:
-        """Occupations whose title / alt titles appear in the goal text."""
+    def _title_intent(self, text: str, stem: bool = False) -> dict[str, float]:
+        """Occupations whose title / alt titles appear in the text.
+
+        With ``stem=True`` the text is also matched on crude word stems so that
+        "welding" / "plumbing" reach "Welders" / "Plumbers".
+        """
         text = re.sub(r"[^a-z0-9 ]+", " ", text)
         text = " " + re.sub(r"\s+", " ", text).strip() + " "
         if len(text.strip()) < 4:
             return {}
         hits: dict[str, float] = {}
+        for alias, ids in ROLE_ALIASES.items():
+            if f" {alias} " in text or (stem and f" {alias}" in text):
+                for oid in ids:
+                    hits[oid] = 1.0
+        stems = {_stem(w) for w in text.split() if len(w) >= 5} if stem else set()
         for occ in self.taxonomy.occupations:
+            if stems:
+                head = occ.title.lower().split(",")[0]
+                title_stems = {_stem(w) for w in re.findall(r"[a-z]+", head) if len(w) >= 5}
+                if title_stems and title_stems <= stems:
+                    hits[occ.id] = 0.7
+                    continue
             title = re.sub(r"[^a-z0-9 ]+", " ", occ.title.lower())
             title = re.sub(r"\s+", " ", title).strip()
             if title and f" {title} " in text:
@@ -233,7 +252,7 @@ class Matcher:
                 # Singular / plural tolerant head-noun match ("analyst" in "data analysts")
                 for a in [title, *[x.lower() for x in occ.alt_titles[:5]]]:
                     a = re.sub(r"[^a-z0-9 ]+", " ", a).strip().rstrip("s")
-                    if len(a) >= 8 and a in text:
+                    if len(a) >= 8 and " " in a and a in text:
                         hits[occ.id] = max(hits.get(occ.id, 0.0), 0.6)
                         break
         return hits
@@ -295,6 +314,67 @@ def _cosine(a: dict[str, float], b: dict[str, float]) -> float:
 
 
 _FAMILY_RE = re.compile(r"^(\d{2}-\d{4})")
+
+
+# Modern role names that O*NET 24 alt-titles do not cover well -> O*NET ids.
+_SW_APPS, _SW_SYS, _PROG, _WEB = "15-1132.00", "15-1133.00", "15-1131.00", "15-1134.00"
+_NETADMIN, _SYSENG, _INFOSEC = "15-1142.00", "15-1199.02", "15-1122.00"
+ROLE_ALIASES: dict[str, tuple[str, ...]] = {
+    "software engineer": (_SW_APPS, _SW_SYS, _PROG),
+    "software developer": (_SW_APPS, _SW_SYS),
+    "backend": (_SW_APPS, _PROG),
+    "back end": (_SW_APPS, _PROG),
+    "full stack": (_WEB, _SW_APPS),
+    "fullstack": (_WEB, _SW_APPS),
+    "frontend": (_WEB,),
+    "front end": (_WEB,),
+    "android": (_SW_APPS,),
+    "kotlin": (_SW_APPS,),
+    "flutter": (_SW_APPS,),
+    "react native": (_SW_APPS,),
+    "swift": (_SW_APPS,),
+    "mobile app": (_SW_APPS,),
+    "mobile developer": (_SW_APPS,),
+    "spring boot": (_SW_APPS,),
+    "django": (_WEB, _SW_APPS),
+    "node": (_WEB, _SW_APPS),
+    "devops": (_NETADMIN, _SYSENG, _SW_SYS),
+    "site reliability": (_NETADMIN, _SYSENG),
+    "kubernetes": (_NETADMIN, _SYSENG),
+    "docker": (_SYSENG, _SW_SYS),
+    "ci cd": (_SYSENG, _SW_SYS),
+    "cloud engineer": (_SYSENG, "15-1143.00"),
+    "aws": (_SYSENG, "15-1143.00"),
+    "azure": (_SYSENG, "15-1143.00"),
+    "cyber security": (_INFOSEC,),
+    "cybersecurity": (_INFOSEC,),
+    "penetration": (_INFOSEC,),
+    "ethical hacking": (_INFOSEC,),
+    "game develop": ("15-1199.11", _SW_APPS),
+    "unity": ("15-1199.11", _SW_APPS),
+    "unreal": ("15-1199.11", _SW_APPS),
+    "data scientist": ("15-1111.00", "15-2041.00"),
+    "machine learning": ("15-1111.00", "15-2041.00"),
+    "data analyst": ("15-2041.00", "15-1199.08"),
+    "data engineer": ("15-1199.07", "15-1141.00"),
+    "product manager": ("11-2021.00", "15-1121.00"),
+    "ui ux": ("27-1024.00", _WEB),
+    "ux": ("27-1024.00", _WEB),
+    "cabin crew": ("53-2031.00",),
+    "air hostess": ("53-2031.00",),
+    "event planning": ("13-1121.00",),
+    "event manager": ("13-1121.00",),
+    "sustainability": ("19-2041.00", "13-1199.05"),
+    "gis": ("15-1199.05", "19-2041.00"),
+}
+
+
+def _stem(word: str) -> str:
+    """Very small suffix stripper good enough for occupation head nouns."""
+    for suf in ("ings", "ing", "ers", "ists", "ist", "ers", "er", "es", "s"):
+        if word.endswith(suf) and len(word) - len(suf) >= 4:
+            return word[: -len(suf)]
+    return word
 
 
 def _dedupe_family(matches: list[Match]) -> list[Match]:
