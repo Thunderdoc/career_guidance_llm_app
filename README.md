@@ -181,14 +181,23 @@ in [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md#4-api-contract-frozen-at-end-of-p
 ## Quality gates
 
 ```bash
-make lint      # ruff check + format, eslint, tsc
-make test      # 80 pytest tests (core, API, auth, admin, Firebase token verification, golden set)
-make eval      # offline matcher on 50 golden profiles → Hit@5 / MRR / p95 latency
+make ci           # lint + test + coverage gate (≥ 85 %) + eval — the CI round
+make lint         # ruff check + format, eslint, tsc --noEmit
+make test         # 190 pytest tests (core, API, auth, admin, journey, golden set)
+make cov          # coverage over career_guidance + backend, fails under 85 %
+make eval         # offline matcher: 50 golden profiles + 7 interest profiles
+make blackbox     # 43-check HTTP round against a running API (add API=https://…)
+make blackbox-prod  # the same round against Render and the Vercel origin
 ```
 
-Current numbers: **Hit@5 0.98 · MRR 0.83 · p95 ≈ 100 ms**; static first-load JS ≈ 225 kB.
-CI (`.github/workflows/ci.yml`) runs all three on every push and PR, and fails
-if Hit@5 drops below 0.70.
+Current numbers: **skills Hit@5 1.0 (MRR 0.827) · interests Hit@5 1.0 · p95 ≈ 100 ms ·
+coverage 91 %**; static first-load JS ≤ 240 kB.
+CI (`.github/workflows/ci.yml`) runs lint, tests, the coverage gate and the eval on
+every push and PR, and fails if Hit@5 drops below 0.75.
+
+Every number above is reproducible; the sandbox-side limits (no browser, no
+Firebase) and the manual steps that close them are listed in
+[`docs/TEST_REPORT.md`](docs/TEST_REPORT.md).
 
 ## Deployment
 

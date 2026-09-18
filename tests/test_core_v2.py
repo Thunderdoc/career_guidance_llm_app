@@ -345,3 +345,42 @@ def test_tamil_hindi_item_translations_exist():
     en_items = {i.id: i.text for i in load_items("en")}
     ta_items = {i.id: i.text for i in load_items("ta")}
     assert all(ta_items[i] != en_items[i] for i in en_items)
+
+
+def test_matcher_ranking_is_hash_seed_independent():
+    """The ranking must not depend on Python's per-process hash seed.
+
+    Set iteration used to decide which user skill "claims" a competency hint, so
+    the same profile scored 0.27 or 0.34 between runs and one golden case fell
+    out of the top 5 (Hit@5 1.0 -> 0.98).
+    """
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    probe = (
+        "import json,sys;"
+        f"sys.path.insert(0, {str(repo)!r});"
+        "from career_guidance.matching import get_matcher;"
+        "from career_guidance.profile import CareerProfile;"
+        "prof=CareerProfile(skills='environmental science, sustainability, GIS, biology');"
+        "print(json.dumps([r.occupation.id for r in get_matcher().rank(prof, top_k=5)]))"
+    )
+    outputs = []
+    for seed in ("0", "1", "2"):
+        env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": str(repo)}
+        result = subprocess.run(
+            [sys.executable, "-c", probe],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(repo),
+            timeout=180,
+        )
+        assert result.returncode == 0, result.stderr[-400:]
+        outputs.append(json.loads(result.stdout.strip().splitlines()[-1]))
+    assert outputs[0] and len(outputs[0]) == 5
+    assert outputs[0] == outputs[1] == outputs[2], outputs

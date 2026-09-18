@@ -133,7 +133,7 @@ environment variables if you want PR previews to work; preview URLs look like
 # 1. API up, private
 curl -s https://career-guidance-llm-app.onrender.com/api/v1/health
 
-# 2. Front end builds and is protected
+# 2. Front end builds and is protected (also: `make blackbox-prod`)
 curl -sI https://career-guidance-web-sigma.vercel.app/ | head -1     # 200 (HTML shell)
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
   https://career-guidance-web-sigma.vercel.app/api/v1/recommend \
@@ -149,6 +149,13 @@ Then in a browser:
 5. `/plan` → rate skills → readiness → roadmap → export MD/JSON/ICS/PDF.
 6. `/admin` (only for `ADMIN_EMAILS`) → 12 modules, all backed by real data.
 7. Sign out → `/` redirects to `/login` again.
+8. `/pathway` → pick a target, paste a résumé → verdict + bridges + phased plan.
+9. Install the PWA (Chrome → Install app), then go offline → the offline page
+   appears and `/api/*` is never served from cache.
+
+The full executed/not-executed ledger, including the browser-only steps above
+and the Firebase console checklist, lives in
+[`docs/TEST_REPORT.md`](TEST_REPORT.md).
 
 ## 5. Backups & restore
 

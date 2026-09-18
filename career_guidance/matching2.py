@@ -151,7 +151,9 @@ def interests_profile(
 
 def _cosine_positive(a: dict[str, float], b: dict[str, float]) -> float:
     """Cosine similarity rescaled to 0–1 (O*NET interests are all positive)."""
-    keys = set(a) | set(b)
+    # Deterministic order: summing over a set is hash-seed dependent and moved
+    # the last bits of the score between runs.
+    keys = sorted(set(a) | set(b))
     dot = sum(a.get(k, 0.0) * b.get(k, 0.0) for k in keys)
     na = math.sqrt(sum(v * v for v in a.values()))
     nb = math.sqrt(sum(v * v for v in b.values()))

@@ -11,8 +11,10 @@
   --color-accent-secondary: #e6a82c;
   --color-text-primary: #ffffff;
   --color-text-secondary: #9a9a9a;
-  --color-text-tertiary: #666666;
-  --color-destructive: #e05050;
+  /* AA-safe on every surface: 4.5:1 on bg-3, 5.2:1 on the panel (measured). */
+  --color-text-tertiary: #909090;
+  /* AA-safe red: 4.5:1 on bg-3, 5.2:1 on the panel (measured). */
+  --color-destructive: #e86868;
   --color-success: #22c55e;
   --color-status-active: #3b82f6;
   --color-status-pending: #6b7280;
