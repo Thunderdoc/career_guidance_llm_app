@@ -21,7 +21,7 @@ Everything in the "Executed" columns is reproducible from the repository:
 
 ## 1. Executed in this sandbox — automated
 
-### 1.1 White-box (pytest, 186 tests)
+### 1.1 White-box (pytest, 190 tests)
 
 | Suite | Result |
 | --- | --- |
@@ -62,7 +62,15 @@ depend on set iteration order, which moved a golden case in and out of the top 5
 * `NEXT_EXPORT=1 next build` → **995 static pages** (`/careers/[id]` × 974 + 20 routes),
   first-load JS ≤ 245 kB.
 
-### 1.4 Black-box round (HTTP only, 43 checks)
+### 1.4 GitHub Actions (the gate that matters)
+
+After the two fixes above, CI is **green end-to-end on the PR head**:
+`Lint · test · eval (Python)` ✓ (ruff → pytest 190 → coverage ≥ 85 % → eval gate),
+`Lint · typecheck · build (Next.js)` ✓, `Docker image builds` ✓, Vercel preview ✓.
+Sandbox-local verification was done in a clean venv with the same pip resolve CI
+uses (`/tmp/cienv`), because the sandbox cannot fetch Actions logs directly.
+
+### 1.5 Black-box round (HTTP only, 43 checks)
 
 `python scripts/smoke_api.py` against a live uvicorn — **43 passed, 0 failed**:
 
@@ -77,7 +85,7 @@ depend on set iteration order, which moved a golden case in and out of the top 5
   both start with `%PDF`;
 * admin surfaces 403 for a non-admin session.
 
-### 1.5 Accessibility & contrast (static analysis)
+### 1.6 Accessibility & contrast (static analysis)
 
 Contrast was computed, not eyeballed, from the design tokens
 (`frontend/app/globals.css`) over every surface (`bg`, `bg-2`, `bg-3`, panel):
@@ -94,7 +102,7 @@ buttons, `aria-current="page"` in the sidebar, `aria-expanded` on disclosures,
 `role="status"`/`role="alert"` on the cold-start banners, and `lang` switching
 with the locale.
 
-### 1.6 PWA assets
+### 1.7 PWA assets
 
 * `public/manifest.webmanifest` — name, standalone display, maskable + any icons,
   three shortcuts, `/dashboard` start URL.
@@ -105,7 +113,7 @@ with the locale.
   `icon-maskable-512.png`, `apple-touch-icon.png`.
 * All four assets are present in the exported bundle (`frontend/out/`).
 
-### 1.7 Bugs found and fixed by this round
+### 1.8 Bugs found and fixed by this round
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
@@ -114,6 +122,8 @@ with the locale.
 | Pathway plan claimed “24 weeks” for 168 study hours at 6 h/week | phase weeks were the chunk size (4), not the hours | phases now follow the running study-hour total, so `weeks == ceil(total_hours / hours_per_week)` |
 | `/dashboard` “Download report” and `/reports/career.pdf` returned the SPA HTML shell | path never mapped | both point at `/api/v1/me/report.pdf` (legacy path aliased server-side) |
 | Matcher ranking varied between processes (Hit@5 1.0 ⇄ 0.98) | set iteration order (hash seed) chose which skill “claimed” a competency hint | sorted iteration in `matching.py` (`implied`, tech hits, cosine) and `matching2.py` |
+| CI red since S3: `pytest` collection crashed on GitHub Actions | `reportlab` (PDF report engine) was never added to `requirements.txt`; it only existed in dev sandboxes | `reportlab>=4.0,<5.0` in `requirements.txt`; verified in a fresh venv that mirrors CI |
+| CI red: Docker image build failed at `npm run build` | the web stage never received `data/catalog/occupations.json`, so `generateStaticParams()` returned `[]` and Next refuses to export a dynamic route with no params | the Dockerfile copies the catalogue into the web stage (the image now ships all 974 `/careers/[id]` pages); `.dockerignore` added to keep the context at ~4 MB |
 
 ---
 
