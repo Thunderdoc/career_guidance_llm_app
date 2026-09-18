@@ -45,6 +45,14 @@ class Family:
     demand: int
     remote: bool
     indian_titles: tuple[str, ...] = ()
+    ids: tuple[str, ...] = ()
+    core_skills: tuple[str, ...] = ()
+
+    @property
+    def label(self) -> str:
+        """Human label: ``data-and-analytics`` → ``Data & Analytics``."""
+        words = self.id.replace("and", "&").split("-")
+        return " ".join(word if word == "&" else word.capitalize() for word in words)
 
 
 @dataclass(frozen=True)
@@ -69,6 +77,8 @@ class MarketSeed:
     def family_for(self, occupation: Occupation) -> Family | None:
         title = occupation.title.lower()
         for family in self.families:
+            if occupation.id in family.ids:
+                return family
             if any(token in title for token in family.match):
                 return family
             if any(occupation.id.startswith(prefix) for prefix in family.code_prefixes):
@@ -202,6 +212,7 @@ def load_seed(path: str | None = None) -> MarketSeed:
         Family(
             id=str(f.get("id", "")),
             match=tuple(str(t).lower() for t in f.get("match", [])),
+            ids=tuple(str(i) for i in f.get("ids", [])),
             code_prefixes=tuple(str(c) for c in f.get("code_prefixes", [])),
             inr=tuple(f.get("inr", (400000, 700000, 1200000))),
             usd=tuple(f.get("usd", (45000, 65000, 95000))),
@@ -209,6 +220,7 @@ def load_seed(path: str | None = None) -> MarketSeed:
             demand=int(f.get("demand", 3)),
             remote=bool(f.get("remote", False)),
             indian_titles=tuple(f.get("indian_titles", [])),
+            core_skills=tuple(str(s) for s in f.get("core_skills", [])),
         )
         for f in data.get("families", [])
     ]

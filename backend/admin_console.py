@@ -529,11 +529,14 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
         body: CareerPatchBody,
         actor: User = Depends(admin_user),  # noqa: B008
     ) -> dict:
-        if catalog().get(career_id) is None:
+        if catalog().get(career_id) is None and career_id not in content.career_overrides():
+            # Hidden careers are absent from the merged catalog, but the admin
+            # must still be able to un-hide them, so overrides count as known.
             raise HTTPException(404, "Unknown career id.")
         content.update_career(career_id, **body.model_dump(exclude_none=True))
         users.audit(actor.email, "career:update", career_id)
-        return {"ok": True}
+        # Return the merged override so the console can refresh the row in place.
+        return {"ok": True, "override": content.career_overrides().get(career_id, {})}
 
     @router.post("/careers")
     def create_career(body: CustomCareerBody, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
@@ -618,7 +621,12 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
 
     @router.post("/unmatched/map")
     def map_unmatched(body: MapBody, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
-        synonym_store.upsert(body.term.strip().lower(), body.canonical.strip(), actor=actor.email)
+        term, canonical = body.term.strip().lower(), body.canonical.strip()
+        if not term or not canonical:
+            raise HTTPException(
+                422, "Both the unmatched term and its canonical skill are required."
+            )
+        synonym_store.upsert(term, canonical, actor=actor.email)
         synonym_store.map_unmatched(body.term, body.canonical, actor.email)
         users.audit(actor.email, "unmatched:map", f"{body.term} → {body.canonical}")
         return {"ok": True}
@@ -826,7 +834,7 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
     def set_settings(body: SettingsBody, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
         try:
             updated = settings_store.set_many(body.values, actor=actor.email)
-        except ValueError as error:
+        except (ValueError, KeyError) as error:
             raise HTTPException(422, str(error)) from error
         users.audit(actor.email, "settings:update", ",".join(sorted(body.values)))
         return {"settings": updated, "flags": settings_store.feature_flags()}
@@ -882,6 +890,10 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
 
     @router.delete("/interview-templates/{template_id}")
     def delete_interview_template(template_id: int, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
+        if not any(
+            int(row["id"]) == template_id for row in content.interview_templates(active_only=False)
+        ):
+            raise HTTPException(404, "Template not found.")
         content.delete_interview_template(template_id)
         users.audit(actor.email, "interview-template:delete", str(template_id))
         return {"ok": True}
@@ -905,6 +917,8 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
     def update_feedback(fid: int, body: StatusBody, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
         if body.status not in {"new", "seen", "resolved"}:
             raise HTTPException(422, "status must be new, seen or resolved.")
+        if not any(int(row["id"]) == fid for row in users.list_feedback(None)):
+            raise HTTPException(404, "Feedback not found.")
         users.set_feedback_status(fid, body.status)
         if body.note is not None:
             with users._connect() as conn:  # noqa: SLF001 - admin-only write
@@ -945,12 +959,18 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
         }
         if not allowed:
             raise HTTPException(422, "Nothing to update.")
+        known = {int(row["id"]) for row in settings_store.announcements(active_only=False)}
+        if announcement_id not in known:
+            raise HTTPException(404, "Announcement not found.")
         settings_store.update_announcement(announcement_id, **allowed)
         users.audit(actor.email, "announcement:update", str(announcement_id))
         return {"ok": True}
 
     @router.delete("/announcements/{announcement_id}")
     def delete_announcement(announcement_id: int, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
+        known = {int(row["id"]) for row in settings_store.announcements(active_only=False)}
+        if announcement_id not in known:
+            raise HTTPException(404, "Announcement not found.")
         settings_store.delete_announcement(announcement_id)
         users.audit(actor.email, "announcement:delete", str(announcement_id))
         return {"ok": True}
@@ -1065,7 +1085,7 @@ def _run_row(run, emails: dict[str, str]) -> dict:
         "created_at": run.created_at,
         "provider": run.provider,
         "is_demo": run.is_demo,
-        "flagged": bool(profile.get("flagged", 0)),
+        "flagged": bool(getattr(run, "flagged", False) or profile.get("flagged", 0)),
         "user_id": run.user_id,
         "email": emails.get(run.user_id or "", None),
         "tool": profile.get("tool", "recommend"),

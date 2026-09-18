@@ -41,6 +41,7 @@ class StoredRun:
     profile: dict
     recommendations: list[CareerRecommendation]
     user_id: str | None = None
+    flagged: bool = False
 
 
 class Database:
@@ -104,6 +105,7 @@ class Database:
                         created_at=row["created_at"],
                         provider=row["provider"],
                         is_demo=bool(row["is_demo"]),
+                        flagged=bool(row["flagged"]) if "flagged" in row.keys() else False,
                         profile=json.loads(row["profile_json"]),
                         recommendations=[
                             CareerRecommendation.from_dict(item)

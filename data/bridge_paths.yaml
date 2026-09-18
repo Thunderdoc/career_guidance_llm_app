@@ -1,0 +1,377 @@
+# Realistic Indian route-changes, used by career_guidance/pathway.py.
+#
+# Every entry answers the question the product exists for: "I want to become X
+# but my degree / background does not qualify — what can I actually do?"
+# ``requires`` lists the non-negotiable admission gate; ``cannot`` states the
+# honest verdict; ``bridges`` are real, named Indian programmes a graduate from
+# another stream can enter, with duration, indicative fee and entrance exam.
+version: 1
+updated: 2026-09
+label: 'Source: curated India pathways, updated 2026-09'
+professions:
+- id: doctor
+  label: Doctor (MBBS)
+  title_tokens:
+  - physician
+  - surgeon
+  - psychiatrist
+  - dermatologist
+  - radiologist
+  - pathologist
+  - ophthalmologist
+  - urologist
+  - neurologist
+  - dentist
+  code_prefixes:
+  - 29-106
+  ids:
+  - 29-1199.04
+  requires:
+  - 10+2 with Physics, Chemistry and Biology (PCB)
+  - Clear NEET-UG with a government/management seat
+  - Complete MBBS (4.5 years + 1 year internship) at an NMC-recognised college
+  - Register with the National Medical Commission / State Medical Council
+  cannot: >-
+    A B.Tech (or any non-PCB degree) cannot be converted into an MBBS. The gate is
+    the 10+2 PCB subject combination plus a NEET-UG rank, so this door needs a fresh
+    undergraduate attempt — for almost everyone the honest answer is to take a
+    clinical or health-adjacent route instead.
+  open_to_any_degree: false
+  bridges:
+  - title: Physiotherapy (BPT)
+    duration: 4.5 years
+    cost_inr: ₹1.5–6 lakh total (government colleges at the lower end)
+    eligibility: 10+2 with PCB; NEET not required by most state BPT admissions
+    entrance: State/common entrance tests
+    why: Patient-facing clinical work with a shorter route than MBBS.
+  - title: Nursing (B.Sc / GNM)
+    duration: 3–4 years
+    cost_inr: ₹60,000–4 lakh total
+    eligibility: 10+2 with PCB for B.Sc Nursing (GNM is more flexible in some states)
+    entrance: NEET / state nursing entrance
+    why: Largest healthcare employer in India; ICU and OT nursing pay well.
+  - title: Hospital & Health Administration (MHA / MPH)
+    duration: 2 years (postgraduate)
+    cost_inr: ₹1–8 lakh
+    eligibility: Any bachelor's degree; many institutes accept B.Tech
+    entrance: CAT / institute tests / university entrance
+    why: Engineering + health operations is a genuine, well-paid hybrid.
+  - title: Clinical Research & Medical Coding
+    duration: 3–12 months certification
+    cost_inr: ₹25,000–1.5 lakh
+    eligibility: Any graduate (life-science preferred for CRA roles)
+    entrance: Direct admission to PG diplomas / certification
+    why: Fastest route into the healthcare industry without a clinical licence.
+  - title: Biomedical Engineering (M.Tech / MS)
+    duration: 2 years
+    cost_inr: ₹50,000–4 lakh
+    eligibility: B.Tech (Bio-medical, ECE, Mechanical, Instrumentation)
+    entrance: GATE
+    why: Builds the devices your medical colleagues use — strongest B.Tech overlap.
+- id: nurse
+  label: Registered Nurse
+  title_tokens:
+  - nurse
+  - midwife
+  code_prefixes:
+  - 29-114
+  - 29-115
+  - 29-116
+  - 29-117
+  requires:
+  - 10+2 with Physics, Chemistry and Biology (PCB) for B.Sc Nursing or GNM
+  - Complete B.Sc Nursing (4 years) / GNM (3 years) at an INC-recognised institute
+  - Register with the State Nursing Council
+  cannot: >-
+    Nursing is degree-gated like medicine: the entry qualification is 10+2 with PCB,
+    and an engineering degree does not shorten it. Every route back into clinical
+    patient care therefore starts with a PCB-based programme.
+  open_to_any_degree: false
+  bridges:
+  - title: General Nursing & Midwifery (GNM)
+    duration: 3 years
+    cost_inr: ₹60,000–2.5 lakh total
+    eligibility: 10+2; several states accept non-PCB with a science preference
+    entrance: State nursing entrance / merit
+    why: Shortest registered-nursing route; hospital employment follows quickly.
+  - title: B.Sc Nursing
+    duration: 4 years
+    cost_inr: ₹1–6 lakh total
+    eligibility: 10+2 with PCB (NEET or state entrance)
+    entrance: NEET / state nursing entrance
+    why: The degree route — needed for abroad licensing and for senior posts.
+  - title: Hospital & Health Administration (MHA / MPH)
+    duration: 2 years (postgraduate)
+    cost_inr: ₹1–8 lakh
+    eligibility: Any bachelor's degree; B.Tech accepted at most institutes
+    entrance: CAT / institute tests / university entrance
+    why: Runs the hospital instead of the ward — technical degree helps.
+  - title: Public Health / Healthcare Analytics
+    duration: 6–24 months
+    cost_inr: Free–₹3 lakh
+    eligibility: Any graduate (MPH prefers a health background)
+    entrance: Direct hiring / institute entrance
+    why: Health data work needs exactly the B.Tech toolkit.
+- id: lawyer
+  label: Advocate / Lawyer
+  title_tokens:
+  - lawyer
+  - advocate
+  - counsel
+  - legal
+  - judge
+  code_prefixes:
+  - 23-10
+  - 23-2
+  requires:
+  - Integrated 5-year BA-LLB after 10+2, or a 3-year LLB after any bachelor's degree
+  - Pass the All India Bar Examination (AIBE) to practise
+  - Enrol with a State Bar Council
+  cannot: >-
+    You cannot practise as an advocate in India without an LLB and Bar Council
+    enrolment. The good news for engineers: the 3-year LLB is open to *any*
+    graduate, and patent/technology law rewards a technical degree.
+  open_to_any_degree: true
+  bridges:
+  - title: 3-year LLB (after any bachelor's degree)
+    duration: 3 years
+    cost_inr: ₹30,000–6 lakh total
+    eligibility: Any bachelor's degree with the required minimum marks
+    entrance: CLAT-PG / state law CETs / university entrance (varies by state)
+    why: The direct route into the profession; evening batches exist in several states.
+  - title: Patent Agent (Indian Patent Office)
+    duration: 3–9 months of exam preparation
+    cost_inr: ₹5,000–60,000 (exam fee + prep)
+    eligibility: Degree in science/engineering/technology — B.Tech qualifies
+    entrance: Indian Patent Agent Examination
+    why: Your B.Tech is not a handicap here, it is the eligibility requirement.
+  - title: Legal Operations / Compliance Analyst
+    duration: 6–12 months of self-study or certification
+    cost_inr: Free–₹80,000
+    eligibility: Any graduate
+    entrance: Direct hiring (no exam)
+    why: Legal work inside a company — contracts, privacy, regulatory — no licence needed.
+  - title: Company Secretary (CS)
+    duration: 2–3 years
+    cost_inr: ₹80,000–1.5 lakh (CSEET → executive → professional)
+    eligibility: Any graduate can register for the executive programme
+    entrance: CSEET / executive programme entrance
+    why: Corporate law career with a clear exam ladder and no LLB pre-requisite.
+- id: chartered-accountant
+  label: Chartered Accountant (CA)
+  title_tokens:
+  - accountant
+  - auditor
+  - chartered
+  - tax
+  - finance
+  code_prefixes:
+  - 13-2
+  requires:
+  - CA Foundation after 10+2, or direct entry to CA Intermediate after graduation
+  - Clear Intermediate and the CA Final examination
+  - Complete 2–3 years of articleship under a practising CA
+  cannot: >-
+    A B.Tech cannot be converted into a CA — the CA curriculum is exam-gated, not
+    degree-gated. Graduates (any stream) can register directly for CA Intermediate,
+    which removes the Foundation step, so the door is open, just long.
+  open_to_any_degree: true
+  bridges:
+  - title: CA Intermediate (direct entry route)
+    duration: 3–4 years to final
+    cost_inr: ₹80,000–2.5 lakh (fees + coaching)
+    eligibility: Any graduate (commerce study is helpful, not mandatory)
+    entrance: CA Intermediate exam → articleship → CA Final
+    why: The only route to the CA title; your graduate status skips the Foundation.
+  - title: ACCA / CMA / CS
+    duration: 2–3 years
+    cost_inr: ₹1–3 lakh
+    eligibility: Any graduate (ACCA allows 10+2 entry too)
+    entrance: Rolling exams
+    why: Globally portable accounting credential that accepts non-commerce graduates.
+  - title: Financial Analyst / FP&A
+    duration: 6–12 months
+    cost_inr: Free–₹1.5 lakh
+    eligibility: Any graduate
+    entrance: Direct hiring (interview + modelling test)
+    why: Fastest high-pay finance role you can enter without a licence.
+- id: engineer
+  label: Licensed / Site Engineer
+  title_tokens:
+  - civil engineer
+  - site engineer
+  - structural
+  - mechanical engineer
+  - electrical engineer
+  code_prefixes:
+  - 17-
+  requires:
+  - B.E / B.Tech (or diploma + 3–4 years experience) in the relevant branch
+  - State licensing only for specific works (structural, electrical safety)
+  cannot: >-
+    Site supervision and equipment work are open to diploma holders and technicians,
+    so the ladder is unblocked: ITI/diploma → draughtsman → site engineer → project
+    manager. Only structural/electrical *safety-signatory* roles need the licence.
+  open_to_any_degree: false
+  bridges:
+  - title: Diploma → lateral-entry B.Tech
+    duration: 3 years diploma + 3 years B.Tech (lateral entry to 2nd year)
+    cost_inr: ₹60,000–4 lakh total
+    eligibility: 10th/12th pass for the diploma
+    entrance: State polytechnic entrance; lateral entry test for B.Tech
+    why: The cheapest legal route to an engineering degree in India.
+  - title: Draughtsman / CAD Technician
+    duration: 6–12 months certification
+    cost_inr: ₹20,000–80,000
+    eligibility: 10+2 (science helpful)
+    entrance: Direct admission
+    why: Immediate drafting work on live projects; AutoCAD and Revit are teachable.
+  - title: Site Supervisor → Project Manager
+    duration: 2–5 years on the job
+    cost_inr: Free–₹1 lakh (safety/NEBOSH certifications)
+    eligibility: ITI/diploma/degree + site experience
+    entrance: Employer promotion
+    why: Experience-led progression; a safety certification accelerates it.
+- id: teacher
+  label: School Teacher
+  title_tokens:
+  - teacher
+  - professor
+  - lecturer
+  - instructor
+  - tutor
+  code_prefixes:
+  - 25-2
+  - 25-3
+  requires:
+  - Graduate in the subject taught
+  - B.Ed (or D.El.Ed for primary) for schools
+  - Clear TET / CTET for government schools
+  cannot: >-
+    Subject knowledge alone is not enough for a school post — the B.Ed and TET are
+    the gate, and a B.Tech degree does not replace them. Private schools, coaching
+    centres and ed-tech hiring often waive B.Ed for a start.
+  open_to_any_degree: true
+  bridges:
+  - title: B.Ed (2-year)
+    duration: 2 years
+    cost_inr: ₹40,000–2 lakh
+    eligibility: Any bachelor's degree with minimum 50%
+    entrance: State B.Ed CET / university entrance
+    why: The formal gate to school teaching; strictly required for government posts.
+  - title: Ed-tech / Coding Instructor
+    duration: 0–3 months
+    cost_inr: Free
+    eligibility: Any graduate with subject knowledge
+    entrance: Employer demo class
+    why: Teach your own subject (maths, physics, coding) — hiring starts straight away.
+  - title: Corporate Trainer / L&D
+    duration: 3–12 months
+    cost_inr: ₹15,000–1 lakh
+    eligibility: Any graduate with domain experience
+    entrance: Direct hiring
+    why: Pays above school scales and uses the same teaching skill.
+- id: civil-services
+  label: Civil Services (IAS/IPS)
+  title_tokens:
+  - civil services
+  - government
+  - administrator
+  code_prefixes:
+  - 11-10
+  - 11-9
+  requires:
+  - Any bachelor's degree (B.Tech qualifies)
+  - Clear UPSC CSE Prelims, Mains and the interview
+  - Age 21–32 with the standard attempts (relaxations for reserved categories)
+  cannot: >-
+    Nothing about your degree blocks this — engineering is one of the most common
+    UPSC backgrounds. The gate is the exam itself and the 2–3 year preparation
+    window.
+  open_to_any_degree: true
+  bridges:
+  - title: UPSC Civil Services preparation
+    duration: 12–24 months
+    cost_inr: Free–₹2 lakh (coaching optional)
+    eligibility: Any graduate, age 21+
+    entrance: UPSC CSE
+    why: Engineering graduates are the single largest group selected each year.
+  - title: State PSC / SSC CGL / Banking (IBPS)
+    duration: 3–12 months
+    cost_inr: Free–₹50,000
+    eligibility: Any graduate
+    entrance: State PSC, SSC CGL, IBPS PO
+    why: Same preparation overlap, more vacancies, faster joining.
+  - title: Public-sector engineering (PSU / GATE)
+    duration: 6–18 months
+    cost_inr: Free–₹1 lakh
+    eligibility: B.Tech
+    entrance: GATE
+    why: Uses the degree you already hold — GATE is the gate, not the degree.
+- id: pilot
+  label: Commercial Pilot
+  title_tokens:
+  - pilot
+  - airline
+  - aircraft
+  code_prefixes:
+  - 53-2
+  requires:
+  - 10+2 with Physics and Maths (a B.Tech satisfies this)
+  - Class-1 medical fitness
+  - DGCA CPL with 200 flying hours
+  cannot: >-
+    Not degree-gated, money-gated: the CPL costs roughly ₹35–50 lakh in India. If
+    that budget is not available, aviation-adjacent ground roles are the realistic
+    start.
+  open_to_any_degree: true
+  bridges:
+  - title: DGCA CPL (with a flying school)
+    duration: 18–36 months
+    cost_inr: ₹35–50 lakh
+    eligibility: 10+2 with Physics & Maths; DGCA Class-1 medical
+    entrance: Flying school admission + DGCA papers
+    why: The only route to the right-hand seat; plan the loan before the hours.
+  - title: Aviation Operations / Ground Staff → Dispatcher
+    duration: 6–12 months
+    cost_inr: ₹30,000–2 lakh
+    eligibility: Any graduate
+    entrance: Airline/airport recruitment
+    why: Earns while you study, and DGCA dispatch licences are respected inside airlines.
+  - title: Aerospace / Avionics Engineering
+    duration: 2 years (M.Tech) or direct entry
+    cost_inr: ₹1–4 lakh
+    eligibility: B.Tech (Aero/ECE/Mech)
+    entrance: GATE / employer test
+    why: B.Tech + aviation domain is a hiring advantage, not a detour.
+
+# Roles that accept any degree — the honest "you can still aim high" list.
+open_doors:
+- title: UPSC / State PSC civil services
+  eligibility: Any bachelor's degree, age 21–32
+  entrance: UPSC CSE, State PSC
+  duration: 12–24 months of preparation
+- title: Bank PO / SSC CGL
+  eligibility: Any graduate
+  entrance: IBPS PO, SBI PO, SSC CGL
+  duration: 3–12 months
+- title: MBA (management)
+  eligibility: Any bachelor's degree
+  entrance: CAT / XAT / GMAT, then group discussion and interview
+  duration: 2 years
+- title: 3-year LLB → advocate
+  eligibility: Any bachelor's degree
+  entrance: CLAT-PG / state law CETs
+  duration: 3 years
+- title: Company Secretary (CS)
+  eligibility: Any graduate for the executive programme
+  entrance: CSEET
+  duration: 2–3 years
+- title: Data analytics / software via certifications
+  eligibility: Any graduate; portfolio matters more than the degree
+  entrance: Direct hiring with a project portfolio
+  duration: 6–12 months
+- title: Teaching with B.Ed
+  eligibility: Any graduate + B.Ed + TET
+  entrance: State B.Ed CET, then CTET/TET
+  duration: 2 years + exam

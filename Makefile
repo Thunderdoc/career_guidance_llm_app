@@ -1,4 +1,4 @@
-.PHONY: install dev api web test lint eval build catalog docker ci
+.PHONY: install dev api web test cov lint eval build catalog docker ci
 
 install:
 	pip install -r requirements-dev.txt && cd frontend && npm ci
@@ -15,6 +15,9 @@ dev:
 test:
 	pytest -q -p no:warnings
 
+cov:
+	pytest -q -p no:warnings --cov=career_guidance --cov=backend --cov-report=term-missing --cov-fail-under=85
+
 lint:
 	ruff check . && ruff format --check . && cd frontend && npx eslint . && npx tsc --noEmit
 
@@ -30,4 +33,4 @@ build:
 docker:
 	docker compose up --build
 
-ci: lint test eval
+ci: lint test cov eval

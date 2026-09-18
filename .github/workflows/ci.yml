@@ -18,7 +18,11 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check . && ruff format --check .
       - run: pytest -q -p no:warnings
-      - run: python -m eval.run --min-hit 0.7
+      - name: Coverage gate (≥ 85%)
+        run: >-
+          pytest -q -p no:warnings --cov=career_guidance --cov=backend
+          --cov-report=term-missing --cov-fail-under=85
+      - run: python -m eval.run --min-hit 0.75
       - uses: actions/upload-artifact@v4
         if: always()
         with:

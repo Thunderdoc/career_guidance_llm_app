@@ -505,3 +505,53 @@ export function DrawnCheck({ size = 18, className }: { size?: number; className?
     </svg>
   );
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Modal: accessible dialog with escape + backdrop close               */
+/* ------------------------------------------------------------------ */
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    ref.current?.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="presentation" onClick={onClose}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-bg-2 p-5 shadow-[var(--shadow-lg)] outline-none"
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-serif text-xl">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-fg-3 hover:bg-white/5 hover:text-fg">
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}

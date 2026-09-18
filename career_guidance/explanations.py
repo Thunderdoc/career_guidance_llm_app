@@ -61,7 +61,10 @@ class Explanations:
 
     def set_overrides(self, overrides: dict[str, dict[str, str]]) -> None:
         """Admin edits: ``{locale: {key: template}}``."""
-        self.overrides = {loc: dict(map(str, kv.items())) for loc, kv in (overrides or {}).items()}
+        self.overrides = {
+            str(loc): {str(k): str(v) for k, v in (values or {}).items()}
+            for loc, values in (overrides or {}).items()
+        }
 
     def locale_templates(self, locale: str) -> dict[str, str]:
         return {

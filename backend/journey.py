@@ -1,14 +1,15 @@
-"""User-journey endpoints (S3): onboarding, discover, plan, learn, résumé, …
+"""User-journey endpoints (S3): profile, discover, plan, learn, résumé, …
 
-Every route requires a session and returns numbers assembled by the pure
-engines in ``career_guidance/`` — the same values the exports and the PDF
-report contain.
+Every route is a thin adapter over the pure engines in ``career_guidance``:
+the same numbers therefore appear in the UI, in the exports and in the admin
+console, and each payload carries the source label the front end renders.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import asdict
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -18,21 +19,25 @@ from pydantic import BaseModel, Field
 from career_guidance import riasec
 from career_guidance.content_store import ContentStore
 from career_guidance.explanations import get_explanations
-from career_guidance.gamification import GamificationStore
+from career_guidance.gamification import XP_RULES, GamificationStore
 from career_guidance.interview import generate as generate_interview
 from career_guidance.journey import JourneyStore
+from career_guidance.keywords import ranked_technology
+from career_guidance.ladder import build as build_ladder
+from career_guidance.learning import resources_for
 from career_guidance.market_seed import build_adapter
-from career_guidance.profiles import ProfileStore
-from career_guidance.reports import build_roadmap_pdf
+from career_guidance.pathway import build_pathway, read_resume_signals
+from career_guidance.profile import EXPERIENCE_LEVELS
+from career_guidance.profiles import EDUCATION_LEVELS, PERSONAS, ProfileStore
+from career_guidance.reports import build_report
 from career_guidance.resume_score import score as score_resume
-from career_guidance.roadmap import Roadmap, RoadmapItem, to_ics, to_json, to_markdown
+from career_guidance.roadmap import Roadmap, to_ics, to_json, to_markdown
 from career_guidance.roadmap import generate as generate_roadmap
 from career_guidance.settings_store import SettingsStore
-from career_guidance.skillgap import evaluate
-from career_guidance.suggestions2 import market_payload
+from career_guidance.skillgap import catalog_importance, evaluate
 from career_guidance.tasks import derive_tasks, education_path
 from career_guidance.taxonomy import extract_skills
-from career_guidance.transitions import find_path, transitions_into
+from career_guidance.transitions import delta_skills, find_path, transitions_into
 from career_guidance.users import User
 
 logger = logging.getLogger("career_guidance.journey")
@@ -49,20 +54,19 @@ class ProfileBody(BaseModel):
     skills: list[str] | str | None = None
     goals: str | None = None
     interests: str | None = None
-    hours_per_week: int | None = Field(default=None, ge=1, le=40)
-    language: Literal["en", "ta", "hi"] | None = None
-    country: Literal["in", "gb", "us"] | None = None
+    hours_per_week: int | None = None
+    language: str | None = None
+    country: str | None = None
     onboarded: bool | None = None
     set_target: str | None = None
-
-
-class DiscoverBody(BaseModel):
-    answers: dict[str, int]
 
 
 class RatingsBody(BaseModel):
     career_id: str
     ratings: dict[str, int]
+
+    def clean(self) -> dict[str, int]:
+        return {k.strip().lower(): int(v) for k, v in self.ratings.items() if str(k).strip()}
 
 
 class PlanBody(BaseModel):
@@ -70,13 +74,17 @@ class PlanBody(BaseModel):
     hours_per_week: int | None = Field(default=None, ge=1, le=40)
 
 
-class PlanItemBody(BaseModel):
+class TargetBody(BaseModel):
+    career_id: str
+
+
+class ItemBody(BaseModel):
     item_id: str
     done: bool = True
 
 
-class TargetBody(BaseModel):
-    career_id: str
+class ResourceBody(BaseModel):
+    resource_id: int
 
 
 class ResumeBody(BaseModel):
@@ -87,13 +95,35 @@ class ResumeBody(BaseModel):
 
 class InterviewBody(BaseModel):
     career_id: str
+    seed: int = 42
     seconds: int = 0
     notes: dict[str, str] = Field(default_factory=dict)
 
 
 class EventBody(BaseModel):
-    kind: str
+    kind: Literal[
+        "run",
+        "assessment",
+        "plan",
+        "plan_item",
+        "course_done",
+        "resume",
+        "jobfit",
+        "interview",
+        "visit",
+    ] = "visit"
     detail: str = ""
+
+
+class PathwayBody(BaseModel):
+    career_id: str
+    resume_text: str = ""
+    education: str = ""
+    experience_level: str = ""
+    hours_per_week: int | None = None
+    current_role: str = ""
+    ratings: dict[str, int] | None = None
+    use_profile: bool = True
 
 
 class FeedbackBody(BaseModel):
@@ -105,9 +135,28 @@ class FeedbackBody(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+def _iso_week_label(start: date, week: int) -> str:
+    """Human label for a roadmap week (“Week 3 · 21 Sep”)."""
+    day = start + timedelta(days=7 * (week - 1))
+    return f"Week {week} · {day.strftime('%d %b')}"
+
+
+def _roadmap_payload(plan: dict, start: date) -> dict:
+    payload = dict(plan)
+    payload["items"] = [
+        {**item, "week_label": _iso_week_label(start, int(item.get("week", 1)))}
+        for item in plan.get("items", [])
+    ]
+    return payload
+
+
+# --------------------------------------------------------------------------- #
 # Router
 # --------------------------------------------------------------------------- #
 def build_router(settings, current_user, db, users) -> APIRouter:
+    """Journey routes for the signed-in user (session enforced by FastAPI)."""
     router = APIRouter(prefix="/api/v1", tags=["journey"])
 
     profiles = ProfileStore(settings.database_path)
@@ -115,122 +164,199 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     gamification = GamificationStore(settings.database_path)
     content = ContentStore(settings.database_path)
     settings_store = SettingsStore(settings.database_path)
+    assessments = riasec.AssessmentStore(settings.database_path)
     explanations = get_explanations()
-    market = build_adapter()
 
-    def catalog():
-        """Catalog with admin custom careers applied and hidden ids removed."""
+    def taxonomy():
         return content.catalog()
 
-    def market_for(occupation):
-        market.set_overrides(content.career_overrides())
-        return market
+    def market():
+        adapter = build_adapter()
+        adapter.set_overrides(content.career_overrides())
+        return adapter
 
-    def resource_lookup(skill: str, limit: int = 2):
-        found = content.resources_for_skill(skill, limit)
-        if found:
-            return found
-        from career_guidance.learning import resources_for
+    def locale_of(request_language: str = "") -> str:
+        return request_language if request_language in ("en", "ta", "hi") else "en"
 
-        return resources_for(skill, limit)
-
-    def _guard(module: str) -> None:
-        if not settings_store.module_enabled(module):
-            raise HTTPException(503, f"{module} is disabled by the administrator.")
-
-    # ------------------------------------------------------------- profile
+    # ---------------------------------------------------------------- profile
     @router.get("/profile")
     def get_profile(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        profile = profiles.get(user.id)
-        return {"profile": profile.to_dict() if profile else None, "options": profiles.options()}
+        return {
+            "profile": (profiles.get(user.id) or None) and profiles.get(user.id).to_dict(),
+            "target": profiles.target(user.id),
+            "options": {
+                "personas": list(PERSONAS),
+                "education_levels": list(EDUCATION_LEVELS),
+                "experience_levels": list(EXPERIENCE_LEVELS),
+                "hours_per_week_range": [1, 40],
+                "languages": ["en", "ta", "hi"],
+                "countries": ["in", "us", "gb"],
+            },
+        }
 
     @router.put("/profile")
+    @router.post("/profile")
     def save_profile(body: ProfileBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
         payload = body.model_dump(exclude_none=True)
         target = payload.pop("set_target", None)
+        if payload.get("hours_per_week") is not None:
+            # The UI uses a 1–40 h/week slider; clamp instead of rejecting so a
+            # hand-typed 60 h becomes the documented maximum.
+            payload["hours_per_week"] = max(1, min(40, int(payload["hours_per_week"])))
+        if "experience_level" in payload and payload["experience_level"] not in EXPERIENCE_LEVELS:
+            raise HTTPException(422, "Unknown experience level.")
+        if "persona" in payload and payload["persona"] not in PERSONAS:
+            raise HTTPException(422, "Unknown persona.")
         profile = profiles.save(user.id, **payload)
         if target:
             try:
                 profiles.set_target(user.id, target)
             except KeyError as error:
                 raise HTTPException(404, "Unknown career id.") from error
-        users.audit(user.email, "profile:update", ",".join(sorted(payload)))
+        users.audit(user.email, "profile:update", profile.persona or "profile")
         return {"profile": profile.to_dict()}
 
     @router.post("/onboarding")
     def onboarding(body: ProfileBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        """Wizard submit: saves the profile, marks it complete and sets a target."""
-        payload = body.model_dump(exclude_none=True)
-        target = payload.pop("set_target", None)
-        payload["onboarded"] = True
-        profile = profiles.save(user.id, **payload)
-        target_payload = None
-        if target:
-            try:
-                target_payload = profiles.set_target(user.id, target)
-            except KeyError as error:
-                raise HTTPException(404, "Unknown career id.") from error
-        users.audit(user.email, "onboarding:complete", target or "")
-        return {"profile": profile.to_dict(), "target": target_payload}
+        """Final wizard step: save the answers and mark onboarding complete."""
+        if body.onboarded is None:
+            body.onboarded = True
+        saved = save_profile(body, user)
+        saved["target"] = profiles.target(user.id)
+        return saved
 
-    # ------------------------------------------------------------ discover
+    # --------------------------------------------------------------- discover
     @router.get("/discover/items")
     def discover_items(locale: str = "en", user: User = Depends(current_user)) -> dict:  # noqa: B008
-        _guard("discover")
-        items = riasec.AssessmentStore(settings.database_path).merged_items(locale)
+        if not settings_store.module_enabled("discover"):
+            raise HTTPException(503, "The interest test is disabled by the administrator.")
+        items = assessments.merged_items(locale)
         return {
-            "items": [
-                {
-                    "id": item.id,
-                    "dim": item.dim,
-                    "text": item.text,
-                    "weight": item.weight,
-                    "active": item.active,
-                    "locale": item.locale,
-                }
-                for item in items
-                if item.active
-            ],
+            "items": [item.as_question() for item in items if item.active],
             "total": sum(1 for item in items if item.active),
-            "scales": {
-                "1": "Strongly disagree",
-                "2": "Disagree",
-                "3": "Neutral",
-                "4": "Agree",
-                "5": "Strongly agree",
-            },
+            "locale": locale,
+            "source": (
+                "Source: 36-item RIASEC inventory "
+                "(6 statements per dimension), bundled with the app"
+            ),
         }
 
     @router.post("/discover")
-    def discover(body: DiscoverBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        _guard("discover")
-        store = riasec.AssessmentStore(settings.database_path)
-        items = store.merged_items("en")
-        result = riasec.score(body.answers, items)
-        history_id = store.save(user.id, body.answers, result)
-        careers = riasec.top_careers(result["scores"], limit=15, taxonomy=catalog())
-        gamification.award(user.id, "assessment", result["holland_code"])
-        users.audit(user.email, "assessment:submit", result["holland_code"])
+    def discover(body: dict, locale: str = "en", user: User = Depends(current_user)) -> dict:  # noqa: B008
+        if not settings_store.module_enabled("discover"):
+            raise HTTPException(503, "The interest test is disabled by the administrator.")
+        answers = {
+            str(k): int(v) for k, v in (body.get("answers") or {}).items() if str(v).isdigit()
+        }
+        if len(answers) < 12:
+            raise HTTPException(422, "Answer at least 12 statements.")
+        items = assessments.merged_items(locale)
+        result = riasec.score(answers, items, locale=locale)
+        run_id = assessments.save(user.id, answers, result)
+        careers = riasec.top_careers(result["scores"], limit=15, taxonomy=taxonomy())
+        leads = result["profile"][0]
         for career in careers:
             career["why"] = explanations.render(
                 "match.interests",
-                locale="en",
-                interest_top=career["top_interests"][0] if career["top_interests"] else "—",
-                interest_pct=career["fit"],
+                locale=locale,
+                interest_top=leads["name"],
+                interest_pct=round(career.get("fit", 0)),
             )
-        return {**result, "history_id": history_id, "top_careers": careers}
+        gamification.award(user.id, "assessment", f"holland:{result['holland_code']}")
+        users.audit(user.email, "assessment:submit", result["holland_code"])
+        return {
+            **result,
+            "history_id": run_id,
+            "top_careers": careers,
+            "explanation": explanations.render(
+                "match.interests",
+                locale=locale,
+                interest_top=result["profile"][0]["name"],
+                interest_pct=round(result["profile"][0]["score"] / 7 * 100),
+            ),
+            "source": "Source: RIASEC scoring (1–5 → 1–7) over the bundled 36-item inventory",
+        }
 
     @router.get("/discover/history")
-    def discover_history(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        store = riasec.AssessmentStore(settings.database_path)
-        return {"runs": store.history(user.id)}
-
     @router.get("/assessment/history")
-    def assessment_history(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        """Alias kept for the earlier single-page client."""
-        return {"runs": riasec.AssessmentStore(settings.database_path).history(user.id)}
+    def discover_history(user: User = Depends(current_user)) -> dict:  # noqa: B008
+        return {"runs": assessments.history(user.id, limit=20)}
 
-    # ---------------------------------------------------------------- plan
+    # ---------------------------------------------------------------- careers
+    @router.get("/careers")
+    def careers(
+        q: str = "",
+        family: str = "",
+        zone: int | None = None,
+        holland: str = "",
+        country: str = "in",
+        limit: int = 24,
+        offset: int = 0,
+        user: User = Depends(current_user),  # noqa: B008
+    ) -> dict:
+        """Browse the catalogue with a market snapshot on every card."""
+        catalog = taxonomy()
+        adapter = market()
+        needle = q.strip().lower()
+        want_holland = holland.strip().upper()
+        rows = []
+        for occupation in catalog.occupations:
+            if needle and needle not in occupation.title.lower():
+                continue
+            if zone is not None and occupation.job_zone != zone:
+                continue
+            if want_holland and not (occupation.holland_code or "").startswith(want_holland):
+                continue
+            item_family = adapter.seed.family_for(occupation)
+            if family and (item_family.id if item_family else "other") != family:
+                continue
+            rows.append((occupation, item_family))
+        rows.sort(key=lambda pair: (pair[0].job_zone, pair[0].title))
+        page = rows[offset : offset + max(1, min(limit, 60))]
+        results = []
+        for occupation, item_family in page:
+            snapshot = adapter.snapshot(occupation, country)
+            results.append(
+                {
+                    "id": occupation.id,
+                    "title": occupation.title,
+                    "family": item_family.id if item_family else "other",
+                    "family_label": item_family.label if item_family else "Other",
+                    "job_zone": occupation.job_zone,
+                    "holland_code": occupation.holland_code,
+                    "salary_p50": snapshot.salary_p50,
+                    "salary_p25": snapshot.salary_p25,
+                    "salary_p75": snapshot.salary_p75,
+                    "currency": snapshot.currency,
+                    "currency_symbol": "₹" if snapshot.currency == "INR" else "$",
+                    "demand_label": adapter.seed.demand_label(occupation),
+                    "trend": adapter.seed.trend(occupation),
+                    "remote": adapter.seed.remote_friendly(occupation),
+                    "indian_titles": adapter.seed.indian_titles(occupation),
+                    "top_skills": occupation.skills[:4],
+                    "technology": ranked_technology(occupation, limit=4),
+                }
+            )
+        families = []
+        seen = set()
+        for occupation in catalog.occupations:
+            item_family = adapter.seed.family_for(occupation)
+            key = item_family.id if item_family else "other"
+            if key in seen:
+                continue
+            seen.add(key)
+            families.append({"id": key, "label": item_family.label if item_family else "Other"})
+        families.sort(key=lambda f: f["label"])
+        return {
+            "results": results,
+            "total": len(rows),
+            "offset": offset,
+            "limit": limit,
+            "filters": {"families": families, "zones": [1, 2, 3, 4, 5]},
+            "source": adapter.seed.label + "; 974-career catalogue bundled with the app",
+        }
+
+    # ------------------------------------------------------------------- plan
     @router.get("/plan/target")
     def get_target(user: User = Depends(current_user)) -> dict:  # noqa: B008
         return {"target": profiles.target(user.id)}
@@ -246,109 +372,125 @@ def build_router(settings, current_user, db, users) -> APIRouter:
 
     @router.get("/plan/readiness")
     def readiness(career_id: str, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        occupation = catalog().get(career_id)
-        if occupation is None:
+        if taxonomy().get(career_id) is None:
             raise HTTPException(404, "Unknown career id.")
-        result = evaluate(career_id, journey.ratings(user.id, career_id), taxonomy=catalog())
+        result = evaluate(career_id, journey.ratings(user.id, career_id), taxonomy=taxonomy())
         payload = result.to_dict()
-        payload["template"] = _readiness_template(result, explanations)
+        payload["template"] = explanations.render(
+            "readiness.summary",
+            readiness=payload["readiness_weighted"],
+            title=result.occupation.title,
+            strong=payload["counts"]["strong"],
+            weak=payload["counts"]["weak"],
+            missing=payload["counts"]["missing"],
+        )
         return payload
 
     @router.post("/plan/ratings")
     def save_ratings(body: RatingsBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        if catalog().get(body.career_id) is None:
+        if taxonomy().get(body.career_id) is None:
             raise HTTPException(404, "Unknown career id.")
-        journey.set_ratings(user.id, body.career_id, body.ratings)
-        result = evaluate(
-            body.career_id, journey.ratings(user.id, body.career_id), taxonomy=catalog()
-        )
+        ratings = journey.set_ratings(user.id, body.career_id, body.clean())
+        result = evaluate(body.career_id, ratings, taxonomy=taxonomy())
         payload = result.to_dict()
-        payload["template"] = _readiness_template(result, explanations)
+        payload["template"] = explanations.render(
+            "readiness.summary",
+            readiness=payload["readiness_weighted"],
+            title=result.occupation.title,
+            strong=payload["counts"]["strong"],
+            weak=payload["counts"]["weak"],
+            missing=payload["counts"]["missing"],
+        )
+        gap = result.next_gap()
+        payload["next_step"] = (
+            explanations.render(
+                "readiness.next", gap=gap.skill, importance=round(gap.importance * 100)
+            )
+            if gap
+            else ""
+        )
         return payload
 
     @router.post("/plan")
     def create_plan(body: PlanBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        _guard("plan")
-        if catalog().get(body.career_id) is None:
+        if not settings_store.module_enabled("plan"):
+            raise HTTPException(503, "Roadmaps are disabled by the administrator.")
+        occupation = taxonomy().get(body.career_id)
+        if occupation is None:
             raise HTTPException(404, "Unknown career id.")
-        stored_profile = profiles.get(user.id)
-        hours = body.hours_per_week or (stored_profile.hours_per_week if stored_profile else 6)
-        result = evaluate(
-            body.career_id, journey.ratings(user.id, body.career_id), taxonomy=catalog()
-        )
+        profile = profiles.get(user.id)
+        hours = body.hours_per_week or (profile.hours_per_week if profile else 6)
+        ratings = journey.ratings(user.id, body.career_id)
+        result = evaluate(body.career_id, ratings, taxonomy=taxonomy())
         roadmap = generate_roadmap(
-            result, hours_per_week=int(hours), resource_lookup=resource_lookup
+            result,
+            hours_per_week=int(hours),
+            resource_lookup=_resource_lookup(content, body.career_id),
         )
         plan = journey.save_plan(user.id, body.career_id, result, roadmap)
-        plan["template"] = explanations.render(
-            "roadmap.summary",
-            locale="en",
-            weeks=plan["weeks"],
-            hours=plan["hours_per_week"],
-            readiness_before=plan["readiness_before"],
-            readiness_after=plan["readiness_after"],
-            eta=plan["eta"],
-        )
+        profiles.set_target(user.id, body.career_id)
         gamification.award(user.id, "plan", body.career_id)
         users.audit(user.email, "plan:create", body.career_id)
-        return {"plan": plan}
+        payload = _roadmap_payload(plan, date.today())
+        payload["ratings"] = ratings
+        return {"plan": payload}
 
     @router.get("/plan")
     def latest_plan(user: User = Depends(current_user)) -> dict:  # noqa: B008
         plan = journey.latest_plan(user.id)
-        ratings = journey.ratings(user.id, plan["career_id"]) if plan else {}
-        return {"plan": plan, "ratings": ratings}
+        if plan is None:
+            return {"plan": None, "ratings": {}, "target": profiles.target(user.id)}
+        payload = _roadmap_payload(plan, date.today())
+        payload["ratings"] = journey.ratings(user.id, plan["career_id"])
+        return {"plan": payload, "ratings": payload["ratings"], "target": profiles.target(user.id)}
 
     @router.patch("/plan/{plan_id}/items")
-    def mark_item(
-        plan_id: int,
-        body: PlanItemBody,
-        user: User = Depends(current_user),  # noqa: B008
-    ) -> dict:
-        plan = journey.plan_by_id(user.id, plan_id)
+    def mark_item(plan_id: int, body: ItemBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
+        plan = journey.set_item_done(user.id, plan_id, body.item_id, body.done)
         if plan is None:
             raise HTTPException(404, "Plan not found.")
-        if body.done:
-            journey.set_item_done(user.id, plan_id, body.item_id, True)
-            gamification.award(user.id, "plan_item", f"plan:{plan_id}:{body.item_id}")
-        else:
-            with journey._connect() as conn:  # noqa: SLF001 - same package
-                conn.execute(
-                    "DELETE FROM xp_events WHERE user_id = ? AND kind = 'plan_item' AND detail = ?",
-                    (user.id, f"plan:{plan_id}:{body.item_id}"),
-                )
-        plan = journey.plan_by_id(user.id, plan_id)
-        return {"plan": plan}
+        payload = _roadmap_payload(plan, date.today())
+        payload["ratings"] = journey.ratings(user.id, plan["career_id"])
+        return {"plan": payload, "xp": gamification.status(user.id)}
 
     @router.get("/plan/{plan_id}.{fmt}")
     def export_plan(
         plan_id: int,
         fmt: Literal["md", "json", "ics", "pdf"],
         user: User = Depends(current_user),  # noqa: B008
-    ):  # noqa: E501
-        stored = journey.plan_by_id(user.id, plan_id)
-        if stored is None:
+    ):
+        plan = journey.plan_by_id(user.id, plan_id)
+        if plan is None:
             raise HTTPException(404, "Plan not found.")
-        headers = {"Content-Disposition": f"attachment; filename=roadmap-{plan_id}.{fmt}"}
-        if fmt == "json":
-            return PlainTextResponse(
-                to_json(_roadmap_object(stored)), media_type="application/json", headers=headers
-            )
+        roadmap = _roadmap_object(plan)
         if fmt == "md":
             return PlainTextResponse(
-                to_markdown(_roadmap_object(stored)), media_type="text/markdown", headers=headers
+                to_markdown(roadmap),
+                media_type="text/markdown",
+                headers={"Content-Disposition": f"attachment; filename=roadmap-{plan_id}.md"},
+            )
+        if fmt == "json":
+            return PlainTextResponse(
+                to_json(roadmap),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename=roadmap-{plan_id}.json"},
             )
         if fmt == "ics":
-            return PlainTextResponse(
-                to_ics(_roadmap_object(stored)), media_type="text/calendar", headers=headers
+            return Response(
+                to_ics(roadmap),
+                media_type="text/calendar",
+                headers={"Content-Disposition": f"attachment; filename=roadmap-{plan_id}.ics"},
             )
+        pdf = build_report({"user": {"email": user.email}, "roadmap": plan})
         return Response(
-            content=build_roadmap_pdf(stored), media_type="application/pdf", headers=headers
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=roadmap-{plan_id}.pdf"},
         )
 
-    # --------------------------------------------------------------- learn
+    # ------------------------------------------------------------------ learn
     @router.get("/learn")
-    def learn_list(
+    def learn(
         q: str = "",
         skill: str = "",
         language: str = "",
@@ -359,8 +501,9 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         offset: int = 0,
         user: User = Depends(current_user),  # noqa: B008
     ) -> dict:
-        _guard("learn")
-        results = content.resources(
+        if not settings_store.module_enabled("learn"):
+            raise HTTPException(503, "The learning hub is disabled by the administrator.")
+        rows = content.resources(
             q=q,
             skill=skill,
             language=language,
@@ -372,7 +515,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         )
         saved = set(journey.saved_resources(user.id))
         done = set(journey.done_resources(user.id))
-        for row in results:
+        for row in rows:
             row["saved"] = row["id"] in saved
             row["done"] = row["id"] in done
         total = len(
@@ -383,22 +526,26 @@ def build_router(settings, current_user, db, users) -> APIRouter:
                 provider=provider,
                 level=level,
                 free=free,
-                limit=100_000,
-            )
+                limit=1000,
+            )  # noqa: E501
         )
-        return {"results": results, "total": total, "filters": content.filters()}
+        return {
+            "results": rows,
+            "total": total,
+            "filters": content.filters(),
+            "source": (
+                "Source: curated free-course catalogue (data/learning_resources.yaml + admin edits)"
+            ),
+        }
 
     @router.get("/learn/saved")
-    def learn_saved(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        ids = journey.saved_resources(user.id)
+    def saved(user: User = Depends(current_user)) -> dict:  # noqa: B008
+        rows = [content.resource(i) for i in journey.saved_resources(user.id)]
         done = set(journey.done_resources(user.id))
-        results = []
-        for resource_id in ids:
-            row = content.resource(resource_id)
-            if row:
-                row["saved"] = True
-                row["done"] = row["id"] in done
-                results.append(row)
+        results = [row for row in rows if row]
+        for row in results:
+            row["saved"] = True
+            row["done"] = row["id"] in done
         return {"results": results}
 
     @router.post("/learn/{resource_id}/save")
@@ -414,7 +561,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         return {"saved": False}
 
     @router.post("/learn/{resource_id}/done")
-    def done_resource(
+    def mark_resource(
         resource_id: int,
         body: dict | None = None,
         user: User = Depends(current_user),  # noqa: B008
@@ -427,51 +574,171 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             gamification.award(user.id, "course_done", f"resource:{resource_id}")
         return {"done": done, "xp": gamification.status(user.id)}
 
-    # -------------------------------------------------------------- résumé
+    # ----------------------------------------------------------------- résumé
     @router.post("/resume/score")
-    def resume_score(body: ResumeBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        _guard("resume")
-        if body.target_career_id and catalog().get(body.target_career_id) is None:
-            raise HTTPException(404, "Unknown career id.")
+    def resume(body: ResumeBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
+        if not settings_store.module_enabled("resume"):
+            raise HTTPException(503, "Résumé analysis is disabled by the administrator.")
         if len(body.resume_text.strip()) < 40:
             raise HTTPException(422, "Paste at least a few lines of your résumé.")
+        if body.target_career_id and taxonomy().get(body.target_career_id) is None:
+            raise HTTPException(404, "Unknown career id.")
         result = score_resume(
-            body.resume_text, body.target_career_id, extra_skills=body.skills, taxonomy=catalog()
+            body.resume_text, body.target_career_id, extra_skills=body.skills, taxonomy=taxonomy()
         )
         payload = result.to_dict()
         payload["summary"] = explanations.render(
             "resume.headline",
-            locale="en",
             score=payload["score"],
             grade=payload["grade"],
-            title=(payload.get("target_career") or {}).get("title", "your target role"),
+            title=(payload.get("target_career") or {}).get("title") or "your target career",
         )
+        if payload.get("keyword_coverage", {}).get("missing"):
+            payload["next_step"] = explanations.render(
+                "resume.coverage",
+                percent=payload["keyword_coverage"]["percent"],
+                missing_count=len(payload["keyword_coverage"]["missing"]),
+                gap=payload["keyword_coverage"]["missing"][0],
+            )
         gamification.award(user.id, "resume", body.target_career_id or "no-target")
+        users.audit(user.email, "resume:score", str(payload["score"]))
         return payload
 
-    # ------------------------------------------------------------- compare
+    # ------------------------------------------------------- pathway & ladder
+    @router.get("/pathway/signals")
+    def pathway_signals(user: User = Depends(current_user)) -> dict:  # noqa: B008
+        """Prefill the pathway form from the saved profile."""
+        profile = profiles.get(user.id)
+        target = profiles.target(user.id)
+        return {
+            "profile": profile.to_dict() if profile else None,
+            "target": target,
+            "education_levels": list(EDUCATION_LEVELS),
+            "experience_levels": list(EXPERIENCE_LEVELS),
+            "source": "Source: your saved profile in this app",
+        }
+
+    @router.post("/pathway")
+    def pathway(body: PathwayBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
+        """“I want to become X — do I qualify, and what exactly do I do next?”"""
+        if not settings_store.module_enabled("plan"):
+            raise HTTPException(503, "Roadmaps are disabled by the administrator.")
+        catalog = taxonomy()
+        occupation = catalog.get(body.career_id)
+        if occupation is None:
+            raise HTTPException(404, "Unknown career id.")
+        profile = profiles.get(user.id)
+        education = body.education or (profile.education if profile else "") or ""
+        experience = body.experience_level or (profile.experience_level if profile else "") or ""
+        if experience and experience not in EXPERIENCE_LEVELS:
+            raise HTTPException(422, "Unknown experience level.")
+        hours = body.hours_per_week or (profile.hours_per_week if profile else 6) or 6
+        ratings = (
+            body.ratings if body.ratings is not None else journey.ratings(user.id, body.career_id)
+        )
+        signals = read_resume_signals(body.resume_text) if body.resume_text else None
+        if signals and not education:
+            education = signals["education"]
+        if signals and not experience:
+            experience = signals["experience_level"]
+        if not education and body.use_profile:
+            education = "Bachelor's degree"
+        company = market()
+        payload = build_pathway(
+            occupation,
+            taxonomy=catalog,
+            ratings=ratings,
+            resume_text=body.resume_text,
+            education=education,
+            experience_level=experience,
+            current_role=body.current_role,
+            hours_per_week=int(hours),
+            market=company,
+            resource_lookup=_resource_lookup(content, body.career_id),
+        )
+        payload["signals"] = signals
+        payload["resume_text_used"] = bool(body.resume_text.strip())
+        payload["hours_per_week"] = int(hours)
+        return payload
+
+    @router.get("/ladder")
+    def ladder(
+        career_id: str = "",
+        hours_per_week: int = 6,
+        user: User = Depends(current_user),  # noqa: B008
+    ) -> dict:
+        """Entry points, lateral moves and steps up from a role (or your target)."""
+        catalog = taxonomy()
+        target = profiles.target(user.id)
+        resolved = career_id or (target["career_id"] if target else "")
+        if not resolved:
+            raise HTTPException(422, "Set a target career first, or pass career_id.")
+        occupation = catalog.get(resolved)
+        if occupation is None:
+            raise HTTPException(404, "Unknown career id.")
+        profile = profiles.get(user.id)
+        payload = build_ladder(
+            occupation,
+            catalog,
+            ratings=journey.ratings(user.id, resolved),
+            resume_text="",
+            hours_per_week=max(1, min(40, int(hours_per_week))),
+            market=market(),
+            limit=6,
+        )
+        payload["profile_used"] = profile.to_dict() if profile else None
+        return payload
+
+    # -------------------------------------------------------------- compare
     @router.get("/compare")
     def compare(
         ids: str = Query(..., description="Comma-separated career ids (2–3)"),
         country: str = "in",
         user: User = Depends(current_user),  # noqa: B008
     ) -> dict:
-        _guard("compare")
+        if not settings_store.module_enabled("compare"):
+            raise HTTPException(503, "Comparison is disabled by the administrator.")
         wanted = [i.strip() for i in ids.split(",") if i.strip()][:3]
         if len(wanted) < 2:
             raise HTTPException(422, "Provide at least two career ids.")
-        taxonomy = catalog()
-        adapter = market_for(None)
+        catalog = taxonomy()
+        adapter = market()
         careers = []
         for career_id in wanted:
-            occupation = taxonomy.get(career_id)
+            occupation = catalog.get(career_id)
             if occupation is None:
                 raise HTTPException(404, f"Unknown career id: {career_id}")
-            families = adapter.seed.family_for(occupation)
             careers.append(
                 {
-                    **_career_payload(occupation, adapter, country),
-                    "family": families.id if families else "other",
+                    "id": occupation.id,
+                    "title": occupation.title,
+                    "description": occupation.description,
+                    "job_zone": occupation.job_zone,
+                    "skills": occupation.skills,
+                    "knowledge": occupation.knowledge,
+                    "technology": ranked_technology(occupation, limit=12),
+                    "holland_code": occupation.holland_code,
+                    "interests": occupation.interests,
+                    "alt_titles": occupation.alt_titles,
+                    "related": occupation.related,
+                    "hot_technology": occupation.hot_technology,
+                    "market": asdict(adapter.snapshot(occupation, country)),
+                    "market_us": asdict(adapter.snapshot(occupation, "us")),
+                    "remote": adapter.seed.remote_friendly(occupation),
+                    "salary_band_in": adapter.seed.band(occupation, "in"),
+                    "demand_label": adapter.seed.demand_label(occupation),
+                    "family": (
+                        adapter.seed.family_for(occupation).id
+                        if adapter.seed.family_for(occupation)
+                        else "other"
+                    ),  # noqa: E501
+                    "tasks": derive_tasks(occupation, limit=5),
+                    "education_path": education_path(occupation),
+                    "resources": [
+                        asdict(r)
+                        for skill in occupation.skills[:3]
+                        for r in resources_for(skill, 1)
+                    ],
                 }
             )
         shared = set(careers[0]["skills"])
@@ -493,10 +760,10 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         table = [
             {"label": "Job zone", "values": [c["job_zone"] for c in careers]},
             {
-                "label": "Salary (p50)",
-                "values": [c["market"]["salary_p50"] or "—" for c in careers],
-            },
-            {"label": "Demand", "values": [c["market"]["demand_label"] for c in careers]},
+                "label": f"Salary p50 ({country.upper()})",
+                "values": [c["market"]["salary_p50"] for c in careers],
+            },  # noqa: E501
+            {"label": "Demand", "values": [c["demand_label"] for c in careers]},
             {
                 "label": "Remote-friendly",
                 "values": ["Yes" if c["remote"] else "No" for c in careers],
@@ -510,57 +777,50 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             "shared_skills": sorted(shared)[:12],
             "unique_skills": unique,
             "table": table,
-            "source": market.seed.label,
             "template": explanations.render(
-                "compare.headline",
-                locale="en",
-                shared=", ".join(sorted(shared)[:5]) or "no shared core skills",
+                "compare.headline", shared=", ".join(sorted(shared)[:4]) or "no shared core skill"
             ),
+            "source": adapter.seed.label,
         }
 
-    # --------------------------------------------------------- transitions
+    # ---------------------------------------------------------- transitions
     @router.get("/transitions")
     def transitions(
-        from_: str = Query(alias="from"),
-        to: str = Query(...),
+        from_id: str = Query(..., alias="from"),
+        to_id: str = Query(..., alias="to"),
         user: User = Depends(current_user),  # noqa: B008
     ) -> dict:
-        _guard("transitions")
-        try:
-            path = find_path(from_, to, taxonomy=catalog())
-        except KeyError as error:
-            raise HTTPException(404, f"Unknown career id: {error.args[0]}") from error
+        if not settings_store.module_enabled("transitions"):
+            raise HTTPException(503, "Transition paths are disabled by the administrator.")
+        catalog = taxonomy()
+        for career_id in (from_id, to_id):
+            if catalog.get(career_id) is None:
+                raise HTTPException(404, f"Unknown career id: {career_id}")
+        path = find_path(from_id, to_id, taxonomy=catalog)
         payload = path.to_dict()
         payload["template"] = (
             explanations.render(
                 "transition.found",
-                locale="en",
                 hops=payload["hops"],
                 from_title=payload["from"]["title"],
                 to_title=payload["to"]["title"],
             )
             if payload["found"]
-            else explanations.render("transition.missing", locale="en")
+            else explanations.render("transition.missing")
         )
-        for hop in payload["path"]:
-            hop["template"] = explanations.render(
-                "transition.hop",
-                locale="en",
-                title=hop["title"],
-                delta_count=len(hop.get("delta_skills", [])),
-                delta=", ".join(hop.get("delta_skills", [])[:3]) or "none",
-            )
+        payload["source"] = payload.get("note", "Source: O*NET related-occupations graph")
         return payload
 
-    # ----------------------------------------------------------- interview
+    # ------------------------------------------------------------ interview
     @router.get("/interview/questions")
-    def interview_questions(
+    def interview(
         career_id: str,
         seed: int = 42,
         user: User = Depends(current_user),  # noqa: B008
     ) -> dict:
-        _guard("interview")
-        if catalog().get(career_id) is None:
+        if not settings_store.module_enabled("interview"):
+            raise HTTPException(503, "Interview practice is disabled by the administrator.")
+        if taxonomy().get(career_id) is None:
             raise HTTPException(404, "Unknown career id.")
         extras = content.interview_templates()
         kit = generate_interview(
@@ -572,183 +832,148 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         return kit.to_dict()
 
     @router.post("/interview/sessions")
-    def save_interview(body: InterviewBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
+    def save_session(body: InterviewBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
         session_id = journey.save_interview(user.id, body.career_id, body.seconds, body.notes)
         gamification.award(user.id, "interview", body.career_id)
         return {"id": session_id, "xp": gamification.status(user.id)}
 
     @router.get("/interview/sessions")
-    def interview_sessions(user: User = Depends(current_user)) -> dict:  # noqa: B008
+    def sessions(user: User = Depends(current_user)) -> dict:  # noqa: B008
         return {"sessions": journey.interview_sessions(user.id)}
 
-    # -------------------------------------------------------------- careers
-    @router.get("/careers")
-    def careers_list(
-        q: str = "",
-        family: str = "",
-        job_zone: int | None = None,
-        min_salary: int | None = None,
-        remote: bool | None = None,
-        limit: int = Query(default=40, ge=1, le=200),
-        offset: int = 0,
-        user: User = Depends(current_user),  # noqa: B008
-    ) -> dict:
-        taxonomy = catalog()
-        adapter = market_for(None)
-        rows = []
-        family_ids: set[str] = set()
-        for occupation in taxonomy.occupations:
-            found = adapter.seed.family_for(occupation)
-            if found:
-                family_ids.add(found.id)
-            if q and q.lower() not in occupation.title.lower():
-                continue
-            if job_zone and occupation.job_zone != job_zone:
-                continue
-            if family and (found.id if found else "other") != family:
-                continue
-            snapshot = adapter.snapshot(occupation, "in")
-            if min_salary and (snapshot.salary_p50 or 0) < min_salary:
-                continue
-            is_remote = adapter.seed.remote_friendly(occupation)
-            if remote is not None and is_remote != remote:
-                continue
-            rows.append(
-                {
-                    "id": occupation.id,
-                    "title": occupation.title,
-                    "job_zone": occupation.job_zone,
-                    "salary_p50": snapshot.salary_p50,
-                    "demand": adapter.seed.demand_label(occupation),
-                    "remote": is_remote,
-                    "family": found.id if found else "other",
-                }
-            )
-        rows.sort(key=lambda r: (-(r["salary_p50"] or 0), r["title"]))
-        return {
-            "total": len(rows),
-            "results": rows[offset : offset + limit],
-            "families": sorted(family_ids | {"other"}),
-            "source": market.seed.label,
-        }
-
-    # ------------------------------------------------------- gamification
+    # --------------------------------------------------------- gamification
     @router.get("/gamification")
-    def gamification_status(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        _guard("gamification")
-        return gamification.status(user.id)
+    def xp(user: User = Depends(current_user)) -> dict:  # noqa: B008
+        if not settings_store.module_enabled("gamification"):
+            raise HTTPException(503, "Gamification is disabled by the administrator.")
+        payload = gamification.status(user.id)
+        payload["rules"] = XP_RULES
+        return payload
 
     @router.post("/gamification/event")
-    def gamification_event(body: EventBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        allowed = {
-            "run",
-            "assessment",
-            "plan",
-            "plan_item",
-            "course_done",
-            "resume",
-            "jobfit",
-            "interview",
-            "feedback",
-            "visit",
-        }
-        if body.kind not in allowed:
-            raise HTTPException(422, "Unknown event kind.")
-        gamification.award(
-            user.id, body.kind, body.detail, points=0 if body.kind == "visit" else None
-        )
+    def xp_event(body: EventBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
+        gamification.award(user.id, body.kind, body.detail)
         return gamification.status(user.id)
 
     # ------------------------------------------------------- announcements
     @router.get("/announcements")
     def announcements(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        return {"announcements": settings_store.announcements()}
+        return {
+            "announcements": settings_store.announcements(active_only=True),
+            "source": "Source: admin announcements",
+        }
 
     # ------------------------------------------------------------ feedback
     @router.post("/feedback")
     def feedback(body: FeedbackBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
         feedback_id = users.add_feedback(
-            body.rating, body.comment, user.id, body.run_id, body.career_title, tool=body.tool
+            body.rating, body.comment, user.id, body.run_id, body.career_title
         )
+        if body.tool:
+            with users._connect() as conn:  # noqa: SLF001 - same package write
+                conn.execute("UPDATE feedback SET tool = ? WHERE id = ?", (body.tool, feedback_id))
         gamification.award(user.id, "feedback", f"feedback:{feedback_id}")
         return {"id": feedback_id}
 
-    # ----------------------------------------------------------- dashboard
+    # ------------------------------------------------------------ dashboard
     @router.get("/me/dashboard")
     def dashboard(user: User = Depends(current_user)) -> dict:  # noqa: B008
         profile = profiles.get(user.id)
         target = profiles.target(user.id)
         readiness_payload = None
-        plan_payload = None
+        roadmap = None
         if target:
-            readiness_payload = evaluate(
-                target["career_id"],
-                journey.ratings(user.id, target["career_id"]),
-                taxonomy=catalog(),
-            ).to_dict()
+            ratings = journey.ratings(user.id, target["career_id"])
+            result = evaluate(target["career_id"], ratings, taxonomy=taxonomy())
+            readiness_payload = result.to_dict()
             readiness_payload["template"] = explanations.render(
                 "readiness.summary",
-                locale="en",
                 readiness=readiness_payload["readiness_weighted"],
-                title=readiness_payload["title"],
+                title=result.occupation.title,
                 strong=readiness_payload["counts"]["strong"],
                 weak=readiness_payload["counts"]["weak"],
                 missing=readiness_payload["counts"]["missing"],
             )
-            candidate = journey.latest_plan(user.id)
-            if candidate and candidate["career_id"] == target["career_id"]:
-                plan_payload = candidate
-        xp = gamification.status(user.id)
+            plan = journey.latest_plan(user.id)
+            if plan and plan["career_id"] == target["career_id"]:
+                roadmap = _roadmap_payload(plan, date.today())
         runs = [r for r in db.list_runs(limit=200) if r.user_id == user.id][:6]
+        xp_payload = gamification.status(user.id)
+        announcements_payload = settings_store.announcements(active_only=True)
         return {
             "profile": profile.to_dict() if profile else None,
             "target": target,
             "readiness": readiness_payload,
-            "roadmap": plan_payload,
-            "xp": xp,
-            "streak": xp["streak"],
-            "recent_runs": [_run_payload(r) for r in runs],
-            "announcements": settings_store.announcements(),
+            "roadmap": roadmap,
+            "xp": xp_payload,
+            "streak": xp_payload["streak"],
+            "recent_runs": [
+                {
+                    "id": r.id,
+                    "created_at": r.created_at,
+                    "provider": r.provider,
+                    "is_demo": r.is_demo,
+                    "tool": r.profile.get("tool", "recommend"),
+                    "skills": str(r.profile.get("skills", ""))[:160],
+                    "goals": str(r.profile.get("goals", "")),
+                    "experience_level": r.profile.get("experience_level", ""),
+                    "recommendations": [
+                        {**asdict(rec), "match_percent": round(rec.match_score * 100, 1)}
+                        for rec in r.recommendations
+                    ],
+                }
+                for r in runs
+            ],
+            "assessments": assessments.history(user.id, limit=3),
+            "announcements": announcements_payload,
+            "source": "Source: your saved runs, self-ratings and activity in this app",
         }
 
     @router.get("/me/export")
     def export_me(user: User = Depends(current_user)) -> dict:  # noqa: B008
-        import datetime as _dt
-
         payload = journey.export_user(user.id)
+        profile = profiles.get(user.id)
+        payload["profile"] = (
+            profile.to_dict()
+            if profile
+            else {
+                "user_id": user.id,
+                "email": user.email,
+                "onboarded": False,
+                "skills": [],
+                "note": "onboarding not completed yet",
+            }
+        )
         payload["account"] = user.public()
-        payload["exported_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+        payload["exported_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        payload["note"] = "Complete copy of your data in this app (JSON)."
         return payload
 
-    # ------------------------------------------------------------- reports
-    @router.get("/reports/career.pdf")
-    def career_report(user: User = Depends(current_user)):  # noqa: B008
-        from career_guidance.reports import build_report
-
+    @router.get("/me/report.pdf")
+    def report(user: User = Depends(current_user)) -> Response:  # noqa: B008
         profile = profiles.get(user.id)
         target = profiles.target(user.id)
-        assessment = riasec.AssessmentStore(settings.database_path).latest(user.id)
         readiness_payload = None
         roadmap = None
         if target:
-            readiness_result = evaluate(
+            result = evaluate(
                 target["career_id"],
                 journey.ratings(user.id, target["career_id"]),
-                taxonomy=catalog(),
-            )
-            readiness_payload = readiness_result.to_dict()
+                taxonomy=taxonomy(),
+            )  # noqa: E501
+            readiness_payload = result.to_dict()
             roadmap = journey.latest_plan(user.id)
         matches = []
-        latest_run = next((r for r in db.list_runs(limit=100) if r.user_id == user.id), None)
-        if latest_run:
-            for rec in latest_run.recommendations:
+        runs = [r for r in db.list_runs(limit=50) if r.user_id == user.id]
+        if runs:
+            for rec in runs[0].recommendations[:5]:
                 matches.append(
                     {
                         "title": rec.title,
                         "match_percent": round(rec.match_score * 100, 1),
                         "readiness": readiness_payload["readiness_weighted"]
                         if readiness_payload
-                        else 0,  # noqa: E501
+                        else 0,
                         "why": (rec.provenance or {}).get("why") or [rec.match_reason],
                         "missing_skills": rec.missing_skills,
                     }
@@ -757,7 +982,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             {
                 "user": {"name": user.name, "email": user.email},
                 "profile": profile.to_dict() if profile else {},
-                "assessment": assessment,
+                "assessment": assessments.latest(user.id),
                 "matches": matches,
                 "readiness": readiness_payload,
                 "roadmap": roadmap,
@@ -769,148 +994,164 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             headers={"Content-Disposition": "attachment; filename=career-guidance-report.pdf"},
         )
 
+    @router.get("/me/activity")
+    def activity(days: int = 30, user: User = Depends(current_user)) -> dict:  # noqa: B008
+        daily = gamification.daily_xp(user.id, days=min(max(days, 7), 120))
+        return {
+            "daily": daily,
+            "streak": gamification.streak(user.id),
+            "levels": [
+                {"level": i + 1, "name": name, "xp": xp} for i, (xp, name) in enumerate(_levels())
+            ],
+            "source": "Source: your XP events in this app",
+        }
+
     return router
 
 
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
-def _career_payload(occupation, adapter, country: str = "in") -> dict:
-    """Career detail payload shared by /careers/{id}, /compare and the report."""
-    payload = {
-        **asdict(occupation),
-        "technology": occupation.technology[:15],
-        "market": market_payload(adapter, occupation, country),
-        "market_us": market_payload(adapter, occupation, "us"),
-        "related": [
-            {"id": r.id, "title": r.title, "job_zone": r.job_zone}
-            for r in (adapter_taxonomy().get(rid) for rid in occupation.related)
-            if r
-        ],
+def _levels():
+    from career_guidance.gamification import LEVELS
+
+    return LEVELS
+
+
+def _resource_lookup(content: ContentStore, career_id: str):
+    """Roadmap resource lookup: admin DB rows first, curated YAML as fallback."""
+
+    def lookup(skill: str, limit: int = 2):
+        found = content.resources_for_skill(skill, limit)
+        if found:
+            return found
+        return resources_for(skill, limit)
+
+    return lookup
+
+
+def _roadmap_object(plan: dict) -> Roadmap:
+    """Rebuild a Roadmap object from the stored JSON for exports."""
+    from career_guidance.models import LearningResource
+    from career_guidance.roadmap import RoadmapItem
+
+    items = [
+        RoadmapItem(
+            id=item["id"],
+            week=int(item["week"]),
+            skill=item["skill"],
+            title=item["title"],
+            hours=float(item["hours"]),
+            status=item.get("status", "missing"),
+            importance=float(item.get("importance", 5)) / 10,
+            prerequisite_of=list(item.get("prerequisite_of", [])),
+            resources=[
+                LearningResource(
+                    skill=resource.get("skill", item["skill"]),
+                    title=resource.get("title", ""),
+                    url=resource.get("url", ""),
+                    provider=resource.get("provider", ""),
+                    free=bool(resource.get("free", True)),
+                )
+                for resource in item.get("resources", [])
+            ],
+            milestone=item.get("milestone", ""),
+        )
+        for item in plan.get("items", [])
+    ]
+    return Roadmap(
+        occupation_id=plan["career_id"],
+        title=plan["title"],
+        hours_per_week=int(plan["hours_per_week"]),
+        weeks=int(plan["weeks"]),
+        eta=plan["eta"],
+        items=items,
+        milestones=list(plan.get("milestones", [])),
+        readiness_before=float(plan.get("readiness_before", 0)),
+        readiness_after=float(plan.get("readiness_after", 0)),
+        source=plan.get("source", ""),
+    )
+
+
+def related_rungs(occupation, catalog, market=None, limit: int = 6) -> list[dict]:
+    """Who can move *into* this role: explicit related roles, else family peers.
+
+    ``transitions_into`` only sees roles that list this one as ``related``; for
+    most occupations that list is short. Falling back to “same family, lower or
+    equal job zone, highest skill overlap” keeps the career page useful.
+    """
+    related = []
+    for rid in occupation.related:
+        occ = catalog.get(rid)
+        if occ is not None:
+            related.append(occ)
+    if len(related) < 3 and market is not None:
+        family = market.seed.family_for(occupation)
+        for occ in catalog.occupations:
+            if occ.id == occupation.id or occ.job_zone > occupation.job_zone:
+                continue
+            if family is not None and market.seed.family_for(occ) is not family:
+                continue
+            related.append(occ)
+    seen: set[str] = set()
+    out: list[dict] = []
+    for occ in related:
+        if occ.id in seen:
+            continue
+        seen.add(occ.id)
+        delta, shared = delta_skills(occ, occupation, limit=4)
+        out.append(
+            {
+                "id": occ.id,
+                "title": occ.title,
+                "job_zone": occ.job_zone,
+                "delta_skills": delta,
+                "shared_skills": shared,
+                "source": "Source: shared-skill delta over the bundled catalogue",
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
+def ladder_summary(occupation, catalog, market=None) -> dict:
+    """Small ladder block for the career page (entry / across / up)."""
+    payload = build_ladder(occupation, catalog, market=market, limit=4)
+    return {
+        "entry_points": payload["entry_points"],
+        "step_across": payload["step_across"],
+        "step_up": payload["step_up"],
+        "source": payload["source"],
+    }
+
+
+def career_extras(occupation, adapter, catalog) -> dict:
+    """Career-page extras used by ``GET /api/v1/careers/{id}`` in main.py."""
+    related = [catalog.get(rid) for rid in occupation.related]
+    return {
+        "technology": ranked_technology(occupation, limit=15),
+        "hot_technology": ranked_technology(occupation, limit=6),
+        "detected_from_skills": extract_skills(occupation.title),
         "tasks": derive_tasks(occupation, limit=8),
         "education_path": education_path(occupation),
         "skill_importance": [
-            {"skill": name, "importance": round(value * 10, 1), "raw": round(value, 3)}
-            for name, value in _importance(occupation)
+            {"skill": skill, "importance": round(value, 3), "importance_10": round(value * 10, 1)}
+            for skill, value in catalog_importance(occupation).items()
         ],
-        "resources": [
-            {
-                "id": None,
-                "skill": skill,
-                "title": r.title,
-                "url": r.url,
-                "provider": r.provider,
-                "free": r.free,
-            }
-            for skill in occupation.skills[:3]
-            for r in _default_resources(skill, 1)
-        ],
-        "transitions_in": transitions_into(occupation.id, taxonomy=adapter_taxonomy(), limit=6),
+        "market_us": asdict(adapter.snapshot(occupation, "us")),
+        "salary_band_in": adapter.seed.band(occupation, "in"),
+        "demand_label": adapter.seed.demand_label(occupation),
+        "remote": adapter.seed.remote_friendly(occupation),
         "family": (
             adapter.seed.family_for(occupation).id
             if adapter.seed.family_for(occupation)
             else "other"
         ),  # noqa: E501
-        "remote": adapter.seed.remote_friendly(occupation),
         "indian_titles": adapter.seed.indian_titles(occupation),
-        "detected_from_skills": extract_skills(occupation.title),
+        "transitions_in": transitions_into(occupation.id, taxonomy=catalog, limit=6)
+        or related_rungs(occupation, catalog, market=adapter),
+        "ladder": ladder_summary(occupation, catalog, market=adapter),
+        "related": [{"id": r.id, "title": r.title, "job_zone": r.job_zone} for r in related if r],
+        "source": adapter.seed.label,
     }
-    return payload
-
-
-def adapter_taxonomy():
-    from career_guidance.taxonomy import load_taxonomy
-
-    return load_taxonomy()
-
-
-def _default_resources(skill: str, limit: int):
-    from career_guidance.learning import resources_for
-
-    return resources_for(skill, limit)
-
-
-def _importance(occupation) -> list[tuple[str, float]]:
-    from career_guidance.skillgap import importance_weights
-
-    return importance_weights(occupation)[:12]
-
-
-def _readiness_template(readiness, explanations) -> str:
-    gap = readiness.next_gap()
-    if gap is None:
-        return explanations.render(
-            "readiness.summary",
-            locale="en",
-            readiness=round(readiness.readiness_weighted, 1),
-            title=readiness.occupation.title,
-            strong=len(readiness.strong),
-            weak=len(readiness.weak),
-            missing=len(readiness.missing),
-        )
-    return explanations.render(
-        "readiness.next",
-        locale="en",
-        gap=gap.skill,
-        importance=round(gap.importance * 100, 1),
-    )
-
-
-def _run_payload(run) -> dict:
-    from dataclasses import asdict as _asdict
-
-    return {
-        "id": run.id,
-        "created_at": run.created_at,
-        "provider": run.provider,
-        "is_demo": run.is_demo,
-        "skills": str(run.profile.get("skills", ""))[:200],
-        "goals": str(run.profile.get("goals", "")),
-        "experience_level": run.profile.get("experience_level", ""),
-        "recommendations": [
-            {**_asdict(rec), "match_percent": round(rec.match_score * 100, 1)}
-            for rec in run.recommendations  # noqa: E501
-        ],
-    }
-
-
-def _roadmap_object(payload: dict) -> Roadmap:
-    """Rebuild a :class:`Roadmap` from stored JSON so exports keep working."""
-    from career_guidance.models import LearningResource
-
-    items = [
-        RoadmapItem(
-            id=item["id"],
-            week=item["week"],
-            skill=item["skill"],
-            title=item["title"],
-            hours=item["hours"],
-            status=item["status"],
-            importance=item.get("importance", 5) / 10,
-            prerequisite_of=item.get("prerequisite_of", []),
-            resources=[
-                LearningResource(
-                    skill=r.get("skill", item["skill"]),
-                    title=r.get("title", ""),
-                    url=r.get("url", ""),
-                    provider=r.get("provider", ""),
-                    free=bool(r.get("free", True)),
-                )
-                for r in item.get("resources", [])
-            ],
-            milestone=item.get("milestone", ""),
-        )
-        for item in payload.get("items", [])
-    ]
-    return Roadmap(
-        occupation_id=payload.get("career_id", ""),
-        title=payload.get("title", ""),
-        hours_per_week=int(payload.get("hours_per_week", 6)),
-        weeks=int(payload.get("weeks", 0)),
-        eta=payload.get("eta", ""),
-        items=items,
-        milestones=payload.get("milestones", []),
-        readiness_before=payload.get("readiness_before", 0),
-        readiness_after=payload.get("readiness_after", 0),
-        source=payload.get("source", ""),
-    )

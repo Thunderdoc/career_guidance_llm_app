@@ -456,13 +456,28 @@ def career_detail(
     _: User = Depends(_session),  # noqa: B008
 ) -> dict:
     """One career with tasks, education path, market bands and transitions."""
-    from backend.journey import _career_payload
+    from backend.journey import career_extras
 
     taxonomy = _content_store().catalog()
     occupation = taxonomy.get(career_id)
     if not occupation:
         raise HTTPException(404, "Unknown occupation.")
-    return _career_payload(occupation, _market_adapter(), country)
+    adapter = _market_adapter()
+    payload = {
+        "id": occupation.id,
+        "title": occupation.title,
+        "description": occupation.description,
+        "job_zone": occupation.job_zone,
+        "skills": occupation.skills,
+        "knowledge": occupation.knowledge,
+        "alt_titles": occupation.alt_titles,
+        "holland_code": occupation.holland_code,
+        "interests": occupation.interests,
+        "market": asdict(adapter.snapshot(occupation, country)),
+        "source": adapter.seed.label,
+    }
+    payload.update(career_extras(occupation, adapter, taxonomy))
+    return payload
 
 
 @app.get("/api/v1/assessment/questions")

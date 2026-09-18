@@ -23,7 +23,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from career_guidance.skillgap import catalog_importance
 from career_guidance.taxonomy import Occupation, extract_skills, load_taxonomy, normalize_skill
 
 SOURCE = "Source: rule-based résumé analysis (keywords from the O*NET catalog)"
@@ -262,13 +261,16 @@ def score(
     detected = {s for s in extract_skills(text) if s}
     if extra_skills:
         detected |= set(extract_skills(extra_skills))
+    # Synonym expansion: "excel" also counts as "spreadsheet software", "tally" as
+    # "accounting software", Tamil/Hindi spellings as their English canonical.
+    detected_expanded = _expand_skills(detected)
 
     result = ResumeScore(target=target)
 
     # --- 1. keyword coverage -------------------------------------------------
     if target is not None:
         wanted = target_terms(target)
-        detected_norm = {normalize_skill(term) for term in detected}
+        detected_norm = {normalize_skill(term) or term for term in detected} | detected_expanded
         matched = [name for name in wanted if _term_present(name, lowered, detected_norm)]
         missing = [name for name in wanted if name not in matched]
         total_weight = sum(wanted.values()) or 1.0
@@ -324,36 +326,61 @@ def score(
 
 
 def target_terms(occupation: Occupation, max_terms: int = 18) -> dict[str, float]:
-    """Weighted keyword list for a target occupation: core skills + real tools.
+    """Weighted keyword list for a target occupation.
 
-    Skills come from O*NET importance (1–10), tools from the technology list
-    (slightly lower weight) — a résumé that names Tableau/SQL/Python scores well
-    even though the abstract O*NET skill is "Programming".
+    Delegates to :mod:`career_guidance.keywords`, which ranks the catalog's
+    alphabetically-stored tool lists into “curated, widely used, explainable”
+    tools instead of ABAP/AJAX/Acrobat noise.
     """
-    terms: dict[str, float] = {}
-    for rank, (name, importance) in enumerate(catalog_importance(occupation).items()):
-        if rank >= 10:
-            break
-        terms[name] = round(importance, 1)
-    for rank, tool in enumerate(occupation.technology[:10]):
-        terms.setdefault(tool, round(max(4.0, 9.0 - rank * 0.6), 1))
-    for rank, hot in enumerate(occupation.hot_technology[:5]):
-        terms.setdefault(hot, round(max(5.0, 9.5 - rank * 0.7), 1))
-    ordered = sorted(terms.items(), key=lambda kv: -kv[1])[:max_terms]
-    return dict(ordered)
+    from career_guidance.keywords import target_terms as _ranked
+
+    return _ranked(occupation, max_terms)
+
+
+def _expand_skills(detected: set[str]) -> set[str]:
+    """Expand detected skills with their canonical name and known aliases.
+
+    ``excel`` → ``spreadsheet software`` → ``microsoft excel`` … so a résumé
+    written with a local tool name satisfies the target occupation's keyword
+    list, and vice-versa.  Never raises: unknown terms are returned as-is.
+    """
+    if not detected:
+        return set()
+    try:
+        from career_guidance.synonyms import load_normalizer
+    except Exception:  # pragma: no cover - defensive
+        return set()
+    try:
+        normalizer = load_normalizer()
+    except Exception:  # pragma: no cover - defensive
+        return set()
+    out: set[str] = set()
+    for raw in detected:
+        if not raw:
+            continue
+        canonical = normalizer.normalize(raw)
+        if not canonical:
+            continue
+        out.add(canonical.lower())
+        try:
+            out.update(a.lower() for a in normalizer.expansions_for(canonical) if a)
+        except Exception:  # pragma: no cover - defensive
+            continue
+    return out
 
 
 def _term_present(term: str, lowered_text: str, detected_norm: set[str]) -> bool:
     """True when a target keyword appears in the résumé (canonical or verbatim)."""
-    normalized = normalize_skill(term) or term.lower()
+    normalized = (normalize_skill(term) or term.lower()).strip()
     if normalized and normalized in detected_norm:
         return True
     if term.lower() in lowered_text:
         return True
-    if len(normalized) >= 5 and normalized in lowered_text:
+    if len(normalized) >= 4 and normalized in lowered_text:
         return True
-    # Fuzzy: the résumé may say "dashboards" for "Tableau dashboards".
-    return any(len(d) >= 5 and (d in normalized or normalized in d) for d in detected_norm if d)
+    # Fuzzy / synonym: "excel" satisfies "spreadsheet software", "sql server"
+    # satisfies "sql", "data analysis" satisfies "analyzing data".
+    return any(len(d) >= 4 and (d in normalized or normalized in d) for d in detected_norm if d)
 
 
 def suggest_rewrites(

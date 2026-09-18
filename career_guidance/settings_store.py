@@ -88,10 +88,18 @@ class SettingsStore:
         return self.all().get(key, default if default is not None else DEFAULTS.get(key))
 
     def set_many(self, values: dict[str, Any], actor: str = "admin") -> dict[str, Any]:
-        """Persist settings; unknown keys are rejected (400-worthy client error)."""
+        """Persist settings; unknown keys are rejected (422-worthy client error)."""
         unknown = [k for k in values if not k.startswith(_MUTABLE_PREFIXES)]
         if unknown:
             raise KeyError(f"Unknown setting(s): {', '.join(sorted(unknown))}")
+        # Mirror the short feature-flag spelling onto the canonical module key so
+        # both the old and new admin screens switch the same module.
+        for key, value in list(values.items()):
+            if key.startswith("flags.") and not key.startswith("flags.module."):
+                module = key[len("flags.") :]
+                canonical = f"flags.module.{module}"
+                if canonical in DEFAULTS and canonical not in values:
+                    values[canonical] = value
         with self._connect() as conn:
             for key, value in values.items():
                 conn.execute(
@@ -138,7 +146,17 @@ class SettingsStore:
         return self.set_many({f"flags.{name}": value}, actor).get(f"flags.{name}", value)
 
     def module_enabled(self, module: str) -> bool:
-        return bool(self.all().get(f"flags.module.{module}", True))
+        """Feature flag for a screen.
+
+        The console may write either ``flags.module.x`` (canonical) or the short
+        ``flags.x``; both are honoured so a toggle in Settings never silently
+        does nothing.
+        """
+        overrides = self.overrides()
+        for key in (f"flags.module.{module}", f"flags.{module}"):
+            if key in overrides:
+                return bool(overrides[key])
+        return bool(DEFAULTS.get(f"flags.module.{module}", True))
 
     # ------------------------------------------------------------------ #
     def record_event(self, kind: str, detail: str = "") -> None:
