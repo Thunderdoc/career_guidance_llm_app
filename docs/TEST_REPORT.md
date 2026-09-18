@@ -59,8 +59,8 @@ depend on set iteration order, which moved a golden case in and out of the top 5
 * `npx tsc --noEmit` → clean (0 errors) with 371 extra + 97 core i18n keys × 3 locales type-checked.
 * `npx eslint .` → 0 errors, 1 warning (`@next/next/no-page-custom-font` on the
   Google-Fonts `<link>` in `app/layout.tsx` — expected for the App Router).
-* `NEXT_EXPORT=1 next build` → **993 static pages** (`/careers/[id]` × 974 + 19 routes),
-  first-load JS ≤ 240 kB.
+* `NEXT_EXPORT=1 next build` → **995 static pages** (`/careers/[id]` × 974 + 20 routes),
+  first-load JS ≤ 245 kB.
 
 ### 1.4 Black-box round (HTTP only, 43 checks)
 
@@ -187,7 +187,7 @@ table as a to-do list, not as evidence.
 
 1. **`pytest` coverage is 91 %, not 100 %** — the uncovered lines are network/live
    branches (L1, L2), Firebase REST calls, and defensive `except` blocks.
-2. **The static export contains 993 HTML shells**; `/careers/[id]` pages are
+2. **The static export contains 995 HTML shells**; `/careers/[id]` pages are
    prerendered for the 974 catalogue ids, so a catalogue change needs a rebuild
    (the Vercel build is dynamic and unaffected).
 3. **Service worker caching is shell-only** — a first-visit user who goes offline

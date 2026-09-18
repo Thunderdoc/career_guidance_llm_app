@@ -191,7 +191,7 @@ make blackbox-prod  # the same round against Render and the Vercel origin
 ```
 
 Current numbers: **skills Hit@5 1.0 (MRR 0.827) · interests Hit@5 1.0 · p95 ≈ 100 ms ·
-coverage 91 %**; static first-load JS ≤ 240 kB.
+coverage 91 %**; static first-load JS ≤ 245 kB.
 CI (`.github/workflows/ci.yml`) runs lint, tests, the coverage gate and the eval on
 every push and PR, and fails if Hit@5 drops below 0.75.
 
