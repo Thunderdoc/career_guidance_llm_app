@@ -59,19 +59,29 @@ jobs:
       # Plain buildx so the full log lands in the job output and the tail can be
       # reported below; the GHA layer cache is deliberately not used (mode=max
       # exports of ~1 GB failed against the 10 GB repo quota).
-      - name: Build image (no push)
+      - name: Resources
+        run: free -m; df -h /var/lib/docker 2>/dev/null | tail -1
+      - name: Build the web stage only
         run: |
           set -o pipefail
-          docker buildx build --progress=plain --push=false -t career-guidance:ci . 2>&1 | tee /tmp/docker-build.log | tail -30
+          docker buildx build --progress=plain --target web --push=false -t cg-web:ci . 2>&1 | tee /tmp/web.log | tail -15
+      - name: Build the full image
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          docker buildx build --progress=plain --push=false -t career-guidance:ci . 2>&1 | tee /tmp/full.log | tail -15
       - name: Report the failing tail on the PR
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo "#### Docker build failed on \`$GITHUB_SHA\` — last 150 lines"
+            echo "#### Docker build failed on \`$GITHUB_SHA\`"
             echo '```text'
-            tail -150 /tmp/docker-build.log
+            echo "--- free ---"; free -m || true
+            echo "--- oom events ---"; sudo dmesg 2>/dev/null | grep -iE "oom|killed process" | tail -5 || true
+            echo "--- web stage tail ---"; tail -n 60 /tmp/web.log 2>/dev/null || true
+            echo "--- full build tail ---"; tail -n 60 /tmp/full.log 2>/dev/null || true
             echo '```'
           } > /tmp/comment.md
           gh pr comment 3 --repo "${{ github.repository }}" --body-file /tmp/comment.md || echo "(no PR to comment on)"
