@@ -71,7 +71,7 @@ jobs:
           set -o pipefail
           docker buildx build --progress=plain --push=false -t career-guidance:ci . 2>&1 | tee /tmp/full.log | tail -15
       - name: Report the failing tail on the PR
-        if: failure()
+        if: failure() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -84,4 +84,4 @@ jobs:
             echo "--- full build tail ---"; tail -n 60 /tmp/full.log 2>/dev/null || true
             echo '```'
           } > /tmp/comment.md
-          gh pr comment 3 --repo "${{ github.repository }}" --body-file /tmp/comment.md || echo "(no PR to comment on)"
+          gh pr comment ${{ github.event.pull_request.number }} --repo "${{ github.repository }}" --body-file /tmp/comment.md || echo "(no PR to comment on)"

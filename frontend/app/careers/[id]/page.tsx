@@ -9,9 +9,9 @@ import { CareerDetailView } from "@/components/career-detail-view";
  *
  * The page body is client-rendered (it needs the session cookie), but the
  * route itself is statically generated for all 974 catalogue ids so that the
- * offline/CI export contains a shell for every career the app links to. When
- * the catalogue file is not next to the app (standalone Docker build) the list
- * is empty and the route is simply absent from the export.
+ * offline/CI export contains a shell for every career the app links to. The
+ * Dockerfile copies the catalogue next to the app for exactly this reason; the
+ * empty-list fallback only covers bare `cd frontend && next build` runs.
  */
 export const dynamicParams = false;
 
