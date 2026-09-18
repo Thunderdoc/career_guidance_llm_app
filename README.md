@@ -230,7 +230,8 @@ from the table above through the host's secret manager, and mount a volume at
 ├── scripts/build_catalog.py O*NET → catalog
 ├── docs/                    MASTER_PLAN.md, RESEARCH_ROADMAP.md
 ├── Dockerfile · docker-compose.yml · Makefile · .github/workflows/ci.yml
-└── app.py                   legacy Streamlit UI (reference only)
+├── app.py                   ASGI entry point (exports `app` for platform auto-detect)
+└── streamlit_app.py         legacy Streamlit UI (reference only)
 ```
 
 ## Roadmap & docs

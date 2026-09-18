@@ -60,7 +60,7 @@ The product is **done** when all of the following are true:
 ```
 
 Principles: core stays UI-agnostic and testable; every external dependency has an offline fallback;
-`app.py` (Streamlit) remains as an internal admin/debug view until v2.0 parity, then is removed.
+`streamlit_app.py` (Streamlit) remains as an internal admin/debug view until v2.0 parity, then is removed.
 
 ---
 
@@ -170,7 +170,7 @@ Each task lists its Definition of Done (DoD).
 | **P3 Market & depth** | 5–6 | B1–B4, A7, D8 compare, A9/D10 JD fit | Salary/demand on ≥ 90 % careers; compare works |
 | **P4 Personalisation** | 6–8 | C3 auth, C5 progress, C6 feedback, A8/D9 assessment, C7/D11 chat, D12 | Login → progress → return flow passes e2e |
 | **P5 Reach & polish** | 8–9 | D14 i18n (ta/hi), B5 India mapping, D15 a11y, D16 PWA, D17 analytics, A10 multi-LLM | Lighthouse ≥ 90; ta/hi complete |
-| **P6 Production hardening** | 9–10 | F2–F8, E5–E7, load test, security review, docs; remove `app.py` | All R1–R10 green; prod live |
+| **P6 Production hardening** | 9–10 | F2–F8, E5–E7, load test, security review, docs; remove `streamlit_app.py` | All R1–R10 green; prod live |
 
 Parallelisation: WS-A/B (backend engineer) and WS-D (front-end engineer) run concurrently from week 2; the API contract (Pydantic models from existing dataclasses) is frozen at end of P0.
 

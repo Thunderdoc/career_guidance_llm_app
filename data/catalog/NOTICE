@@ -1,0 +1,7 @@
+This directory contains data derived from the O*NET 24.1 Database by the
+U.S. Department of Labor, Employment and Training Administration (USDOL/ETA),
+used under the CC BY 4.0 license. O*NET(R) is a trademark of USDOL/ETA.
+Source: https://www.onetcenter.org/database.html
+The catalog was generated with scripts/build_catalog.py and is a filtered,
+reformatted subset (occupations, skills, knowledge, technology, job zones,
+alternate titles, RIASEC interest profiles, related occupations).
