@@ -1,4 +1,4 @@
-.PHONY: install dev api web test lint eval build catalog docker
+.PHONY: install dev api web test lint eval build catalog docker ci
 
 install:
 	pip install -r requirements-dev.txt && cd frontend && npm ci
@@ -29,3 +29,5 @@ build:
 
 docker:
 	docker compose up --build
+
+ci: lint test eval
