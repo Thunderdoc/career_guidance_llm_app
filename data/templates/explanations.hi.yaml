@@ -11,7 +11,7 @@ templates:
   match.jobzone: "जॉब ज़ोन {job_zone} — सामान्यतः {job_zone_label}; आपकी प्रोफ़ाइल ज़ोन {target_zone} दिखाती है।"
   match.jobzone_fit: "जॉब ज़ोन {job_zone} ({job_zone_label}) आपकी शिक्षा और अनुभव से मेल खाता है।"
   match.jobzone_gap: "यह आपके स्तर से {zone_distance} ज़ोन {direction} है — चुनौतीपूर्ण रहेगा।"
-  match.demand: "मांग {demand} है ({source})।"
+  match.demand: "मांग: {demand} ({source})।"
   match.salary: "सामान्य वेतन {salary_band} ({currency} प्रति वर्ष), {source}।"
   match.resources: "{gap} के लिए {resource_count} मुफ़्त कोर्स जुड़े हैं।"
   match.why_skills: "कौशल: {skills_score}%"

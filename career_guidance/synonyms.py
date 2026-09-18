@@ -261,6 +261,15 @@ class SynonymStore:
         self._normalizer = normalizer or load_normalizer()
         migrate(self._path)
 
+    @property
+    def normalizer(self):
+        """The alias→canonical engine this store writes into."""
+        return self._normalizer
+
+    def resolve(self, text: str, resume_text: str = ""):
+        """Delegate to the normaliser (keeps callers on one object)."""
+        return self._normalizer.resolve(text, resume_text)
+
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._path)
         conn.row_factory = sqlite3.Row

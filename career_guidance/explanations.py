@@ -38,6 +38,11 @@ class Explanations:
     overrides: dict[str, dict[str, str]] = field(default_factory=dict)
     updated: str = "2026-09"
 
+    @property
+    def locales(self) -> tuple[str, ...]:
+        """Locales with a loaded template file, English first."""
+        return tuple(sorted(self.templates, key=lambda loc: (loc != "en", loc)))
+
     # ------------------------------------------------------------------ #
     @classmethod
     def load(cls, directory: str | Path | None = None) -> Explanations:

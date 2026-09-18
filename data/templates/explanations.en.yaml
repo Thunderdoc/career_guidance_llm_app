@@ -15,7 +15,7 @@ templates:
   match.jobzone: "Job zone {job_zone} — typically {job_zone_label}; your profile points at zone {target_zone}."
   match.jobzone_fit: "Job zone {job_zone} ({job_zone_label}) matches your education and experience."
   match.jobzone_gap: "This sits {zone_distance} zone(s) {direction} your current level — expect a stretch."
-  match.demand: "Demand is {demand} ({source})."
+  match.demand: "Demand: {demand} ({source})."
   match.salary: "Typical pay {salary_band} ({currency} per year), {source}."
   match.resources: "{resource_count} free course(s) attached for {gap}."
   match.why_skills: "Skills: {skills_score}%"

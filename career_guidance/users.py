@@ -242,14 +242,27 @@ class UserStore:
     # ---- feedback ------------------------------------------------------ #
 
     def add_feedback(
-        self, rating: int, comment: str, user_id: str | None, run_id: int | None, career: str
+        self,
+        rating: int,
+        comment: str,
+        user_id: str | None,
+        run_id: int | None,
+        career: str,
+        tool: str = "",
     ) -> int:
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO feedback (created_at,user_id,run_id,career_title,rating,comment) "
-                "VALUES (?,?,?,?,?,?)",
-                (_now(), user_id, run_id, career[:200], rating, comment[:2000]),
-            )
+            try:
+                cur = conn.execute(
+                    "INSERT INTO feedback (created_at,user_id,run_id,career_title,rating,comment,tool) "  # noqa: E501
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (_now(), user_id, run_id, career[:200], rating, comment[:2000], tool[:40]),
+                )
+            except sqlite3.OperationalError:  # pre-v2 database without the tool column
+                cur = conn.execute(
+                    "INSERT INTO feedback (created_at,user_id,run_id,career_title,rating,comment) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (_now(), user_id, run_id, career[:200], rating, comment[:2000]),
+                )
             return int(cur.lastrowid or 0)
 
     def list_feedback(self, status: str | None = None, limit: int = 200) -> list[dict]:

@@ -48,7 +48,7 @@ DEFAULTS: dict[str, Any] = {
     "market.live_provider": "",  # e.g. "adzuna" when a free key is configured
 }
 
-_MUTABLE_PREFIXES = ("scoring.", "flags.", "roadmap.", "market.")
+_MUTABLE_PREFIXES = ("scoring.", "flags.", "roadmap.", "market.", "templates.")
 
 
 def _now() -> str:
@@ -122,6 +122,14 @@ class SettingsStore:
         }
         total = sum(weights.values()) or 1.0
         return {k: round(v / total, 4) for k, v in weights.items()}
+
+    def template_overrides(self) -> dict[str, dict[str, str]]:
+        """Admin edits to the explanation templates, keyed by locale."""
+        raw = self.get("templates.overrides", {}) or {}
+        return {
+            str(locale): {str(k): str(v) for k, v in (values or {}).items()}
+            for locale, values in raw.items()
+        }  # noqa: E501
 
     def feature_flags(self) -> dict[str, Any]:
         return {k[len("flags.") :]: v for k, v in self.all().items() if k.startswith("flags.")}

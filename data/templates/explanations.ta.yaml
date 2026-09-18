@@ -11,7 +11,7 @@ templates:
   match.jobzone: "வேலை மண்டலம் {job_zone} — பொதுவாக {job_zone_label}; உங்கள் சுயவிவரம் மண்டலம் {target_zone} ஐ குறிக்கிறது."
   match.jobzone_fit: "வேலை மண்டலம் {job_zone} ({job_zone_label}) உங்கள் கல்வி மற்றும் அனுபவத்திற்குப் பொருந்துகிறது."
   match.jobzone_gap: "இது உங்கள் நிலையை விட {zone_distance} மண்டலம் {direction} — சவாலானது."
-  match.demand: "தேவை {demand} ({source})."
+  match.demand: "தேவை: {demand} ({source})."
   match.salary: "வழக்கமான ஊதியம் {salary_band} ({currency} ஆண்டுக்கு), {source}."
   match.resources: "{gap} க்கான {resource_count} இலவச பாடங்கள் இணைக்கப்பட்டுள்ளன."
   match.why_skills: "திறன்கள்: {skills_score}%"

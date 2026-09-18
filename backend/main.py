@@ -20,17 +20,19 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend.admin import build_routers as build_account_routers
+from backend.admin import build_me_router
+from backend.admin_console import build_router as build_console_router
 from backend.assessment import QUESTIONS, score_assessment
 from backend.auth import Auth, load_auth_settings
 from backend.auth import build_router as build_auth_router
+from backend.journey import build_router as build_journey_router
 from backend.ratelimit import RateLimiter
 from career_guidance import __version__
 from career_guidance.analytics import summarize
 from career_guidance.config import configure_logging, load_settings
 from career_guidance.learning import resources_for
-from career_guidance.market import get_market_adapter
 from career_guidance.matching import get_matcher
+from career_guidance.matching2 import DEFAULT_WEIGHTS
 from career_guidance.models import InvalidInputError
 from career_guidance.profile import EXPERIENCE_LEVELS, CareerProfile
 from career_guidance.resume import extract_resume_text
@@ -62,12 +64,13 @@ _auth_settings = load_auth_settings()
 _users = UserStore(settings.database_path, _auth_settings.admin_emails)
 _auth = Auth(_auth_settings, _users)
 _auth_router, _current_user, _admin_user = build_auth_router(_auth)
-_me_router, _admin_router = build_account_routers(
-    _users, _db, _current_user, _admin_user, _auth.user_from
-)
+_me_router = build_me_router(_users, _db, _current_user)
+_journey_router = build_journey_router(settings, _current_user, _db, _users)
+_admin_console_router = build_console_router(settings, _users, _db, _admin_user)
 app.include_router(_auth_router)
 app.include_router(_me_router)
-app.include_router(_admin_router)
+app.include_router(_journey_router)
+app.include_router(_admin_console_router)
 
 
 # The product is private: every content endpoint requires a signed-in session.
@@ -121,7 +124,17 @@ async def _timing(request: Request, call_next):
 
 @app.on_event("startup")
 def _warm() -> None:
-    get_matcher()  # build TF-IDF index once
+    """Apply migrations and warm the cached catalog before the first request."""
+    from career_guidance.content_store import ContentStore
+    from career_guidance.migrations import LATEST_VERSION, migrate
+    from career_guidance.settings_store import SettingsStore
+
+    applied = migrate(settings.database_path)
+    if applied:
+        logger.info("Database migrated to v%s (applied %s)", LATEST_VERSION, applied)
+    ContentStore(settings.database_path)  # creates admin content tables
+    SettingsStore(settings.database_path)  # creates the settings table
+    get_matcher()  # build the TF-IDF index once
     from career_guidance.learning import set_overrides
 
     set_overrides(_users.resource_overrides())
@@ -154,6 +167,75 @@ class FitRequest(BaseModel):
     skills: str
     resume_text: str = ""
     job_description: str
+
+
+def _settings_store():
+    from career_guidance.settings_store import SettingsStore
+
+    return SettingsStore(settings.database_path)
+
+
+def _content_store():
+    from career_guidance.content_store import ContentStore
+
+    return ContentStore(settings.database_path)
+
+
+def _assessment_store():
+    from career_guidance import riasec
+
+    return riasec.AssessmentStore(settings.database_path)
+
+
+def _gamification():
+    from career_guidance.gamification import GamificationStore
+
+    return GamificationStore(settings.database_path)
+
+
+def _market_adapter():
+    """Curated seeds + admin India overrides, live provider when configured."""
+    from career_guidance.market_seed import load_seed
+    from career_guidance.suggestions2 import market_payload  # noqa: F401
+
+    store = _settings_store()
+    overrides = store.get("market.live", None)
+    if overrides:
+        try:  # optional free API adapter (Adzuna) configured by admins
+            from career_guidance.market import get_market_adapter
+            from career_guidance.market_seed import SeedMarketAdapter
+
+            seed = load_seed()
+            adapter = SeedMarketAdapter(seed, live=get_market_adapter())
+            adapter.set_overrides(_content_store().career_overrides())
+            return adapter
+        except Exception:  # noqa: BLE001 - fall back to curated seeds
+            logger.warning("live market adapter unavailable", exc_info=True)
+    from career_guidance.market_seed import build_adapter
+
+    adapter = build_adapter()
+    adapter.set_overrides(_content_store().career_overrides())
+    return adapter
+
+
+def _scoring_settings() -> dict:
+    from career_guidance.matching2 import DEFAULT_WEIGHTS
+
+    stored = _settings_store().scoring()
+    return {
+        "skills": float(stored.get("skills", DEFAULT_WEIGHTS["skills"])),
+        "interests": float(stored.get("interests", DEFAULT_WEIGHTS["interests"])),
+        "job_zone": float(stored.get("job_zone", DEFAULT_WEIGHTS["job_zone"])),
+    }
+
+
+def _locale_for(request: Request) -> str:
+    """Locale for the explanation templates, from Accept-Language."""
+    header = request.headers.get("accept-language", "")
+    for candidate in (header[:2], header[3:5]):
+        if candidate in ("en", "ta", "hi"):
+            return candidate
+    return "en"
 
 
 def _public_app() -> bool:
@@ -220,6 +302,7 @@ def recommend(
         raise HTTPException(429, "Too many requests — please wait a minute.")
     if body.experience_level not in EXPERIENCE_LEVELS:
         raise HTTPException(422, "Unknown experience level.")
+
     profile = CareerProfile(
         skills=body.skills,
         interests=body.interests,
@@ -228,40 +311,98 @@ def recommend(
         goals=body.goals,
         resume_text=body.resume_text,
     )
-    try:
-        from career_guidance.providers import get_provider
 
-        provider = get_provider(settings)
-        if body.interests_profile and hasattr(provider, "interests"):
-            provider.interests = body.interests_profile
-        result = generate_recommendations(profile, settings, provider)
+    # Interests: explicit quiz scores from the client, otherwise the most recent
+    # stored assessment run for this user.
+    interests = body.interests_profile
+    if not interests:
+        latest = _assessment_store().latest(user.id)
+        interests = latest["scores"] if latest else None
+
+    try:
+        profile.validate()
     except InvalidInputError as error:
         raise HTTPException(422, str(error)) from error
+
+    try:
+        from career_guidance.suggestions2 import recommend_v2
+
+        result = recommend_v2(
+            profile,
+            weights=_scoring_settings(),
+            interests=interests,
+            locale=_locale_for(request),
+            taxonomy=_content_store().catalog(),
+            db_path=settings.database_path,
+            market=_market_adapter(),
+        )
     except Exception:  # noqa: BLE001
-        logger.exception("recommendation failed")
-        raise HTTPException(500, "Something went wrong generating recommendations.") from None
+        logger.exception("matcher v2 failed, falling back to the offline provider")
+        from career_guidance.providers import get_provider
+
+        try:
+            fallback = generate_recommendations(profile, settings, get_provider(settings))
+        except InvalidInputError as error:
+            raise HTTPException(422, str(error)) from error
+        result = {
+            "provider": fallback.provider_name,
+            "is_demo": fallback.is_demo,
+            "used_fallback": True,
+            "priority_skills": fallback.priority_skills,
+            "detected_skills": extract_skills(body.skills),
+            "unmatched_skills": [],
+            "weights": DEFAULT_WEIGHTS,
+            "recommendations": [
+                {
+                    **asdict(rec),
+                    "match_percent": round(rec.match_score * 100, 1),
+                    "readiness": round(rec.match_score * 100, 1),
+                    "why": [rec.match_reason],
+                    "score_parts": {"skills": rec.match_score, "interests": 0.0, "job_zone": 0.0},
+                }
+                for rec in fallback.recommendations
+            ],
+            "source": "Source: offline provider fallback (template explanations)",
+        }
 
     run_id = None
     try:
+        from career_guidance.models import CareerRecommendation
+
+        stored = [CareerRecommendation.from_dict(rec) for rec in result["recommendations"]]
+        readiness = stored[0].provenance.get("score_parts", {}).get("skills", 0) if stored else 0
         run_id = _db.save_run(
-            profile.to_dict(),
-            result.recommendations,
-            result.provider_name,
-            result.is_demo,
+            {
+                **profile.to_dict(),
+                "tool": "recommend",
+                "flagged": 0,
+                "readiness": round(float(readiness) * 100, 1),
+            },
+            stored,
+            result["provider"],
+            result["is_demo"],
             _uid(user),
         )
+        _settings_store().record_tool("recommend", user.id, f"run {run_id}")
     except Exception:  # noqa: BLE001
         logger.exception("persist failed")
 
+    try:
+        _gamification().award(user.id, "run", f"run:{run_id}")
+    except Exception:  # noqa: BLE001 - gamification must never break a run
+        logger.warning("gamification award failed", exc_info=True)
+
     return {
         "run_id": run_id,
-        "provider": result.provider_name,
-        "is_demo": result.is_demo,
-        "used_fallback": result.used_fallback,
-        "priority_skills": result.priority_skills,
-        "detected_skills": extract_skills(body.skills)
-        + [s for s in extract_skills(body.resume_text) if s not in extract_skills(body.skills)],
-        "recommendations": [_rec_dict(r) for r in result.recommendations],
+        "provider": result["provider"],
+        "is_demo": result["is_demo"],
+        "used_fallback": result["used_fallback"],
+        "priority_skills": result["priority_skills"],
+        "detected_skills": result["detected_skills"],
+        "unmatched_skills": result.get("unmatched_skills", []),
+        "weights": result["weights"],
+        "recommendations": result["recommendations"],
+        "source": result.get("source", ""),
     }
 
 
@@ -300,7 +441,7 @@ def skills_suggest(q: str = "", limit: int = 8) -> dict:
 
 @app.get("/api/v1/careers/search")
 def careers_search(q: str, limit: int = 10) -> dict:
-    tax = load_taxonomy()
+    tax = _content_store().catalog()
     return {
         "results": [
             {"id": o.id, "title": o.title, "job_zone": o.job_zone} for o in tax.search(q, limit)
@@ -314,17 +455,14 @@ def career_detail(
     country: str = "in",
     _: User = Depends(_session),  # noqa: B008
 ) -> dict:
-    occ = load_taxonomy().get(career_id)
-    if not occ:
+    """One career with tasks, education path, market bands and transitions."""
+    from backend.journey import _career_payload
+
+    taxonomy = _content_store().catalog()
+    occupation = taxonomy.get(career_id)
+    if not occupation:
         raise HTTPException(404, "Unknown occupation.")
-    related = [load_taxonomy().get(r) for r in occ.related]
-    return {
-        **asdict(occ),
-        "technology": occ.technology[:15],
-        "market": asdict(get_market_adapter().snapshot(occ, country)),
-        "related": [{"id": r.id, "title": r.title, "job_zone": r.job_zone} for r in related if r],
-        "resources": [asdict(x) for s in occ.skills[:3] for x in resources_for(s, 1)],
-    }
+    return _career_payload(occupation, _market_adapter(), country)
 
 
 @app.get("/api/v1/assessment/questions")
@@ -338,18 +476,30 @@ def assessment(body: AssessmentRequest, _: User = Depends(_session)) -> dict:  #
 
 
 @app.post("/api/v1/jobs/fit")
-def job_fit(body: FitRequest, _: User = Depends(_session)) -> dict:  # noqa: B008
+def job_fit(body: FitRequest, user: User = Depends(_session)) -> dict:  # noqa: B008
+    """Rule-based JD fit: matched/missing keywords, readiness and free courses."""
     have = set(extract_skills(body.skills)) | set(extract_skills(body.resume_text))
-    need = extract_skills(body.job_description)
-    need = [s for s in need if len(s) > 2][:25]
+    need = [s for s in extract_skills(body.job_description) if len(s) > 2][:30]
     matched = [s for s in need if s in have]
     missing = [s for s in need if s not in have]
-    readiness = round(100 * len(matched) / len(need)) if need else 0
+    readiness = round(100 * len(matched) / len(need), 1) if need else 0
+    breakdown = {
+        "keyword_coverage": round(100 * len(matched) / len(need), 1) if need else 0,
+        "resume_signal": round(100 * min(1.0, len(extract_skills(body.resume_text)) / 10), 1),
+        "skills_box_signal": round(100 * min(1.0, len(have) / 12), 1),
+    }
+    try:
+        _gamification().award(user.id, "jobfit", f"jd:{len(need)}")
+    except Exception:  # noqa: BLE001
+        logger.warning("gamification award failed", exc_info=True)
     return {
         "readiness": readiness,
         "matched": matched,
         "missing": missing,
+        "keywords_to_add": missing[:10],
+        "score_breakdown": breakdown,
         "resources": [asdict(r) for s in missing[:4] for r in resources_for(s, 1)],
+        "source": "Source: O*NET skill extractor over your resume + the pasted job description",
     }
 
 

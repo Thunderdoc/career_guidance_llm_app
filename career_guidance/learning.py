@@ -60,6 +60,17 @@ def set_overrides(overrides: dict[str, list[dict]]) -> None:
     _OVERRIDES.update({k.lower(): v for k, v in overrides.items()})
 
 
+def clear_cache() -> bool:
+    """Drop the cached YAML course catalogue (admin cache-clear button)."""
+    _load.cache_clear()
+    return True
+
+
+def load_resources_yaml() -> dict[str, list[dict]]:
+    """Read the bundled YAML catalogue (seed for the admin resource table)."""
+    return _load()
+
+
 def all_skills() -> list[str]:
     """Every skill key that has curated resources."""
     return sorted(set(_load()) | set(_OVERRIDES))
