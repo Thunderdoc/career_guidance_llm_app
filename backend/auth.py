@@ -27,6 +27,7 @@ from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, EmailStr
 
+from backend.firebase import FirebaseVerifier
 from career_guidance.users import User, UserStore
 
 logger = logging.getLogger("career_guidance.auth")
@@ -48,6 +49,7 @@ class AuthSettings:
     smtp_password: str
     smtp_from: str
     app_env: str
+    firebase_project_id: str = ""
 
     @property
     def google_enabled(self) -> bool:
@@ -86,6 +88,7 @@ def load_auth_settings() -> AuthSettings:
         smtp_password=os.getenv("SMTP_PASSWORD", ""),
         smtp_from=os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "no-reply@localhost")),
         app_env=os.getenv("APP_ENV", "development"),
+        firebase_project_id=os.getenv("FIREBASE_PROJECT_ID", ""),
     )
 
 
@@ -97,6 +100,7 @@ class Auth:
         self.store = store
         self._sessions = URLSafeTimedSerializer(settings.secret, salt="session")
         self._states = URLSafeTimedSerializer(settings.secret, salt="oauth-state")
+        self.firebase = FirebaseVerifier(settings.firebase_project_id)
 
     # ---- sessions ----
     def issue(self, response: Response, user: User, request: Request | None = None) -> None:
@@ -210,6 +214,10 @@ class Auth:
 # ----------------------------------------------------------------------------- #
 
 
+class FirebaseTokenRequest(BaseModel):
+    id_token: str
+
+
 class MagicLinkRequest(BaseModel):
     email: EmailStr
     next: str = "/"
@@ -239,11 +247,40 @@ def build_router(auth: Auth) -> tuple[APIRouter, object, object]:
 
     @router.get("/providers")
     def providers() -> dict:
+        fb = auth.firebase.enabled
         return {
+            "firebase": fb,
             "google": auth.settings.google_enabled,
-            "magic_link": True,
+            # Magic link stays available as a no-dependency fallback when Firebase is off.
+            "magic_link": not fb or auth.settings.app_env != "production",
             "email_delivery": auth.settings.smtp_enabled,
         }
+
+    @router.post("/firebase")
+    def firebase_login(body: FirebaseTokenRequest, request: Request, response: Response) -> dict:
+        if not auth.firebase.enabled:
+            raise HTTPException(503, "Firebase is not configured (FIREBASE_PROJECT_ID).")
+        try:
+            claims = auth.firebase.verify(body.id_token)
+        except ValueError as e:
+            raise HTTPException(401, str(e)) from e
+        email = (claims.get("email") or "").lower()
+        if not email:
+            raise HTTPException(400, "Firebase account has no e-mail address.")
+        if (
+            claims.get("email_verified") is False
+            and claims.get("firebase", {}).get("sign_in_provider") == "password"
+        ):
+            raise HTTPException(403, "Please verify your e-mail address first.")
+        provider = "firebase:" + claims.get("firebase", {}).get("sign_in_provider", "unknown")
+        user = auth.store.upsert_login(
+            email, provider, claims.get("name", ""), claims.get("picture", "")
+        )
+        if user.disabled:
+            raise HTTPException(403, "This account has been disabled.")
+        auth.issue(response, user, request)
+        auth.store.audit(user.email, "login", provider)
+        return {"user": user.public()}
 
     @router.get("/me")
     def me(user: User | None = Depends(optional_user)) -> dict:  # noqa: B008

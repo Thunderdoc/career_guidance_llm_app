@@ -122,8 +122,9 @@ streamlit run app.py                       # legacy UI
 
 ## Accounts & admin console
 
-Anonymous use is first-class — nothing requires sign-in. Signing in (Google or
-e-mail magic link) keeps your runs across devices, adds a skill-progress
+Anonymous use is first-class — nothing requires sign-in. Signing in at `/login`
+(**Firebase Authentication**: Google or e-mail + password; e-mail magic link is
+the no-dependency fallback when Firebase is not configured) keeps your runs across devices, adds a skill-progress
 checklist, and lets you delete your data. Any e-mail listed in `ADMIN_EMAILS`
 becomes an **admin** and sees the **Admin** section in the sidebar:
 
@@ -136,9 +137,14 @@ becomes an **admin** and sees the **Admin** section in the sidebar:
 | Content | edit the learning resources shown per skill (DB overrides on top of `data/learning_resources.yaml`) |
 | Audit | log of logins and admin actions |
 
-Set-up (all optional, see `.env.example`): `SESSION_SECRET`, `PUBLIC_URL`,
-`ADMIN_EMAILS`, `GOOGLE_CLIENT_ID/SECRET` (redirect URI
-`{PUBLIC_URL}/api/v1/auth/google/callback`), `SMTP_*` for e-mailing links.
+Set-up (see `.env.example`): `FIREBASE_PROJECT_ID` + the public web config in
+`frontend/lib/firebase.ts` (or `NEXT_PUBLIC_FIREBASE_*`), `SESSION_SECRET`,
+`ADMIN_EMAILS`. In the Firebase console enable **Authentication → Sign-in
+method → Google** and **Email/Password**, and add your domain under
+**Authentication → Settings → Authorised domains**. The backend verifies Firebase
+ID tokens against Google's public certificates and issues its own HttpOnly
+session cookie; no service account is required for that. Keep any
+service-account JSON under `secrets/` (git-ignored).
 Without SMTP the magic link is printed to the server log and, outside
 production, shown in the sign-in dialog so you can test locally.
 

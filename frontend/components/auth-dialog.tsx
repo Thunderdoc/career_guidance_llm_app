@@ -1,41 +1,94 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Loader2, LogIn, Mail, X } from "lucide-react";
+import { Check, KeyRound, Loader2, LogIn, Mail, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { auth } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { emailPasswordIdToken, friendlyFirebaseError, googleIdToken, resetPassword } from "@/lib/firebase";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
+type Providers = { firebase: boolean; google: boolean; magic_link: boolean; email_delivery: boolean };
+
 export function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
-  const [providers, setProviders] = useState<{ google: boolean; email_delivery: boolean } | null>(null);
+  const { refresh } = useAuth();
+  const [providers, setProviders] = useState<Providers | null>(null);
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  const [devLink, setDevLink] = useState<string | null>(null);
-  const [err, setErr] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [busy, setBusy] = useState<"" | "google" | "email" | "magic" | "reset">("");
+  const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string; link?: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    auth.providers().then(setProviders).catch(() => setProviders({ google: false, email_delivery: false }));
+    setNotice(null);
+    auth.providers().then(setProviders).catch(() => setProviders({ firebase: false, google: false, magic_link: true, email_delivery: false }));
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", k);
     return () => document.removeEventListener("keydown", k);
   }, [open, onClose]);
 
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setState("sending");
-    setErr("");
+  const finish = async (idToken: string) => {
+    await auth.firebase(idToken);
+    await refresh();
+    onClose();
+  };
+
+  const withGoogle = async () => {
+    setBusy("google");
+    setNotice(null);
     try {
-      const r = await auth.magicLink(email, window.location.pathname);
-      setDevLink(r.dev_link ?? null);
-      setState("sent");
+      await finish(await googleIdToken());
     } catch (e) {
-      setErr((e as Error).message);
-      setState("error");
+      setNotice({ kind: "err", text: friendlyFirebaseError(e) });
+    } finally {
+      setBusy("");
     }
   };
+
+  const withEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy("email");
+    setNotice(null);
+    try {
+      await finish(await emailPasswordIdToken(email, password, mode));
+    } catch (e) {
+      setNotice({ kind: "err", text: friendlyFirebaseError(e) });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const withMagic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy("magic");
+    setNotice(null);
+    try {
+      const r = await auth.magicLink(email, window.location.pathname);
+      setNotice({ kind: "ok", text: t("link_sent_sub", { email }), link: r.dev_link });
+    } catch (e) {
+      setNotice({ kind: "err", text: (e as Error).message });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const forgot = async () => {
+    if (!email) return setNotice({ kind: "err", text: t("enter_email_first") });
+    setBusy("reset");
+    try {
+      await resetPassword(email);
+      setNotice({ kind: "ok", text: t("reset_sent", { email }) });
+    } catch (e) {
+      setNotice({ kind: "err", text: friendlyFirebaseError(e) });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const fb = providers?.firebase;
 
   return (
     <AnimatePresence>
@@ -59,67 +112,78 @@ export function AuthDialog({ open, onClose }: { open: boolean; onClose: () => vo
                 <X size={16} />
               </button>
               <div className="relative">
-                <div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-accent/15 text-accent ring-1 ring-accent/30">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/15 text-accent ring-1 ring-accent/30">
                   <LogIn size={18} />
                 </div>
-                <h2 className="mt-3 font-serif text-2xl">{t("sign_in")}</h2>
+                <h2 className="mt-3 font-serif text-2xl">{mode === "signup" && fb ? t("create_account") : t("sign_in")}</h2>
                 <p className="mt-1 text-sm text-fg-2">{t("sign_in_sub")}</p>
 
-                {providers?.google && (
-                  <a
-                    href={auth.googleUrl(window.location.pathname)}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-black transition hover:bg-white/90"
-                  >
-                    <GoogleMark /> {t("continue_google")}
-                  </a>
-                )}
-
-                {providers?.google && (
-                  <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-wider text-fg-3">
-                    <span className="h-px flex-1 bg-white/10" /> {t("or")} <span className="h-px flex-1 bg-white/10" />
-                  </div>
-                )}
-
-                <AnimatePresence mode="wait">
-                  {state === "sent" ? (
-                    <motion.div key="sent" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-5 rounded-xl bg-bg-3 p-4 text-sm">
-                      <div className="flex items-center gap-2 text-accent">
-                        <Check size={16} /> {t("link_sent")}
+                {providers === null ? (
+                  <Loader2 className="mt-6 animate-spin text-fg-3" size={18} />
+                ) : fb ? (
+                  <>
+                    <button
+                      onClick={withGoogle}
+                      disabled={!!busy}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-black transition hover:bg-white/90 disabled:opacity-60"
+                    >
+                      {busy === "google" ? <Loader2 size={16} className="animate-spin" /> : <GoogleMark />} {t("continue_google")}
+                    </button>
+                    <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-wider text-fg-3">
+                      <span className="h-px flex-1 bg-white/10" /> {t("or")} <span className="h-px flex-1 bg-white/10" />
+                    </div>
+                    <form onSubmit={withEmail} className="flex flex-col gap-2">
+                      <Input id="auth-email" type="email" icon={<Mail size={16} />} value={email} onChange={setEmail} placeholder="you@example.com" label={t("email")} autoFocus />
+                      <Input id="auth-pass" type="password" icon={<KeyRound size={16} />} value={password} onChange={setPassword} placeholder="••••••••" label={t("password")} minLength={6} />
+                      <button
+                        type="submit"
+                        disabled={!!busy || !email || password.length < 6}
+                        className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-50"
+                      >
+                        {busy === "email" && <Loader2 size={16} className="animate-spin" />}
+                        {mode === "signup" ? t("create_account") : t("sign_in")}
+                      </button>
+                      <div className="flex justify-between text-[11px] text-fg-3">
+                        <button type="button" onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className="hover:text-fg">
+                          {mode === "signup" ? t("have_account") : t("no_account")}
+                        </button>
+                        <button type="button" onClick={forgot} disabled={busy === "reset"} className="hover:text-fg">
+                          {t("forgot_password")}
+                        </button>
                       </div>
-                      <p className="mt-1 text-fg-2">{t("link_sent_sub", { email })}</p>
-                      {devLink && (
-                        <a href={devLink} className="mt-3 block truncate rounded-lg bg-gold/10 px-3 py-2 text-xs text-gold ring-1 ring-gold/30">
+                    </form>
+                  </>
+                ) : (
+                  <form onSubmit={withMagic} className="mt-5 flex flex-col gap-2">
+                    <Input id="auth-email" type="email" icon={<Mail size={16} />} value={email} onChange={setEmail} placeholder="you@example.com" label={t("email")} autoFocus />
+                    <button
+                      type="submit"
+                      disabled={!!busy || !email}
+                      className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-50"
+                    >
+                      {busy === "magic" ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />} {t("send_link")}
+                    </button>
+                  </form>
+                )}
+
+                <AnimatePresence>
+                  {notice && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className={cn("mt-3 rounded-xl p-3 text-xs", notice.kind === "ok" ? "bg-accent/10 text-fg-2 ring-1 ring-accent/20" : "bg-danger/10 text-red-300 ring-1 ring-danger/30")}
+                    >
+                      <div className="flex items-start gap-2">
+                        {notice.kind === "ok" && <Check size={14} className="mt-0.5 shrink-0 text-accent" />}
+                        <span>{notice.text}</span>
+                      </div>
+                      {notice.link && (
+                        <a href={notice.link} className="mt-2 block truncate rounded-lg bg-gold/10 px-3 py-2 text-gold ring-1 ring-gold/30">
                           {t("dev_link")} →
                         </a>
                       )}
                     </motion.div>
-                  ) : (
-                    <motion.form key="form" onSubmit={send} className={cn("flex flex-col gap-2", !providers?.google && "mt-5")}>
-                      <label className="text-xs text-fg-3" htmlFor="auth-email">
-                        {t("email")}
-                      </label>
-                      <div className="flex items-center gap-2 rounded-xl bg-bg-4 px-3 ring-1 ring-white/5 focus-within:ring-accent">
-                        <Mail size={16} className="text-fg-3" />
-                        <input
-                          id="auth-email"
-                          type="email"
-                          required
-                          autoFocus
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="you@example.com"
-                          className="w-full bg-transparent py-2.5 text-sm text-fg placeholder:text-fg-3 focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={state === "sending" || !email}
-                        className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-50"
-                      >
-                        {state === "sending" ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />} {t("send_link")}
-                      </button>
-                      {err && <p className="text-xs text-red-400">{err}</p>}
-                    </motion.form>
                   )}
                 </AnimatePresence>
                 <p className="mt-4 text-[11px] leading-snug text-fg-3">{t("sign_in_privacy")}</p>
@@ -129,6 +193,32 @@ export function AuthDialog({ open, onClose }: { open: boolean; onClose: () => vo
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+function Input({
+  id, type, icon, value, onChange, placeholder, label, autoFocus, minLength,
+}: { id: string; type: string; icon: React.ReactNode; value: string; onChange: (v: string) => void; placeholder: string; label: string; autoFocus?: boolean; minLength?: number }) {
+  return (
+    <>
+      <label className="text-xs text-fg-3" htmlFor={id}>
+        {label}
+      </label>
+      <div className="flex items-center gap-2 rounded-xl bg-bg-4 px-3 ring-1 ring-white/5 focus-within:ring-accent">
+        <span className="text-fg-3">{icon}</span>
+        <input
+          id={id}
+          type={type}
+          required
+          autoFocus={autoFocus}
+          minLength={minLength}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-transparent py-2.5 text-sm text-fg placeholder:text-fg-3 focus:outline-none"
+        />
+      </div>
+    </>
   );
 }
 

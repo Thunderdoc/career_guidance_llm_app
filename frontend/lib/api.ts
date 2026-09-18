@@ -72,7 +72,8 @@ export type User = {
 
 export const auth = {
   me: () => request<{ user: User | null }>("/api/v1/auth/me"),
-  providers: () => request<{ google: boolean; magic_link: boolean; email_delivery: boolean }>("/api/v1/auth/providers"),
+  providers: () => request<{ firebase: boolean; google: boolean; magic_link: boolean; email_delivery: boolean }>("/api/v1/auth/providers"),
+  firebase: (id_token: string) => request<{ user: User }>("/api/v1/auth/firebase", { method: "POST", body: JSON.stringify({ id_token }) }),
   magicLink: (email: string, next = "/") =>
     request<{ sent: boolean; dev_link?: string }>("/api/v1/auth/magic-link", { method: "POST", body: JSON.stringify({ email, next }) }),
   googleUrl: (next = "/") => `${BASE}/api/v1/auth/google?next=${encodeURIComponent(next)}`,

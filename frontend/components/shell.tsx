@@ -175,7 +175,7 @@ export function Shell() {
             </div>
           ) : (
             <button
-              onClick={() => setSignIn(true)}
+              onClick={() => (window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`)}
               className={cn("mb-2 flex w-full items-center gap-2 rounded-[var(--radius-md)] bg-accent/10 px-3 py-2 text-xs font-medium text-accent ring-1 ring-accent/20 transition hover:bg-accent/15", collapsed && "justify-center px-0")}
               title={t("sign_in")}
             >
@@ -238,7 +238,7 @@ export function Shell() {
         active={page}
         onSelect={(id) => {
           if (id === "about") setAbout(true);
-          else if (id === "login") setSignIn(true);
+          else if (id === "login") window.location.href = "/login";
           else if (id === "logout") logout().then(() => setPage("recommend"));
           else setPage(id as PageId);
         }}

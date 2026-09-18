@@ -12,6 +12,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
@@ -37,6 +38,7 @@ from career_guidance.suggestions import format_recommendations_markdown, generat
 from career_guidance.taxonomy import extract_skills, load_taxonomy
 from career_guidance.users import UserStore
 
+load_dotenv()  # .env at repo root (ignored by git); real env vars take precedence
 settings = load_settings()
 logger = configure_logging(settings)
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
