@@ -21,7 +21,6 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { LOCALES, useI18n, type Key } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-context";
-import { AuthDialog } from "./auth-dialog";
 import { AdminView } from "./admin-view";
 import { Dock, ScrollProgress, Spotlight } from "./motion";
 import { RecommendView } from "./recommend-view";
@@ -48,7 +47,6 @@ export function Shell() {
   const [hollandCode, setHollandCode] = useState<string | null>(null);
   const { t, locale, setLocale } = useI18n();
   const { user, logout } = useAuth();
-  const [signIn, setSignIn] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const NAV = [
     ...NAV_DEF,
@@ -245,7 +243,6 @@ export function Shell() {
       />
 
       <AboutModal open={about} onClose={() => setAbout(false)} />
-      <AuthDialog open={signIn} onClose={() => setSignIn(false)} />
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-panel px-4 py-2 text-xs text-fg shadow-[var(--shadow-lg)] ring-1 ring-white/10">

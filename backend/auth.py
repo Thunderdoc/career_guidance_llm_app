@@ -267,12 +267,16 @@ def build_router(auth: Auth) -> tuple[APIRouter, object, object]:
         email = (claims.get("email") or "").lower()
         if not email:
             raise HTTPException(400, "Firebase account has no e-mail address.")
-        if (
-            claims.get("email_verified") is False
-            and claims.get("firebase", {}).get("sign_in_provider") == "password"
-        ):
-            raise HTTPException(403, "Please verify your e-mail address first.")
-        provider = "firebase:" + claims.get("firebase", {}).get("sign_in_provider", "unknown")
+        sign_in_provider = claims.get("firebase", {}).get("sign_in_provider", "unknown")
+        # Google (and other federated IdPs) already verified the address. For
+        # email/password we REQUIRE Firebase's email_verified — never trust the client.
+        if sign_in_provider == "password" and claims.get("email_verified") is not True:
+            raise HTTPException(
+                403,
+                "Please verify your email address before signing in. "
+                "Check your inbox for the verification link.",
+            )
+        provider = f"firebase:{sign_in_provider}"
         user = auth.store.upsert_login(
             email, provider, claims.get("name", ""), claims.get("picture", "")
         )

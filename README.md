@@ -137,9 +137,16 @@ becomes an **admin** and sees the **Admin** section in the sidebar:
 | Content | edit the learning resources shown per skill (DB overrides on top of `data/learning_resources.yaml`) |
 | Audit | log of logins and admin actions |
 
-Set-up (see `.env.example`): `FIREBASE_PROJECT_ID` + the public web config in
-`frontend/lib/firebase.ts` (or `NEXT_PUBLIC_FIREBASE_*`), `SESSION_SECRET`,
-`ADMIN_EMAILS`. In the Firebase console enable **Authentication → Sign-in
+**E-mail verification is enforced**: after sign-up Firebase sends a verification
+link; the client signs the user out until it is clicked, and the backend
+independently rejects any email/password ID token whose `email_verified` is not
+true. Google users are already verified by Google. Protected pages use the
+`<RequireAuth>` guard (`/admin` also needs `admin`), and every `/api/v1/me/*`
+and `/api/v1/admin/*` route enforces authentication/authorisation server-side
+(role is read from the database, never from the client).
+
+Set-up (see `.env.example` and `frontend/.env.example`): `FIREBASE_PROJECT_ID`
++ `NEXT_PUBLIC_FIREBASE_*` public web config, `SESSION_SECRET`, `ADMIN_EMAILS`. In the Firebase console enable **Authentication → Sign-in
 method → Google** and **Email/Password**, and add your domain under
 **Authentication → Settings → Authorised domains**. The backend verifies Firebase
 ID tokens against Google's public certificates and issues its own HttpOnly

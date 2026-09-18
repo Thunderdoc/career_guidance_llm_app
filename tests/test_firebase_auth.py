@@ -36,6 +36,7 @@ def _token(key, **over):
         "firebase": {"sign_in_provider": "google.com"},
     }
     claims.update(over)
+    claims = {k: v for k, v in claims.items() if v is not None}  # None removes a claim
     return jwt.encode(claims, key, algorithm="RS256", headers={"kid": "k1"})
 
 
@@ -81,5 +82,27 @@ def test_bad_tokens_rejected(client, keypair):
 
 
 def test_unverified_password_email_blocked(client, keypair):
-    tok = _token(keypair[0], email_verified=False, firebase={"sign_in_provider": "password"})
-    assert client.post("/api/v1/auth/firebase", json={"id_token": tok}).status_code == 403
+    for claims in (
+        {"email_verified": False, "firebase": {"sign_in_provider": "password"}},
+        {"email_verified": None, "firebase": {"sign_in_provider": "password"}},  # claim missing
+    ):
+        tok = _token(keypair[0], email="u@example.com", **claims)
+        r = client.post("/api/v1/auth/firebase", json={"id_token": tok})
+        assert r.status_code == 403 and "verify" in r.json()["detail"].lower()
+        assert client.get("/api/v1/auth/me").json()["user"] is None  # no session issued
+
+
+def test_verified_password_user_is_not_admin(client, keypair):
+    tok = _token(
+        keypair[0], email="u@example.com", sub="u2", firebase={"sign_in_provider": "password"}
+    )
+    r = client.post("/api/v1/auth/firebase", json={"id_token": tok})
+    assert r.status_code == 200 and r.json()["user"]["is_admin"] is False
+    assert r.json()["user"]["provider"] == "firebase:password"
+    assert client.get("/api/v1/me/runs").status_code == 200  # authenticated: allowed
+    assert client.get("/api/v1/admin/overview").status_code == 403  # not authorised
+
+
+def test_google_user_without_verified_claim_allowed(client, keypair):
+    tok = _token(keypair[0], email="g@example.com", sub="g1", email_verified=None)
+    assert client.post("/api/v1/auth/firebase", json={"id_token": tok}).status_code == 200

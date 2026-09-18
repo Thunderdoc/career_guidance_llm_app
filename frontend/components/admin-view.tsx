@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { admin, type AdminOverview, type AdminUser, type Feedback, type ResourceRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { RequireAuth } from "./require-auth";
 import { cn } from "@/lib/cn";
 import { AnimatedNumber, TextEffect } from "./motion";
 
@@ -35,17 +36,17 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function AdminView() {
+  return (
+    <RequireAuth admin>
+      <AdminInner />
+    </RequireAuth>
+  );
+}
+
+function AdminInner() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
-  if (!user?.is_admin) {
-    return (
-      <div className="pt-16 text-center">
-        <ShieldOff className="mx-auto text-fg-3" />
-        <h1 className="mt-4 font-serif text-3xl">Admin only</h1>
-        <p className="mt-2 text-sm text-fg-2">Sign in with an administrator account to open this page.</p>
-      </div>
-    );
-  }
+  if (!user) return null;
   return (
     <div className="flex flex-col gap-6">
       <header className="pt-4">

@@ -1,12 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Check, KeyRound, Loader2, Mail, Sparkles, Target, TrendingUp, BookOpen } from "lucide-react";
+import { ArrowLeft, Check, KeyRound, Loader2, Mail, MailCheck, Sparkles, Target, TrendingUp, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { auth } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { emailPasswordIdToken, friendlyFirebaseError, googleIdToken, resetPassword } from "@/lib/firebase";
+import { UnverifiedEmailError, firebaseConfigured, friendlyFirebaseError, resendVerification, resetPassword, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/firebase";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { AnimatedGroup, TextEffect, TextLoop } from "./motion";
@@ -26,12 +26,20 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [busy, setBusy] = useState<"" | "google" | "email" | "magic" | "reset">("");
-  const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string; link?: string } | null>(null);
+  const [busy, setBusy] = useState<"" | "google" | "email" | "magic" | "reset" | "resend">("");
+  const [notice, setNotice] = useState<{ kind: "ok" | "err" | "verify"; text: string; link?: string } | null>(null);
+  const [unverified, setUnverified] = useState(false);
   const next = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") || "/" : "/";
 
   useEffect(() => {
-    auth.providers().then(setProviders).catch(() => setProviders({ firebase: false, google: false, magic_link: true, email_delivery: false }));
+    auth
+      .providers()
+      .then((p) => setProviders({ ...p, firebase: p.firebase && firebaseConfigured }))
+      .catch(() => setProviders({ firebase: false, google: false, magic_link: true, email_delivery: false }));
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("verified") === "1") setNotice({ kind: "ok", text: t("verified_banner") });
+    if (q.get("reason") === "auth") setNotice({ kind: "err", text: t("login_required") });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -48,11 +56,35 @@ export function LoginPage() {
     try {
       await fn();
     } catch (e) {
-      setNotice({ kind: "err", text: friendlyFirebaseError(e) });
+      if (e instanceof UnverifiedEmailError) {
+        setUnverified(true);
+        setNotice({ kind: "verify", text: t("verify_blocked") });
+      } else {
+        setNotice({ kind: "err", text: friendlyFirebaseError(e) });
+      }
     } finally {
       setBusy("");
     }
   };
+
+  const submitEmail = () =>
+    run("email", async () => {
+      setUnverified(false);
+      if (mode === "signup") {
+        const r = await signUpWithEmail(email, password);
+        setMode("signin");
+        setUnverified(true);
+        setNotice({ kind: "verify", text: t("verify_sent", { email: r.email }) });
+        return;
+      }
+      await finish(await signInWithEmail(email, password));
+    });
+
+  const resend = () =>
+    run("resend", async () => {
+      await resendVerification(email, password);
+      setNotice({ kind: "verify", text: t("verify_resent", { email }) });
+    });
 
   const fb = providers?.firebase;
 
@@ -114,7 +146,7 @@ export function LoginPage() {
             ) : fb ? (
               <>
                 <button
-                  onClick={() => run("google", async () => finish(await googleIdToken()))}
+                  onClick={() => run("google", async () => finish(await signInWithGoogle()))}
                   disabled={!!busy}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-white/90 hover:shadow-[0_0_28px_rgba(255,255,255,0.15)] disabled:opacity-60"
                 >
@@ -126,7 +158,7 @@ export function LoginPage() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    run("email", async () => finish(await emailPasswordIdToken(email, password, mode)));
+                    submitEmail();
                   }}
                   className="flex flex-col gap-3"
                 >
@@ -186,12 +218,29 @@ export function LoginPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   role="status"
-                  className={cn("mt-4 rounded-xl p-3 text-xs", notice.kind === "ok" ? "bg-accent/10 text-fg-2 ring-1 ring-accent/20" : "bg-danger/10 text-red-300 ring-1 ring-danger/30")}
+                  className={cn(
+                    "mt-4 rounded-xl p-3 text-xs",
+                    notice.kind === "ok" && "bg-accent/10 text-fg-2 ring-1 ring-accent/20",
+                    notice.kind === "verify" && "bg-gold/10 text-fg ring-1 ring-gold/30",
+                    notice.kind === "err" && "bg-danger/10 text-red-300 ring-1 ring-danger/30",
+                  )}
                 >
                   <div className="flex items-start gap-2">
                     {notice.kind === "ok" && <Check size={14} className="mt-0.5 shrink-0 text-accent" />}
+                    {notice.kind === "verify" && <MailCheck size={14} className="mt-0.5 shrink-0 text-gold" />}
                     <span>{notice.text}</span>
                   </div>
+                  {unverified && fb && (
+                    <button
+                      type="button"
+                      onClick={resend}
+                      disabled={!!busy || !email || password.length < 6}
+                      title={password.length < 6 ? t("resend_needs_password") : undefined}
+                      className="mt-2 inline-flex items-center gap-1 rounded-lg bg-gold/15 px-3 py-1.5 text-gold ring-1 ring-gold/30 hover:bg-gold/25 disabled:opacity-50"
+                    >
+                      {busy === "resend" ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />} {t("resend_verification")}
+                    </button>
+                  )}
                   {notice.link && (
                     <a href={notice.link} className="mt-2 block truncate rounded-lg bg-gold/10 px-3 py-2 text-gold ring-1 ring-gold/30">
                       {t("dev_link")} →

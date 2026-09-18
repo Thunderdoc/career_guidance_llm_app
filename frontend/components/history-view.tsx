@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import type { HistoryRun } from "@/lib/types";
 import { AnimatedGroup, AnimatedNumber, Disclosure, TextEffect } from "./motion";
+import { ProgressPanel } from "./progress-panel";
 
 type Analytics = { total_runs: number; ai_runs?: number; demo_runs?: number; top_careers?: [string, number][]; top_missing_skills?: [string, number][] };
 
@@ -81,6 +82,8 @@ export function HistoryView() {
           </AnimatePresence>
         </div>
       </header>
+
+      {user && runs && <ProgressPanel runs={runs} />}
 
       {stats && stats.total_runs > 0 && (
         <AnimatedGroup className="grid grid-cols-2 gap-3 sm:grid-cols-4" stagger={0.08}>
