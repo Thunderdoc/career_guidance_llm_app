@@ -102,6 +102,64 @@ A low-cost, multilingual, self-serve tool is directly aligned with this gap.
 17. **Export/share**: PDF report; shareable read-only link; counsellor mode that batch-processes
     a class of students.
 
+## 4b. Front-end track — animated, fully customised UI with Motion Primitives
+
+**Goal.** Move from a static Streamlit page to a bespoke, motion-rich interface using
+[Motion Primitives](https://motion-primitives.com) (open-source animated components built on
+Motion + Tailwind CSS), and strip out anything not essential to the core journey.
+
+**Constraint.** Motion Primitives components are React. Streamlit owns its own React tree and
+cannot mount third-party React components except through heavyweight custom-component iframes.
+A genuinely customised, animated site therefore needs a **decoupled front end**.
+
+**Target architecture**
+```
+frontend/   Next.js (App Router) + Tailwind + Motion + Motion Primitives  ← all UI/animation
+backend/    FastAPI wrapping the existing, UI-agnostic `career_guidance` package
+            POST /api/recommend   GET /api/history   GET /api/analytics   POST /api/resume
+app.py      kept temporarily as a fallback / admin view, removed once parity is reached
+```
+The core package already has no Streamlit dependency (see README "Architecture"), so the
+backend is a thin adapter; all tests continue to pass unchanged.
+
+**Page design & which primitives to use**
+| Region | Purpose | Motion Primitives |
+|---|---|---|
+| Hero | One headline, one CTA, nothing else | `Text Effect` (per-word reveal), `Spotlight` / `Animated Background`, `Magnetic` CTA |
+| Profile form | Single-column progressive form; skills first, everything else revealed step by step | `Animated Group` (stagger fields in), `Disclosure` for optional fields, `Border Trail` on the active field |
+| Loading state | Replace spinner with a sense of progress | `Text Shimmer` ("Matching your skills…"), `Text Loop` (rotating status lines) |
+| Results | 5 career cards that enter on scroll, coverage counts up | `In View` + `Animated Group` stagger, `Animated Number` / `Sliding Number` for coverage %, `Glow Effect` on best fit, `Tilt` on hover |
+| Card detail | Skill chips, learning path, next steps without page navigation | `Morphing Dialog` (card expands into detail), `Transition Panel` (tabs), `Accordion` |
+| Skill gaps | Visually prioritised "learn these first" | `Text Roll` on chips, `Progressive Blur` for long lists |
+| Navigation | Minimal persistent controls | `Dock` (Recommend · History · Analytics), `Scroll Progress` bar |
+| History / Analytics | Secondary; collapsed by default | `Carousel` for past runs, `Animated Number` for metrics |
+
+**Remove / de-emphasise (not necessary for the core journey)**
+- Sidebar radio navigation, version/env captions, "How it works" and "Tips" text blocks
+  (replace with inline placeholders and micro-copy).
+- Separate About page → footer line + modal.
+- Analytics as a first-class page → small stats strip under History.
+- Redundant success/info banners; mode badge becomes a single subtle pill.
+- Duplicate download buttons → one "Export" action on the results header.
+
+**Design system**
+- Tailwind tokens: one accent (indigo 600), neutral greys, generous whitespace, 12–16 px radius.
+- Reduced-motion: honour `prefers-reduced-motion` (Motion supports this globally).
+- Performance budget: LCP < 2.5 s; animate only `transform`/`opacity`; lazy-load below-the-fold
+  primitives.
+- Accessibility: focus states on all animated controls; dialogs trap focus; text never relies on
+  animation to be readable.
+
+**Delivery plan**
+1. Scaffold `frontend/` (Next.js + Tailwind + Motion), install Motion Primitives via its CLI.
+2. Add `backend/api.py` (FastAPI) exposing the four endpoints; CORS for the dev origin.
+3. Build Hero + Form + Results with the primitives above; wire to `/api/recommend`.
+4. Add History/Analytics strip, export, reduced-motion & a11y pass.
+5. Dockerfile serves API + static build; retire `app.py`.
+
+Effort: ~2–3 weeks for parity with animation; overlaps well with Tier 1 backend work since
+the API contract (`CareerRecommendation` JSON) is already defined by the dataclasses.
+
 ## 5. Risks & guardrails
 - **Bias & fairness**: taxonomy grounding reduces but does not remove LLM bias; never use
   demographics as features; log and review recommendations by experience level.
@@ -120,7 +178,9 @@ Everything the field and the market reward — accuracy, trust, explainability, 
 comes from one architectural move: **ground both modes in an open occupation/skill taxonomy
 (O*NET + ESCO) with semantic matching, then layer live labour-market data on top.**
 
-Recommended sequence:
+Recommended sequence (backend and front-end tracks run in parallel):
+0. **Front-end track**: decouple UI into Next.js + Motion Primitives over a FastAPI adapter,
+   cutting non-essential regions (see §4b) — this is the visible transformation.
 1. Taxonomy-backed catalog + skill normalisation + semantic demo matching (makes demo mode
    genuinely useful and gives the LLM something to retrieve).
 2. RAG-grounded LLM with provenance and a small evaluation set.
