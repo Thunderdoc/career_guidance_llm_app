@@ -14,7 +14,7 @@ import { api, profile as profileApi } from "@/lib/api";
 import type { ProfileOptions } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { Button, Card, Field, PageHeader, SourceLabel, inputCls } from "./ui";
-import { ProgressRing, TextEffect } from "./motion";
+import { ProgressRing } from "./motion";
 
 const STEPS = ["onb_step_about", "onb_step_edu", "onb_step_skills", "onb_step_goal", "onb_step_plan"] as const;
 
@@ -380,9 +380,4 @@ export function OnboardingWizard() {
       <SourceLabel text={t("onb_footer_source")} />
     </div>
   );
-}
-
-export function OnboardingTitle() {
-  const { t } = useI18n();
-  return <TextEffect className="font-serif text-3xl">{t("onb_title")}</TextEffect>;
 }

@@ -490,3 +490,23 @@ def test_admin_401_body_is_json(app_module, path):
         response = anonymous.get(path)
     assert response.status_code == 401
     assert json.loads(response.text)["detail"]
+
+
+def test_admin_overview_aggregates_existing_runs(admin_client):
+    """Regression: overview crashed with AttributeError once runs existed."""
+    admin_client.post(
+        "/api/v1/recommend",
+        json={
+            "skills": "sql, excel, tableau",
+            "goals": "data analyst",
+            "experience_level": "Junior (0-2 years)",
+            "education": "Bachelor's degree",
+        },
+    )
+    overview = admin_client.get("/api/v1/admin/overview").json()
+    assert overview["runs"]["total"] >= 1
+    assert overview["runs"]["per_day"]
+    assert overview["top_requested_skills"], "requested skills must be counted from the runs"
+    assert all(isinstance(row, list) and len(row) == 2 for row in overview["top_requested_skills"])
+    assert overview["averages"]["match"] >= 0
+    assert "top_missing_skills" in overview and "errors" in overview

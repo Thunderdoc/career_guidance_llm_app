@@ -30,12 +30,11 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { api, auth, gamification } from "@/lib/api";
+import { api, gamification } from "@/lib/api";
 import type { XpStatus } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { LOCALES, useI18n, type Key } from "@/lib/i18n";
@@ -52,6 +51,7 @@ const NAV: { group: Key; items: NavItem[] }[] = [
     items: [
       { href: "/dashboard", label: "nav_dashboard", icon: <LayoutDashboard size={17} /> },
       { href: "/recommend", label: "nav_recommend", icon: <Compass size={17} /> },
+      { href: "/pathway", label: "nav_pathway", icon: <Route size={17} /> },
       { href: "/discover", label: "nav_discover", icon: <Target size={17} /> },
     ],
   },

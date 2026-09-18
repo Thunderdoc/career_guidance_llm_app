@@ -210,9 +210,25 @@ export const api = {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== "" && v !== null) qs.set(k, String(v));
     });
-    return request<{ total: number; results: { id: string; title: string; job_zone: number; salary_p50: number | null; demand: string; remote: boolean; family: string }[] }>(
-      `/api/v1/careers?${qs.toString()}`,
-    );
+    return request<{
+      total: number;
+      results: {
+        id: string;
+        title: string;
+        family: string;
+        family_label?: string;
+        job_zone: number;
+        salary_p50: number | null;
+        currency_symbol?: string;
+        demand_label?: string;
+        remote: boolean;
+        indian_titles?: string[];
+        top_skills?: string[];
+        technology?: string[];
+      }[];
+      filters?: { families: { id: string; label: string }[]; zones: number[] };
+      source?: string;
+    }>(`/api/v1/careers?${qs.toString()}`);
   },
   career: (id: string, country = "in") =>
     request<CareerDetail>(`/api/v1/careers/${encodeURIComponent(id)}?country=${country}`),
@@ -371,6 +387,151 @@ export const discover = {
       "/api/v1/discover",
       { method: "POST", body: JSON.stringify({ answers }) },
     ),
+};
+
+/* -------------------------------------------------------------------------- */
+/* Pathway & ladder (flagship: “I want to become X — do I qualify?”)            */
+/* -------------------------------------------------------------------------- */
+
+export type LadderRung = {
+  id: string;
+  title: string;
+  direction: "entry" | "across" | "up";
+  job_zone: number;
+  coverage: number;
+  shared_skills: string[];
+  gap_skills: string[];
+  gap_count: number;
+  study_hours: number;
+  weeks_at_your_pace: number;
+  holland_code: string | null;
+  source: string;
+  salary_p50?: number | null;
+  currency?: string;
+  market_source?: string;
+  demand_label?: string;
+  remote?: boolean;
+  family?: string;
+};
+
+export type LadderResult = {
+  current: { id: string; title: string; job_zone: number; family: string; skills_considered: number; skill_count: number };
+  entry_points: LadderRung[];
+  step_across: LadderRung[];
+  step_up: LadderRung[];
+  owned_skills: string[];
+  hours_per_week: number;
+  source: string;
+  profile_used?: Profile | null;
+};
+
+export type PathwayBridge = {
+  title: string;
+  duration: string;
+  cost_inr: string;
+  eligibility: string;
+  entrance: string;
+  why: string;
+  career_id?: string;
+  source: string;
+};
+
+export type PathwayPhase = {
+  phase: number;
+  label: string;
+  start_week: number;
+  weeks: number;
+  focus_skills: string[];
+  hours: number;
+  action: string;
+  checkpoint: string;
+  resources: { skill: string; title: string; url: string; provider?: string; free?: boolean }[];
+};
+
+export type PathwayResult = {
+  verdict: {
+    verdict: "eligible" | "reachable" | "blocked";
+    headline: string;
+    eligible_now: boolean;
+    coverage: number;
+    user_zone: number;
+    requirements: { requirement: string; status: "met" | "partial" | "missing"; detail: string; source: string }[];
+    blockers: { kind: string; severity: "hard" | "soft"; text: string }[];
+    hard_blockers: string[];
+    strengths: string[];
+    shared_skills: string[];
+    gap_skills: string[];
+    gap_count: number;
+    profession: {
+      id: string;
+      label: string;
+      requires: string[];
+      cannot: string;
+      open_to_any_degree: boolean;
+    } | null;
+    target: { id: string; title: string; job_zone: number };
+    source: string;
+  };
+  target: { id: string; title: string; job_zone: number; family: string; core_skills: string[] };
+  market: {
+    salary_p25: number | null;
+    salary_p50: number | null;
+    salary_p75: number | null;
+    currency: string;
+    symbol: string;
+    demand_label: string;
+    trend: string;
+    remote: boolean;
+    band: string;
+    source: string;
+  } | null;
+  plan: {
+    phases: PathwayPhase[];
+    total_hours: number;
+    weeks: number;
+    eta: string;
+    hours_per_week: number;
+    source: string;
+  };
+  bridges: PathwayBridge[];
+  alternatives: LadderRung[];
+  open_doors: { title: string; eligibility: string; entrance: string; duration: string }[];
+  ladder: { entry_points: LadderRung[]; step_across: LadderRung[]; step_up: LadderRung[] };
+  next_step: string;
+  sources: Record<string, string>;
+  signals: {
+    education: string;
+    education_candidates: string[];
+    experience_years: number;
+    experience_level: string;
+    skills: string[];
+    skill_count: number;
+    source: string;
+  } | null;
+  resume_text_used: boolean;
+  hours_per_week: number;
+};
+
+export const pathway = {
+  signals: () =>
+    request<{ profile: Profile | null; target: { career_id: string; title: string } | null; education_levels: string[]; experience_levels: string[]; source: string }>(
+      "/api/v1/pathway/signals",
+    ),
+  run: (body: {
+    career_id: string;
+    resume_text?: string;
+    education?: string;
+    experience_level?: string;
+    hours_per_week?: number;
+    current_role?: string;
+    ratings?: Record<string, number>;
+  }) => request<PathwayResult>("/api/v1/pathway", { method: "POST", body: JSON.stringify(body) }),
+  ladder: (careerId?: string, hoursPerWeek = 6) => {
+    const qs = new URLSearchParams({ hours_per_week: String(hoursPerWeek) });
+    if (careerId) qs.set("career_id", careerId);
+    return request<LadderResult>(`/api/v1/ladder?${qs.toString()}`);
+  },
+  reportUrl: () => `${BASE}/api/v1/me/report.pdf`,
 };
 
 export const gamification = {

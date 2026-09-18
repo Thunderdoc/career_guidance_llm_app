@@ -8,6 +8,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { extraEn, extraHi, extraTa } from "./i18n-extra";
+
 export type Locale = "en" | "ta" | "hi";
 
 export const LOCALES: { id: Locale; label: string; native: string }[] = [
@@ -116,6 +118,7 @@ const en = {
   server_unreachable: "The server is not responding yet. Check your connection, then retry.",
   continue_google_redirect: "Continue with Google (redirect)",
   redirect_fallback_hint: "Popups are blocked here — use the redirect button above to sign in on a full page.",
+  ...extraEn,
 };
 
 export type Dict = typeof en;
@@ -221,6 +224,7 @@ const ta: Dict = {
   forgot_password: "கடவுச்சொல் மறந்துவிட்டதா?",
   reset_sent: "{email} க்கு கடவுச்சொல் மீட்டமைப்பு மின்னஞ்சல் அனுப்பப்பட்டது.",
   enter_email_first: "முதலில் உங்கள் மின்னஞ்சலை உள்ளிடவும்.",
+  ...extraTa,
 };
 
 const hi: Dict = {
@@ -323,6 +327,7 @@ const hi: Dict = {
   forgot_password: "पासवर्ड भूल गए?",
   reset_sent: "{email} पर पासवर्ड रीसेट ई-मेल भेजा गया।",
   enter_email_first: "पहले अपना ई-मेल दर्ज करें।",
+  ...extraHi,
 };
 
 export const DICTS: Record<Locale, Dict> = { en, ta, hi };

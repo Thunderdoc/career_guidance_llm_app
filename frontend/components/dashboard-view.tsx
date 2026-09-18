@@ -54,7 +54,7 @@ export function DashboardView() {
           <Button href="/recommend" variant="primary">
             <Sparkles size={15} /> {t("nav_recommend")}
           </Button>
-          <Button href="/reports/career.pdf" variant="outline">
+          <Button href="/api/v1/me/report.pdf" variant="outline">
             <Download size={15} /> {t("dash_report")}
           </Button>
         </div>
@@ -281,7 +281,7 @@ export function DashboardView() {
             <p className="mt-2 text-sm text-fg-3">{t("dash_no_announcements")}</p>
           ) : (
             <ul className="mt-3 flex flex-col gap-2 text-sm">
-              {data.announcements.map((a) => (
+              {(data.announcements ?? []).map((a) => (
                 <li key={a.id} className="rounded-xl border border-white/8 p-3">
                   <p className="text-fg">{a.title}</p>
                   <p className="text-xs text-fg-3">{a.body}</p>

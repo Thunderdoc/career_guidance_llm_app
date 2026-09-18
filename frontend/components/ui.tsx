@@ -18,13 +18,17 @@ export function Card({
   children,
   className,
   as: Tag = "section",
+  ...rest
 }: {
   children: React.ReactNode;
   className?: string;
   as?: "section" | "div" | "article";
-}) {
+} & React.HTMLAttributes<HTMLElement>) {
   return (
-    <Tag className={cn("rounded-2xl border border-white/8 bg-bg-2/70 p-5 backdrop-blur-sm", className)}>
+    <Tag
+      className={cn("rounded-2xl border border-white/8 bg-bg-2/70 p-5 backdrop-blur-sm", className)}
+      {...rest}
+    >
       {children}
     </Tag>
   );

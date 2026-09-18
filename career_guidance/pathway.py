@@ -23,6 +23,7 @@ same plan.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 from functools import lru_cache
@@ -52,6 +53,53 @@ EDUCATION_ZONES = {
 #: A gap worth this many hours of study (curated; shown to the user as a source).
 HOURS_PER_GAP_SKILL = 14.0
 WEEKS_PER_PHASE = 4
+
+#: Phrases that prove the user already holds a regulated profession's entry
+#: qualification when they appear in the résumé, education field or current role.
+#: Without this a B.Sc Nursing graduate was told the nursing gate was unmet.
+GATE_EVIDENCE: dict[str, tuple[str, ...]] = {
+    "nurse": (
+        "nursing",
+        "gnm",
+        "registered nurse",
+        "staff nurse",
+        "anm",
+        "midwifery",
+    ),
+    "doctor": (
+        "mbbs",
+        "bachelor of medicine",
+        "bds",
+        "bams",
+        "bhms",
+        "dnb",
+        "md ",
+        "ms ",
+    ),
+    "lawyer": ("llb", "ll.b", "ba llb", "b.a. llb", "law graduate", "advocate", "bar council"),
+    "chartered-accountant": (
+        "chartered accountant",
+        "icai",
+        "ca intermediate",
+        "ca foundation",
+        "ca final",
+    ),
+    "engineer": ("b.e", "b.tech", "btech", "b.e.", "m.tech", "engineering degree"),
+    "teacher": ("b.ed", "b.ed.", "d.el.ed", "deled", "m.ed", "teacher training", "tet"),
+    "civil-services": ("upsc", "ias", "ips", "civil services", "state psc"),
+    "pilot": ("cpl", "commercial pilot", "pilot licence", "pilot license", "atpl"),
+}
+
+
+def credential_evidence(profession_id: str, *texts: str) -> str:
+    """Return the phrase proving the gate is already met, or ``""``."""
+    haystack = " \n ".join(text.lower() for text in texts if text)
+    if not haystack.strip():
+        return ""
+    for phrase in GATE_EVIDENCE.get(profession_id, ()):
+        if phrase in haystack:
+            return phrase
+    return ""
 
 
 @dataclass(frozen=True)
@@ -219,15 +267,28 @@ def evaluate(
     # 2. regulated profession ------------------------------------------------
     profession = book.for_occupation(career)
     if profession and not profession.open_to_any_degree:
-        requirements.append(
-            _check(
-                f"Non-negotiable admission gate: {profession.label}",
-                "missing",
-                " ".join(profession.requires),
-                book.label,
+        evidence = credential_evidence(profession.id, resume_text, education, current_role)
+        if evidence:
+            requirements.append(
+                _check(
+                    f"Non-negotiable admission gate: {profession.label}",
+                    "met",
+                    f'Your résumé/education already evidences "{evidence}", which clears the '
+                    f"gate: {' '.join(profession.requires)}",
+                    "Source: your résumé + curated India admission gates",
+                )
             )
-        )
-        block("gate", "hard", profession.cannot)
+            strengths.append(f"{profession.label} qualification already evidenced in your résumé.")
+        else:
+            requirements.append(
+                _check(
+                    f"Non-negotiable admission gate: {profession.label}",
+                    "missing",
+                    " ".join(profession.requires),
+                    book.label,
+                )
+            )
+            block("gate", "hard", profession.cannot)
     elif profession:
         requirements.append(
             _check(
@@ -349,15 +410,21 @@ def _phases(
         gaps,
         key=lambda skill: (-weights.get(skill, 4.0), skill),
     )
-    per_phase = max(1, int(WEEKS_PER_PHASE * hours_per_week / HOURS_PER_GAP_SKILL))
+    per_phase = max(1, int(round(WEEKS_PER_PHASE * hours_per_week / HOURS_PER_GAP_SKILL)))
     phases: list[dict] = []
     week_cursor = 1
+    hours_done = 0.0
     for index in range(0, len(ordered), per_phase):
         chunk = ordered[index : index + per_phase]
         if not chunk:
             continue
         hours = HOURS_PER_GAP_SKILL * len(chunk)
-        weeks = max(1, int(round(hours / max(1, hours_per_week))))
+        # Phase length follows the running study-hour total so the sum of the
+        # phases always equals ceil(total_hours / hours_per_week).
+        before = math.ceil(hours_done / max(1, hours_per_week))
+        hours_done += hours
+        after = math.ceil(hours_done / max(1, hours_per_week))
+        weeks = max(1, after - before)
         resources: list[dict] = []
         for skill in chunk[:3]:
             if resource_lookup is None:

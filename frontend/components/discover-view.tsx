@@ -12,7 +12,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Check, RefreshCw, Target } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, discover } from "@/lib/api";
+import { discover } from "@/lib/api";
 import type { DiscoverItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ProgressRing } from "./motion";
@@ -231,8 +231,4 @@ export function DiscoverView() {
       </Card>
     </div>
   );
-}
-
-export async function loadAssessmentHistory() {
-  return api.assessmentHistory();
 }

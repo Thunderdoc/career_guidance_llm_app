@@ -133,13 +133,17 @@ export type ReadinessResult = {
 export type RoadmapItem = {
   id: string;
   week: number;
+  week_label?: string;
   skill: string;
   title: string;
   status: string;
   hours: number;
+  importance?: number;
+  done?: boolean;
   prerequisite_of: string[];
   resources: Resource[];
   milestone: string;
+  source?: string;
 };
 
 export type RoadmapResult = {
@@ -161,13 +165,25 @@ export type RoadmapResult = {
 
 export type PlanResult = RoadmapResult & { ratings: Record<string, number> };
 
+export type TransitionStep = {
+  id: string;
+  title: string;
+  job_zone: number;
+  delta_skills: string[];
+  shared_skills: string[];
+  salary_p50?: number | null;
+};
+
 export type TransitionResult = {
   from: { id: string; title: string };
   to: { id: string; title: string };
   hops: number;
   found: boolean;
-  path: { id: string; title: string; delta_skills: string[]; shared_skills: string[] }[];
+  path: TransitionStep[];
+  steps: TransitionStep[];
+  delta_skills: string[];
   total_delta_skills: string[];
+  source: string;
   note: string;
 };
 
@@ -190,9 +206,18 @@ export type CareerDetail = {
   skill_importance: { skill: string; importance: number }[];
   education_path: { level: string; typical: string; source: string }[];
   resources: Resource[];
-  transitions_in: { id: string; title: string; delta_skills: string[] }[];
+  transitions_in: { id: string; title: string; delta_skills?: string[]; shared_skills?: string[] }[];
   family: string;
   remote: boolean;
+  demand_label?: string;
+  salary_band_in?: string;
+  indian_titles?: string[];
+  ladder?: {
+    entry_points: import("./api").LadderRung[];
+    step_across: import("./api").LadderRung[];
+    step_up: import("./api").LadderRung[];
+    source: string;
+  };
 };
 
 export type CompareResult = {
@@ -254,6 +279,7 @@ export type XpStatus = {
   xp: number;
   level: number;
   level_name: string;
+  counts?: Record<string, number>;
   streak: { current: number; longest: number; days: string[] };
   badges: { id: string; name: string; description: string; earned_at: string }[];
   next_badge: { id: string; name: string; description: string } | null;

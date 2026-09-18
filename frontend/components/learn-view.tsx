@@ -77,7 +77,7 @@ export function LearnView() {
         actions={
           xp && (
             <Badge tone="accent">
-              {xp.xp} XP · {t("learn_done_count")} {xp.counts.courses}
+              {xp.xp} XP · {t("learn_done_count")} {xp.counts?.courses ?? 0}
             </Badge>
           )
         }
@@ -137,7 +137,7 @@ export function LearnView() {
           tabs={[
             { id: "all", label: t("learn_tab_all"), count: data?.total ?? 0 },
             { id: "saved", label: t("learn_tab_saved"), count: saved.length },
-            { id: "done", label: t("learn_tab_done"), count: xp?.counts.courses ?? 0 },
+            { id: "done", label: t("learn_tab_done"), count: xp?.counts?.courses ?? 0 },
           ]}
           value={tab}
           onChange={setTab}

@@ -219,7 +219,7 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
             },
             "tools": settings_store.tool_usage(limit=20),
             "top_careers": stats.top_careers if stats else [],
-            "top_requested_skills": stats.top_skills if stats else [],
+            "top_requested_skills": stats.top_requested_skills if stats else [],
             "top_missing_skills": stats.top_missing_skills if stats else [],
             "averages": {
                 "match": round(

@@ -949,6 +949,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         payload["note"] = "Complete copy of your data in this app (JSON)."
         return payload
 
+    @router.get("/reports/career.pdf")
     @router.get("/me/report.pdf")
     def report(user: User = Depends(current_user)) -> Response:  # noqa: B008
         profile = profiles.get(user.id)

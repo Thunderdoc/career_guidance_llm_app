@@ -211,3 +211,50 @@ def test_pathway_is_deterministic(tax, market):
     again = build_pathway(tax.get("13-2011.01"), **kwargs)
     assert first["plan"] == again["plan"]
     assert first["verdict"]["coverage"] == again["verdict"]["coverage"]
+
+
+def test_gate_is_met_when_the_resume_already_evidences_the_qualification(tax, market):
+    """A B.Sc Nursing graduate must not be told the nursing gate is unmet."""
+    verdict = evaluate(
+        tax.get(NURSE),
+        taxonomy=tax,
+        resume_text=(
+            "B.Sc Nursing graduate, 3 years clinical experience. Patient care, "
+            "communication, clinical procedures, electronic medical records."
+        ),
+        education="Bachelor's degree",
+        experience_level="Mid-level (2-5 years)",
+    )
+    gate = next(r for r in verdict["requirements"] if "admission gate" in r["requirement"])
+    assert gate["status"] == "met"
+    assert "nursing" in gate["detail"].lower()
+    assert verdict["verdict"] != "blocked"
+    assert "gate" not in {blocker["kind"] for blocker in verdict["blockers"]}
+
+    # …while an unrelated degree still gets the honest hard blocker.
+    other = evaluate(
+        tax.get(NURSE),
+        taxonomy=tax,
+        resume_text="B.Tech Information Technology, SQL, Python",
+        education="Bachelor's degree",
+    )
+    assert other["verdict"] == "blocked"
+    assert any(blocker["kind"] == "gate" for blocker in other["blockers"])
+
+
+def test_plan_weeks_match_the_study_hours(tax, market):
+    """Sum of the phases equals ceil(total_hours / hours_per_week)."""
+    plan = build_pathway(
+        tax.get(NURSE),
+        taxonomy=tax,
+        resume_text="B.Sc Nursing graduate, 3 years clinical experience",
+        education="Bachelor's degree",
+        experience_level="Mid-level (2-5 years)",
+        hours_per_week=6,
+        market=market,
+    )["plan"]
+    assert plan["phases"]
+    assert plan["weeks"] == -(-plan["total_hours"] // plan["hours_per_week"])
+    assert plan["weeks"] == plan["phases"][-1]["start_week"] + plan["phases"][-1]["weeks"] - 1
+    # ~4 weeks of study per phase at the default pace.
+    assert all(3 <= phase["weeks"] <= 6 for phase in plan["phases"])

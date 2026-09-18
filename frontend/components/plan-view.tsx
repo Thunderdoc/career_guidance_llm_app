@@ -28,7 +28,6 @@ import {
   SourceLabel,
   Spinner,
   Stat,
-  inputCls,
 } from "./ui";
 
 export function PlanView({ initialCareerId }: { initialCareerId?: string }) {
