@@ -10,6 +10,9 @@ import {
   History,
   Info,
   Languages,
+  LogIn,
+  LogOut,
+  ShieldCheck,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -17,6 +20,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { LOCALES, useI18n, type Key } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth-context";
+import { AuthDialog } from "./auth-dialog";
+import { AdminView } from "./admin-view";
 import { Dock, ScrollProgress, Spotlight } from "./motion";
 import { RecommendView } from "./recommend-view";
 import { HistoryView } from "./history-view";
@@ -24,7 +30,7 @@ import { AssessmentView } from "./assessment-view";
 import { JobFitView } from "./jobfit-view";
 import { AboutModal } from "./about-modal";
 
-export type PageId = "recommend" | "assessment" | "jobfit" | "history";
+export type PageId = "recommend" | "assessment" | "jobfit" | "history" | "admin";
 
 const NAV_DEF: { id: PageId; label: Key; icon: React.ReactNode; hint: Key }[] = [
   { id: "recommend", label: "nav_recommend", icon: <Compass size={18} />, hint: "nav_recommend_hint" },
@@ -41,7 +47,25 @@ export function Shell() {
   const [interestsProfile, setInterestsProfile] = useState<Record<string, number> | null>(null);
   const [hollandCode, setHollandCode] = useState<string | null>(null);
   const { t, locale, setLocale } = useI18n();
-  const NAV = NAV_DEF.map((n) => ({ ...n, label: t(n.label), hint: t(n.hint) }));
+  const { user, logout } = useAuth();
+  const [signIn, setSignIn] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const NAV = [
+    ...NAV_DEF,
+    ...(user?.is_admin ? [{ id: "admin" as PageId, label: "nav_admin" as Key, icon: <ShieldCheck size={18} />, hint: "nav_admin_hint" as Key }] : []),
+  ].map((n) => ({ ...n, label: t(n.label), hint: t(n.hint) }));
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const a = url.searchParams.get("auth");
+    if (a === "expired" || a === "disabled" || a === "cancelled") {
+      setToast(t(`auth_${a}` as Key));
+      url.searchParams.delete("auth");
+      window.history.replaceState({}, "", url.toString());
+      const id = setTimeout(() => setToast(null), 6000);
+      return () => clearTimeout(id);
+    }
+  }, [t]);
 
   useEffect(() => {
     api.health().then(setHealth).catch(() => setHealth(null));
@@ -136,6 +160,28 @@ export function Shell() {
               )}
             </div>
           )}
+          {user ? (
+            <div className={cn("mb-2 flex items-center gap-2 rounded-[var(--radius-md)] bg-bg-3 p-2", collapsed && "justify-center")}>
+              <Avatar user={user} />
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium">{user.name || user.email}</div>
+                  <div className="truncate text-[10px] text-fg-3">{user.is_admin ? "admin" : user.email}</div>
+                </div>
+              )}
+              <button onClick={() => logout().then(() => setPage("recommend"))} title={t("sign_out")} aria-label={t("sign_out")} className="rounded-[var(--radius-sm)] p-1.5 text-fg-3 hover:bg-bg-4 hover:text-fg">
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setSignIn(true)}
+              className={cn("mb-2 flex w-full items-center gap-2 rounded-[var(--radius-md)] bg-accent/10 px-3 py-2 text-xs font-medium text-accent ring-1 ring-accent/20 transition hover:bg-accent/15", collapsed && "justify-center px-0")}
+              title={t("sign_in")}
+            >
+              <LogIn size={14} /> {!collapsed && t("sign_in")}
+            </button>
+          )}
           <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between")}>
             <button onClick={() => setAbout(true)} className="rounded-[var(--radius-sm)] p-2 text-fg-3 transition hover:bg-bg-3 hover:text-fg" aria-label={t("about")}>
               <Info size={16} />
@@ -177,6 +223,7 @@ export function Shell() {
             {page === "assessment" && <AssessmentView onDone={onAssessed} />}
             {page === "jobfit" && <JobFitView />}
             {page === "history" && <HistoryView />}
+            {page === "admin" && <AdminView />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -186,12 +233,36 @@ export function Shell() {
         items={[
           ...NAV.map((n) => ({ id: n.id, label: n.label, icon: n.icon })),
           { id: "about", label: t("about"), icon: <BarChart3 size={18} /> },
+          user ? { id: "logout", label: t("sign_out"), icon: <LogOut size={18} /> } : { id: "login", label: t("sign_in"), icon: <LogIn size={18} /> },
         ]}
         active={page}
-        onSelect={(id) => (id === "about" ? setAbout(true) : setPage(id as PageId))}
+        onSelect={(id) => {
+          if (id === "about") setAbout(true);
+          else if (id === "login") setSignIn(true);
+          else if (id === "logout") logout().then(() => setPage("recommend"));
+          else setPage(id as PageId);
+        }}
       />
 
       <AboutModal open={about} onClose={() => setAbout(false)} />
+      <AuthDialog open={signIn} onClose={() => setSignIn(false)} />
+      <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-panel px-4 py-2 text-xs text-fg shadow-[var(--shadow-lg)] ring-1 ring-white/10">
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function Avatar({ user }: { user: { name: string; email: string; picture: string } }) {
+  const initial = (user.name || user.email).trim()[0]?.toUpperCase() ?? "?";
+  return user.picture ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={user.picture} alt="" className="h-7 w-7 shrink-0 rounded-full ring-1 ring-white/10" referrerPolicy="no-referrer" />
+  ) : (
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent/20 text-xs font-semibold text-accent ring-1 ring-accent/30">{initial}</span>
   );
 }

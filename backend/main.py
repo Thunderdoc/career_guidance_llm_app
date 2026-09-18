@@ -18,7 +18,10 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend.admin import build_routers as build_account_routers
 from backend.assessment import QUESTIONS, score_assessment
+from backend.auth import Auth, load_auth_settings
+from backend.auth import build_router as build_auth_router
 from backend.ratelimit import RateLimiter
 from career_guidance import __version__
 from career_guidance.analytics import summarize
@@ -32,6 +35,7 @@ from career_guidance.resume import extract_resume_text
 from career_guidance.storage import Database, runs_to_json, runs_to_markdown
 from career_guidance.suggestions import format_recommendations_markdown, generate_recommendations
 from career_guidance.taxonomy import extract_skills, load_taxonomy
+from career_guidance.users import UserStore
 
 settings = load_settings()
 logger = configure_logging(settings)
@@ -51,6 +55,16 @@ app.add_middleware(
 )
 _limiter = RateLimiter(max_calls=30, per_seconds=60)
 _db = Database(settings.database_path)
+_auth_settings = load_auth_settings()
+_users = UserStore(settings.database_path, _auth_settings.admin_emails)
+_auth = Auth(_auth_settings, _users)
+_auth_router, _current_user, _admin_user = build_auth_router(_auth)
+_me_router, _admin_router = build_account_routers(
+    _users, _db, _current_user, _admin_user, _auth.user_from
+)
+app.include_router(_auth_router)
+app.include_router(_me_router)
+app.include_router(_admin_router)
 
 
 @app.middleware("http")
@@ -64,6 +78,9 @@ async def _timing(request: Request, call_next):
 @app.on_event("startup")
 def _warm() -> None:
     get_matcher()  # build TF-IDF index once
+    from career_guidance.learning import set_overrides
+
+    set_overrides(_users.resource_overrides())
     logger.info("Taxonomy engine ready (%d occupations)", len(load_taxonomy()))
 
 
@@ -117,6 +134,7 @@ def health() -> dict:
         "version": __version__,
         "ai_mode": bool(settings.openai_api_key),
         "occupations": len(load_taxonomy()),
+        "auth": {"google": _auth_settings.google_enabled, "magic_link": True},
     }
 
 
@@ -159,8 +177,13 @@ def recommend(body: RecommendRequest, request: Request) -> dict:
 
     run_id = None
     try:
+        user = _auth.user_from(request)
         run_id = _db.save_run(
-            profile.to_dict(), result.recommendations, result.provider_name, result.is_demo
+            profile.to_dict(),
+            result.recommendations,
+            result.provider_name,
+            result.is_demo,
+            user.id if user else None,
         )
     except Exception:  # noqa: BLE001
         logger.exception("persist failed")
@@ -259,8 +282,11 @@ def job_fit(body: FitRequest) -> dict:
 
 
 @app.get("/api/v1/history")
-def history(limit: int = 50) -> dict:
-    runs = _db.list_runs(limit=limit)
+def history(request: Request, limit: int = 50) -> dict:
+    user = _auth.user_from(request)
+    runs = _db.list_runs(limit=1000 if user else limit)
+    if user:
+        runs = [r for r in runs if r.user_id == user.id][:limit]
     return {
         "runs": [
             {
@@ -279,8 +305,16 @@ def history(limit: int = 50) -> dict:
 
 
 @app.delete("/api/v1/history")
-def clear_history() -> dict:
-    _db.clear()
+def clear_history(request: Request) -> dict:
+    user = _auth.user_from(request)
+    if user:
+        for r in _db.list_runs(limit=5000):
+            if r.user_id == user.id:
+                _db.delete_run(r.id)
+    else:
+        for r in _db.list_runs(limit=5000):
+            if r.user_id is None:
+                _db.delete_run(r.id)
     return {"cleared": True}
 
 

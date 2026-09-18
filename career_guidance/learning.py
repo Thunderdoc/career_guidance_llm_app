@@ -51,9 +51,23 @@ def _load(path: str | None = None) -> dict[str, list[dict]]:
     return {str(k).lower(): v for k, v in data.items()}
 
 
+_OVERRIDES: dict[str, list[dict]] = {}
+
+
+def set_overrides(overrides: dict[str, list[dict]]) -> None:
+    """Replace admin-managed resource overrides (skill -> resources)."""
+    _OVERRIDES.clear()
+    _OVERRIDES.update({k.lower(): v for k, v in overrides.items()})
+
+
+def all_skills() -> list[str]:
+    """Every skill key that has curated resources."""
+    return sorted(set(_load()) | set(_OVERRIDES))
+
+
 def resources_for(skill: str, limit: int = 2) -> list[LearningResource]:
     """Return curated resources for a skill or O*NET competency name."""
-    table = _load()
+    table = {**_load(), **_OVERRIDES}
     key = skill.strip().lower()
     candidates = [key, normalize_skill(skill), _COMPETENCY_ALIASES.get(key, "")]
     # A concrete tool can fall back to the competencies it implies.

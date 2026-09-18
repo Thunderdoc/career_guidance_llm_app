@@ -120,6 +120,28 @@ cd frontend && npm run dev                 # animated UI with hot reload
 streamlit run app.py                       # legacy UI
 ```
 
+## Accounts & admin console
+
+Anonymous use is first-class — nothing requires sign-in. Signing in (Google or
+e-mail magic link) keeps your runs across devices, adds a skill-progress
+checklist, and lets you delete your data. Any e-mail listed in `ADMIN_EMAILS`
+becomes an **admin** and sees the **Admin** section in the sidebar:
+
+| Tab | What it does |
+| --- | --- |
+| Overview | users / runs / feedback KPIs, runs-per-day, top careers, most-missing skills, system info |
+| Users | search, promote/demote admin, disable/enable, delete user + their data |
+| Runs | every recommendation run (user or anonymous), delete |
+| Feedback | 1–5★ ratings & comments from users, triage new → reviewed → resolved |
+| Content | edit the learning resources shown per skill (DB overrides on top of `data/learning_resources.yaml`) |
+| Audit | log of logins and admin actions |
+
+Set-up (all optional, see `.env.example`): `SESSION_SECRET`, `PUBLIC_URL`,
+`ADMIN_EMAILS`, `GOOGLE_CLIENT_ID/SECRET` (redirect URI
+`{PUBLIC_URL}/api/v1/auth/google/callback`), `SMTP_*` for e-mailing links.
+Without SMTP the magic link is printed to the server log and, outside
+production, shown in the sign-in dialog so you can test locally.
+
 ## Configuration
 
 All configuration is via environment variables (see `.env.example`).
@@ -135,6 +157,11 @@ All configuration is via environment variables (see `.env.example`).
 | `OPENAI_MODEL`           | `gpt-4o-mini`              | Model used for AI recommendations          |
 | `OPENAI_TIMEOUT_SECONDS` | `30`                       | Timeout for AI requests                    |
 | `DATABASE_PATH`          | `data/career_guidance.db`  | SQLite database location                   |
+| `SESSION_SECRET`         | *(dev default)*            | Signs session cookies — set in production  |
+| `PUBLIC_URL`             | *(derived from request)*   | Public origin for OAuth/e-mail links       |
+| `ADMIN_EMAILS`           | *(empty)*                  | Comma-separated admin e-mails              |
+| `GOOGLE_CLIENT_ID/SECRET`| *(empty)*                  | Enables "Continue with Google"             |
+| `SMTP_HOST/PORT/USER/PASSWORD/FROM` | *(empty)*       | Sends magic-link e-mails                   |
 
 ## Development & testing
 

@@ -3,7 +3,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, Download, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, auth } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import type { HistoryRun } from "@/lib/types";
 import { AnimatedGroup, AnimatedNumber, Disclosure, TextEffect } from "./motion";
@@ -15,12 +17,14 @@ export function HistoryView() {
   const [stats, setStats] = useState<Analytics | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const { user, refresh } = useAuth();
+  const { t } = useI18n();
 
   const load = () => {
     api.history().then((r) => setRuns(r.runs)).catch(() => setRuns([]));
     api.analytics().then((a) => setStats(a as Analytics)).catch(() => {});
   };
-  useEffect(load, []);
+  useEffect(load, [user?.id]);
 
   const clear = async () => {
     await api.clearHistory();
@@ -35,7 +39,22 @@ export function HistoryView() {
           <TextEffect as="h1" className="font-serif text-4xl">
             History
           </TextEffect>
-          <p className="mt-1 text-sm text-fg-2">Every run is saved locally on this server. Export or clear any time.</p>
+          <p className="mt-1 text-sm text-fg-2">
+            {user ? `${t("signed_in_as")} ${user.email} — only your runs are shown.` : "Anonymous runs are saved on this server. Sign in to keep them across devices."}
+          </p>
+          {user && (
+            <button
+              onClick={async () => {
+                if (window.confirm("Delete your account and all saved runs? This cannot be undone.")) {
+                  await auth.deleteMe();
+                  await refresh();
+                }
+              }}
+              className="mt-2 text-[11px] text-fg-3 underline-offset-2 hover:text-danger hover:underline"
+            >
+              {t("delete_account")}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <a href="/api/v1/export/history.md" className="inline-flex items-center gap-1.5 rounded-full bg-bg-3 px-3 py-1.5 text-xs text-fg-2 hover:text-fg">

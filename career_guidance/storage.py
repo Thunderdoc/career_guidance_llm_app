@@ -40,6 +40,7 @@ class StoredRun:
     is_demo: bool
     profile: dict
     recommendations: list[CareerRecommendation]
+    user_id: str | None = None
 
 
 class Database:
@@ -52,6 +53,9 @@ class Database:
             parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(recommendation_runs)")]
+            if "user_id" not in cols:
+                conn.execute("ALTER TABLE recommendation_runs ADD COLUMN user_id TEXT")
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._path)
@@ -64,20 +68,22 @@ class Database:
         recommendations: list[CareerRecommendation],
         provider: str,
         is_demo: bool,
+        user_id: str | None = None,
     ) -> int:
         """Persist a recommendation run and return its row id."""
         created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as conn:
             cursor = conn.execute(
                 "INSERT INTO recommendation_runs "
-                "(created_at, provider, is_demo, profile_json, recommendations_json) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "(created_at, provider, is_demo, profile_json, recommendations_json, user_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (
                     created_at,
                     provider,
                     int(is_demo),
                     json.dumps(profile),
                     json.dumps([asdict(rec) for rec in recommendations]),
+                    user_id,
                 ),
             )
             return int(cursor.lastrowid or 0)
@@ -103,6 +109,7 @@ class Database:
                             CareerRecommendation.from_dict(item)
                             for item in json.loads(row["recommendations_json"])
                         ],
+                        user_id=row["user_id"],
                     )
                 )
             except (json.JSONDecodeError, TypeError):
@@ -114,6 +121,11 @@ class Database:
         with self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS n FROM recommendation_runs").fetchone()
         return int(row["n"])
+
+    def delete_run(self, run_id: int) -> None:
+        """Delete a single run."""
+        with self._connect() as conn:
+            conn.execute("DELETE FROM recommendation_runs WHERE id = ?", (run_id,))
 
     def clear(self) -> None:
         """Delete all stored runs."""
