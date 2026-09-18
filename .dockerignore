@@ -1,0 +1,19 @@
+# Keep the Docker build context tiny (~4 MB): the front-end stage reinstalls
+# everything from the lockfile and rebuilds the export from source.
+.git
+.gitignore
+**/node_modules
+frontend/.next
+frontend/out
+frontend/*.tsbuildinfo
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
+*.db
+*.sqlite3
+/data/*.db
+/docs
+/eval/report.json
+*.log
+.DS_Store
