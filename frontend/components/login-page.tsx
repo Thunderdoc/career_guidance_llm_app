@@ -6,10 +6,23 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { auth } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { UnverifiedEmailError, firebaseConfigured, friendlyFirebaseError, resendVerification, resetPassword, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/firebase";
+import {
+  UnverifiedEmailError,
+  completeGoogleRedirect,
+  firebaseConfigured,
+  friendlyFirebaseError,
+  needsRedirectFallback,
+  resendVerification,
+  resetPassword,
+  signInWithEmail,
+  signInWithGoogle,
+  signInWithGoogleRedirect,
+  signUpWithEmail,
+} from "@/lib/firebase";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { AnimatedGroup, TextEffect, TextLoop } from "./motion";
+import { WakingBanner } from "./waking-banner";
 
 type Providers = { firebase: boolean; google: boolean; magic_link: boolean; email_delivery: boolean };
 
@@ -26,9 +39,10 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [busy, setBusy] = useState<"" | "google" | "email" | "magic" | "reset" | "resend">("");
+  const [busy, setBusy] = useState<"" | "google" | "redirect" | "email" | "magic" | "reset" | "resend">("");
   const [notice, setNotice] = useState<{ kind: "ok" | "err" | "verify"; text: string; link?: string } | null>(null);
   const [unverified, setUnverified] = useState(false);
+  const [redirectFallback, setRedirectFallback] = useState(false);
   const next = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") || "/" : "/";
 
   useEffect(() => {
@@ -39,6 +53,17 @@ export function LoginPage() {
     const q = new URLSearchParams(window.location.search);
     if (q.get("verified") === "1") setNotice({ kind: "ok", text: t("verified_banner") });
     if (q.get("reason") === "auth") setNotice({ kind: "err", text: t("login_required") });
+    // Finish a pending signInWithRedirect() from a previous visit.
+    if (firebaseConfigured) {
+      completeGoogleRedirect()
+        .then(async (r) => {
+          if (!r) return;
+          await auth.firebase(r.idToken);
+          await refresh();
+          window.location.replace(next.startsWith("/") ? next : "/");
+        })
+        .catch((e) => setNotice({ kind: "err", text: friendlyFirebaseError(e) }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,6 +91,26 @@ export function LoginPage() {
       setBusy("");
     }
   };
+
+  const googlePopup = () =>
+    run("google", async () => {
+      setRedirectFallback(false);
+      try {
+        await finish(await signInWithGoogle());
+      } catch (e) {
+        // popup blocked / domain not authorised → offer the full-page redirect
+        if (needsRedirectFallback(e)) {
+          setRedirectFallback(true);
+          throw e;
+        }
+        throw e;
+      }
+    });
+
+  const googleRedirect = () =>
+    run("redirect", async () => {
+      await signInWithGoogleRedirect();
+    });
 
   const submitEmail = () =>
     run("email", async () => {
@@ -116,6 +161,7 @@ export function LoginPage() {
             ))}
           </AnimatedGroup>
         </div>
+        <WakingBanner className="relative" />
         <p className="relative text-[11px] text-fg-3">{t("sign_in_privacy")}</p>
       </aside>
 
@@ -146,12 +192,26 @@ export function LoginPage() {
             ) : fb ? (
               <>
                 <button
-                  onClick={() => run("google", async () => finish(await signInWithGoogle()))}
+                  onClick={googlePopup}
                   disabled={!!busy}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-white/90 hover:shadow-[0_0_28px_rgba(255,255,255,0.15)] disabled:opacity-60"
                 >
                   {busy === "google" ? <Loader2 size={16} className="animate-spin" /> : <GoogleMark />} {t("continue_google")}
                 </button>
+                <button
+                  type="button"
+                  onClick={googleRedirect}
+                  disabled={!!busy}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-bg-4 px-4 py-2.5 text-xs font-medium text-fg-2 ring-1 ring-white/10 transition hover:bg-bg-3 hover:text-fg disabled:opacity-60"
+                >
+                  {busy === "redirect" ? <Loader2 size={14} className="animate-spin" /> : <GoogleMark />}
+                  {t("continue_google_redirect")}
+                </button>
+                {redirectFallback && (
+                  <p className="mt-2 text-[11px] text-gold" role="status">
+                    {t("redirect_fallback_hint")}
+                  </p>
+                )}
                 <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-fg-3">
                   <span className="h-px flex-1 bg-white/10" /> {t("or")} <span className="h-px flex-1 bg-white/10" />
                 </div>
@@ -250,6 +310,7 @@ export function LoginPage() {
               )}
             </AnimatePresence>
           </div>
+          <WakingBanner className="mt-4" />
           <p className="mt-4 text-center text-[11px] text-fg-3 lg:hidden">{t("sign_in_privacy")}</p>
         </motion.div>
       </main>

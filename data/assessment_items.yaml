@@ -1,0 +1,51 @@
+# RIASEC (Holland) interest inventory — 36 items, 6 per type.
+#
+# Likert scale shown to the user: 1 = strongly disagree … 5 = strongly agree.
+# Scores are mapped from 1–5 onto O*NET's 1–7 interest scale so they can be fed
+# straight into the matcher. Admins can edit, deactivate or add items at runtime
+# (admin console → Assessment & templates → RIASEC items).
+version: 1
+updated: "2026-09"
+scale:
+  1: "Strongly disagree"
+  2: "Disagree"
+  3: "Neutral"
+  4: "Agree"
+  5: "Strongly agree"
+items:
+  - {id: r1, dim: R, weight: 1.0, en: "I enjoy fixing or building physical things with my hands.", ta: "கைகளால் பொருட்களைக் கட்டுவது அல்லது பழுது நீக்குவது எனக்கு மகிழ்ச்சி.", hi: "मुझे अपने हाथों से चीज़ें बनाना या ठीक करना अच्छा लगता है।"}
+  - {id: r2, dim: R, weight: 1.0, en: "I would rather work outdoors or with machines than sit at a desk.", ta: "மேசையில் அமர்வதை விட வெளியில் அல்லது இயந்திரங்களுடன் வேலை செய்ய விரும்புகிறேன்.", hi: "मैं डेस्क पर बैठने से ज़्यादा बाहर या मशीनों के साथ काम करना पसंद करता/करती हूँ।"}
+  - {id: r3, dim: R, weight: 1.0, en: "I like understanding how engines, circuits or tools work.", ta: "இயந்திரங்கள், சுற்று அல்லது கருவிகள் எப்படி வேலை செய்கின்றன என்பதை அறிய விரும்புகிறேன்.", hi: "इंजन, सर्किट या औज़ार कैसे काम करते हैं, यह समझना मुझे पसंद है।"}
+  - {id: r4, dim: R, weight: 1.0, en: "I am comfortable doing work that keeps me on my feet.", ta: "நிற்கும் வேலையைச் செய்வதில் எனக்கு சிரமம் இல்லை.", hi: "खड़े रहकर किए जाने वाले काम में मुझे परेशानी नहीं होती।"}
+  - {id: r5, dim: R, weight: 1.0, en: "I like assembling, repairing or servicing equipment.", ta: "கருவிகளை இணைப்பது, பழுது நீக்குவது எனக்குப் பிடிக்கும்.", hi: "मुझे उपकरण जोड़ना, ठीक करना या सर्विस करना पसंद है।"}
+  - {id: r6, dim: R, weight: 1.0, en: "Hands-on training appeals to me more than reading theory.", ta: "தத்துவம் படிப்பதை விட நேரடி பயிற்சி எனக்குப் பிடிக்கும்.", hi: "थ्योरी पढ़ने से ज़्यादा मुझे प्रैक्टिकल ट्रेनिंग पसंद है।"}
+  - {id: i1, dim: I, weight: 1.0, en: "I like solving puzzles and figuring out why something happens.", ta: "புதிர்களைத் தீர்த்து, ஏன் நடக்கிறது என்பதைக் கண்டறிய விரும்புகிறேன்.", hi: "मुझे पहेलियाँ सुलझाना और यह समझना पसंद है कि कुछ क्यों होता है।"}
+  - {id: i2, dim: I, weight: 1.0, en: "I enjoy reading about science, data or technology.", ta: "அறிவியல், தரவு அல்லது தொழில்நுட்பம் பற்றிப் படிக்க விரும்புகிறேன்.", hi: "विज्ञान, डेटा या तकनीक के बारे में पढ़ना मुझे अच्छा लगता है।"}
+  - {id: i3, dim: I, weight: 1.0, en: "I prefer analysing a problem deeply before acting.", ta: "செயல்படுவதற்கு முன் பிரச்சினையை ஆழமாக ஆய்வு செய்வேன்.", hi: "काम शुरू करने से पहले मैं समस्या को गहराई से समझना पसंद करता/करती हूँ।"}
+  - {id: i4, dim: I, weight: 1.0, en: "I like testing ideas with experiments and evidence.", ta: "சோதனைகள் மற்றும் ஆதாரங்களுடன் கருத்துகளை சோதிக்க விரும்புகிறேன்.", hi: "मुझे प्रयोग और प्रमाण के साथ विचारों को परखना पसंद है।"}
+  - {id: i5, dim: I, weight: 1.0, en: "I am curious about how systems and numbers behave at scale.", ta: "பெரிய அளவில் அமைப்புகளும் எண்களும் எப்படி நடந்துகொள்ளும் என்பதில் ஆர்வம் உள்ளது.", hi: "बड़े पैमाने पर सिस्टम और संख्याएँ कैसे व्यवहार करती हैं, यह जानने में मुझे रुचि है।"}
+  - {id: i6, dim: I, weight: 1.0, en: "I ask “why” and dig into root causes rather than accept things.", ta: "எதையும் ஏற்றுக்கொள்ளாமல் “ஏன்” எனக் கேட்டு காரணங்களை ஆராய்வேன்.", hi: "मैं चीज़ें मान लेने के बजाय “क्यों” पूछकर जड़ तक जाता/जाती हूँ।"}
+  - {id: a1, dim: A, weight: 1.0, en: "I enjoy drawing, writing, music, design or making videos.", ta: "வரைதல், எழுதுதல், இசை, வடிவமைப்பு அல்லது வீடியோ உருவாக்கம் எனக்குப் பிடிக்கும்.", hi: "मुझे चित्र बनाना, लिखना, संगीत, डिज़ाइन या वीडियो बनाना पसंद है।"}
+  - {id: a2, dim: A, weight: 1.0, en: "I like work where there is no single right answer.", ta: "ஒரே ஒரு சரியான பதில் இல்லாத வேலை எனக்குப் பிடிக்கும்.", hi: "मुझे ऐसा काम पसंद है जिसमें एक ही सही जवाब न हो।"}
+  - {id: a3, dim: A, weight: 1.0, en: "Expressing ideas creatively matters more to me than routine.", ta: "வழக்கமான வேலையை விட படைப்பாற்றலுடன் கருத்துகளை வெளிப்படுத்துவது முக்கியம்.", hi: "नियमित काम से ज़्यादा मेरे लिए रचनात्मक अभिव्यक्ति मायने रखती है।"}
+  - {id: a4, dim: A, weight: 1.0, en: "I notice design, layout and aesthetics around me.", ta: "என்னைச் சுற்றியுள்ள வடிவமைப்பு மற்றும் அழகியலைக் கவனிப்பேன்.", hi: "मैं आस-पास के डिज़ाइन और सौंदर्य पर ध्यान देता/देती हूँ।"}
+  - {id: a5, dim: A, weight: 1.0, en: "I like improvising and trying unusual approaches.", ta: "புதிய முறைகளை முயற்சிப்பதும் மேம்படுத்துவதும் எனக்குப் பிடிக்கும்.", hi: "मुझे नए तरीके आज़माना और अलग तरह से सोचना पसंद है।"}
+  - {id: a6, dim: A, weight: 1.0, en: "I would enjoy performing or presenting my work publicly.", ta: "என் வேலையை பொதுவில் வழங்குவதில் மகிழ்ச்சி.", hi: "मुझे अपना काम सबके सामने प्रस्तुत करना अच्छा लगेगा।"}
+  - {id: s1, dim: S, weight: 1.0, en: "I feel energised when helping or teaching someone.", ta: "யாருக்காவது உதவும்போது அல்லது கற்பிக்கும்போது எனக்கு ஆற்றல் கிடைக்கிறது.", hi: "किसी की मदद या अध्यापन करते समय मुझमें ऊर्जा आती है।"}
+  - {id: s2, dim: S, weight: 1.0, en: "People come to me for advice or support.", ta: "ஆலோசனைக்காக மக்கள் என்னிடம் வருவார்கள்.", hi: "लोग सलाह या सहयोग के लिए मेरे पास आते हैं।"}
+  - {id: s3, dim: S, weight: 1.0, en: "I would like a job focused on people's wellbeing or learning.", ta: "மக்களின் நலன் அல்லது கல்வியை மையமாகக் கொண்ட வேலை விரும்புகிறேன்.", hi: "मुझे लोगों की भलाई या सीखने पर केंद्रित नौकरी पसंद आएगी।"}
+  - {id: s4, dim: S, weight: 1.0, en: "I listen patiently even when someone is upset.", ta: "யாராவது மனம் வருந்தினாலும் பொறுமையாகக் கேட்பேன்.", hi: "कोई परेशान हो तो भी मैं धैर्य से सुनता/सुनती हूँ।"}
+  - {id: s5, dim: S, weight: 1.0, en: "I am comfortable working with children, patients or the elderly.", ta: "குழந்தைகள், நோயாளிகள் அல்லது முதியவர்களுடன் வேலை செய்வதில் சிரமம் இல்லை.", hi: "बच्चों, मरीज़ों या बुज़ुर्गों के साथ काम करने में मुझे असुविधा नहीं होती।"}
+  - {id: s6, dim: S, weight: 1.0, en: "Explaining something until someone understands gives me satisfaction.", ta: "யாராவது புரிந்துகொள்ளும் வரை விளக்குவது எனக்கு திருப்தி தருகிறது.", hi: "जब तक कोई समझ न ले, समझाने में मुझे संतोष मिलता है।"}
+  - {id: e1, dim: E, weight: 1.0, en: "I enjoy persuading people or leading a group.", ta: "மக்களை ஒப்புக்கொள்ள வைப்பதும் குழுவை வழிநடத்துவதும் பிடிக்கும்.", hi: "मुझे लोगों को मनाना या समूह का नेतृत्व करना पसंद है।"}
+  - {id: e2, dim: E, weight: 1.0, en: "Starting a business or selling something excites me.", ta: "தொழில் தொடங்குவது அல்லது விற்பது எனக்கு உற்சாகம் தரும்.", hi: "व्यवसाय शुरू करना या कुछ बेचना मुझे उत्साहित करता है।"}
+  - {id: e3, dim: E, weight: 1.0, en: "I am comfortable taking risks to reach a goal.", ta: "இலக்கை அடைய ஆபத்தை ஏற்கத் தயார்.", hi: "लक्ष्य पाने के लिए जोखिम लेने में मुझे झिझक नहीं होती।"}
+  - {id: e4, dim: E, weight: 1.0, en: "I like setting targets for myself and others and hitting them.", ta: "நானும் மற்றவர்களும் இலக்குகளை நிர்ணயித்து அடைவதை விரும்புகிறேன்.", hi: "मुझे खुद और दूसरों के लिए लक्ष्य तय करके उन्हें पूरा करना पसंद है।"}
+  - {id: e5, dim: E, weight: 1.0, en: "Negotiating a better deal feels like a game I can win.", ta: "சிறந்த ஒப்பந்தம் பேசுவது ஒரு விளையாட்டாகத் தெரிகிறது.", hi: "बेहतर सौदा करना मुझे एक खेल जैसा लगता है।"}
+  - {id: e6, dim: E, weight: 1.0, en: "I would rather lead a project than be one of its members.", ta: "ஒரு திட்டத்தில் உறுப்பினராக இருப்பதை விட தலைவராக இருக்க விரும்புகிறேன்.", hi: "मैं किसी परियोजना का सदस्य बनने से ज़्यादा उसका नेतृत्व करना चाहूँगा/चाहूँगी।"}
+  - {id: c1, dim: C, weight: 1.0, en: "I like organising information, records or schedules.", ta: "தகவல்கள், பதிவுகள் அல்லது அட்டவணைகளை ஒழுங்குபடுத்த விரும்புகிறேன்.", hi: "मुझे जानकारी, रिकॉर्ड या समय-सारणी व्यवस्थित करना पसंद है।"}
+  - {id: c2, dim: C, weight: 1.0, en: "I prefer clear procedures and knowing exactly what is expected.", ta: "தெளிவான நடைமுறைகள் மற்றும் எதிர்பார்ப்புகள் இருக்க வேண்டும்.", hi: "मुझे स्पष्ट प्रक्रियाएँ और तय अपेक्षाएँ पसंद हैं।"}
+  - {id: c3, dim: C, weight: 1.0, en: "Working carefully with numbers or details suits me.", ta: "எண்கள் அல்லது விவரங்களுடன் கவனமாக வேலை செய்வது எனக்குப் பொருந்தும்.", hi: "संख्याओं या बारीकियों के साथ सावधानी से काम करना मुझे सूट करता है।"}
+  - {id: c4, dim: C, weight: 1.0, en: "I double-check my work before submitting it.", ta: "சமர்ப்பிக்கும் முன் என் வேலையை மீண்டும் சரிபார்ப்பேன்.", hi: "जमा करने से पहले मैं अपना काम दोबारा जाँचता/जाँचती हूँ।"}
+  - {id: c5, dim: C, weight: 1.0, en: "I am comfortable following a documented process end to end.", ta: "ஆவணப்படுத்தப்பட்ட செயல்முறையை முழுமையாகப் பின்பற்றுவதில் சிரமம் இல்லை.", hi: "लिखित प्रक्रिया का पूरी तरह पालन करने में मुझे परेशानी नहीं होती।"}
+  - {id: c6, dim: C, weight: 1.0, en: "Tracking budgets, lists or inventories feels natural to me.", ta: "பட்ஜெட், பட்டியல் அல்லது சரக்கு கணக்கை கண்காணிப்பது இயல்பாக இருக்கும்.", hi: "बजट, सूची या स्टॉक ट्रैक करना मुझे सहज लगता है।"}

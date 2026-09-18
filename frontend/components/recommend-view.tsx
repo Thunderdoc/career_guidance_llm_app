@@ -30,17 +30,39 @@ const PLACEHOLDERS = [
 ];
 
 export function RecommendView({
-  interestsProfile,
-  hollandCode,
-  aiMode,
+  interestsProfile = null,
+  hollandCode = null,
+  aiMode = false,
   onGoAssess,
 }: {
-  interestsProfile: Record<string, number> | null;
-  hollandCode: string | null;
-  aiMode: boolean;
-  onGoAssess: () => void;
-}) {
+  /** RIASEC profile (1–7 per axis) from the last interest test. */
+  interestsProfile?: Record<string, number> | null;
+  hollandCode?: string | null;
+  aiMode?: boolean;
+  /** Defaults to the routed `/discover` page; the legacy shell passes its own. */
+  onGoAssess?: () => void;
+} = {}) {
   const { t } = useI18n();
+  const goAssess = onGoAssess ?? (() => window.location.assign("/discover"));
+  // On the routed page the parent does not hold the quiz state, so the latest
+  // saved interest run is loaded here and feeds the same 30 % interest term.
+  const [saved, setSaved] = useState<{ profile: Record<string, number>; code: string } | null>(null);
+  useEffect(() => {
+    if (interestsProfile) return;
+    let alive = true;
+    api
+      .assessmentHistory()
+      .then((response) => {
+        const latest = response.runs[0];
+        if (alive && latest) setSaved({ profile: latest.scores, code: latest.holland_code });
+      })
+      .catch(() => setSaved(null));
+    return () => {
+      alive = false;
+    };
+  }, [interestsProfile]);
+  const riasecProfile = interestsProfile ?? saved?.profile ?? null;
+  const holland = hollandCode ?? saved?.code ?? null;
   const [skills, setSkills] = useState("");
   const [goals, setGoals] = useState("");
   const [interests, setInterests] = useState("");
@@ -117,7 +139,7 @@ export function RecommendView({
       education,
       experience_level: experience,
       resume_text: resume?.text ?? "",
-      interests_profile: interestsProfile,
+      interests_profile: riasecProfile,
     };
     try {
       const r = await api.recommend(body);
@@ -132,7 +154,7 @@ export function RecommendView({
     } finally {
       setRunning(false);
     }
-  }, [canSubmit, skills, goals, interests, education, experience, resume, interestsProfile, aiMode, t]);
+  }, [canSubmit, skills, goals, interests, education, experience, resume, riasecProfile, aiMode, t]);
 
   const onKey = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
@@ -227,8 +249,8 @@ export function RecommendView({
             <button onClick={() => setMore((m) => !m)} className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-xs transition", more ? "bg-accent/15 text-accent" : "text-fg-2 hover:bg-bg-4 hover:text-fg")}>
               {t("details")} <ChevronDown size={14} className={cn("transition-transform", more && "rotate-180")} />
             </button>
-            <button onClick={onGoAssess} className={cn("hidden items-center gap-1 rounded-full px-3 py-1.5 text-xs transition sm:flex", hollandCode ? "bg-accent/15 text-accent" : "text-fg-2 hover:bg-bg-4 hover:text-fg")}>
-              <Target size={14} /> {hollandCode ? `Interests ${hollandCode}` : t("quiz_cta")}
+            <button onClick={goAssess} className={cn("hidden items-center gap-1 rounded-full px-3 py-1.5 text-xs transition sm:flex", holland ? "bg-accent/15 text-accent" : "text-fg-2 hover:bg-bg-4 hover:text-fg")}>
+              <Target size={14} /> {holland ? `Interests ${holland}` : t("quiz_cta")}
             </button>
           </div>
           <div className="flex items-center gap-2">

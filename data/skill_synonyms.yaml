@@ -1,0 +1,382 @@
+# Skill normaliser dictionary — aliases → canonical O*NET-style skills.
+#
+# This file is the *offline* seed. Admins can add/override entries at runtime
+# (admin console → Skills & synonyms); those live in the `synonyms` table and
+# win over this file. `expands` lists the taxonomy terms a canonical skill
+# should also count as (used by the matcher), which is how "tally" reaches
+# occupations whose technology list says "Accounting software".
+#
+# Conventions
+#   skills:            canonical key → { expands: [...], aliases: [...] }
+#   aliases:           lower-case; user text is lower-cased and trimmed first
+#   unicode aliases:   Tamil / Hindi / Devanagari transliterations people type
+#
+version: 1
+updated: "2026-09"
+skills:
+  # ---------------------------------------------------------------- IT & data
+  python:
+    expands: ["python"]
+    aliases: ["py", "python3", "python 3", "பைதான்", "पायथन"]
+  javascript:
+    expands: ["javascript"]
+    aliases: ["js", "es6", "ecmascript", "node", "nodejs", "node.js", "ஜாவாஸ்கிரிப்ட்", "जावास्क्रिप्ट"]
+  typescript:
+    expands: ["typescript"]
+    aliases: ["ts", "टाइपस्क्रिप्ट"]
+  java:
+    expands: ["java"]
+    aliases: ["core java", "java se", "java ee", "spring", "spring boot", "ஜாவா", "जावा"]
+  sql:
+    expands: ["sql"]
+    aliases: ["structured query language", "mysql", "postgres", "postgresql", "sqlite", "t-sql", "queries", "எஸ்க்யூஎல்", "एसक्यूएल"]
+  microsoft sql server:
+    expands: ["microsoft sql server"]
+    aliases: ["sql server", "mssql"]
+  html:
+    expands: ["hypertext markup language html", "html"]
+    aliases: ["html5", "hypertext markup language", "எச்டிஎம்எல்", "एचटीएमएल"]
+  css:
+    expands: ["css"]
+    aliases: ["css3", "cascading style sheets", "tailwind", "sass", "scss", "बूटस्ट्रैप"]
+  react:
+    expands: ["react"]
+    aliases: ["reactjs", "react.js", "next.js", "nextjs", "ரியாக்ட்", "रिएक्ट"]
+  angular:
+    expands: ["angular"]
+    aliases: ["angularjs", "angular 2"]
+  vue:
+    expands: ["vue"]
+    aliases: ["vuejs", "vue.js"]
+  django:
+    expands: ["django"]
+    aliases: ["django framework", "fastapi", "flask framework", "flask"]
+  git:
+    expands: ["git"]
+    aliases: ["github", "gitlab", "bitbucket", "version control", "கிட்", "गिट"]
+  docker:
+    expands: ["docker"]
+    aliases: ["containers", "containerisation", "containerization", "kubernetes", "k8s", "devops", "ci/cd", "வன்பொருள் தொட்டி"]
+  amazon web services:
+    expands: ["amazon web services"]
+    aliases: ["aws", "amazon aws", "ec2"]
+  microsoft azure:
+    expands: ["microsoft azure"]
+    aliases: ["azure"]
+  google cloud platform:
+    expands: ["google cloud platform"]
+    aliases: ["gcp", "google cloud"]
+  linux:
+    expands: ["linux", "unix"]
+    aliases: ["ubuntu", "unix", "bash", "shell scripting", "shell", "லினக்ஸ்", "लिनक्स"]
+  computer programming:
+    expands: ["programming", "computer programming"]
+    aliases: ["coding", "programming languages", "software development", "software engineering", "development", "dsa", "data structures", "algorithms", "oop", "competitive programming", "நிரலாக்கம்", "प्रोग्रामिंग", "कोडिंग"]
+  api design:
+    expands: ["api", "representational state transfer rest"]
+    aliases: ["rest api", "restful", "rest", "graphql", "microservices", "web services", "api"]
+  software testing:
+    expands: ["testing", "quality assurance"]
+    aliases: ["qa", "manual testing", "selenium", "unit testing", "test automation", "pytest", "jest"]
+  agile:
+    expands: ["agile", "project management"]
+    aliases: ["scrum", "kanban", "sprint", "jira", "atlassian jira", "confluence", "standup", "अजाइल"]
+  machine learning:
+    expands: ["machine learning"]
+    aliases: ["ml", "supervised learning", "scikit-learn", "sklearn", "xᵍboost", "xgboost", "இயந்திர கற்றல்", "मशीन लर्निंग"]
+  artificial intelligence:
+    expands: ["artificial intelligence"]
+    aliases: ["ai", "generative ai", "genai", "chatgpt", "llm", "large language models", "செயற்கை நுண்ணறிவு", "कृत्रिम बुद्धिमत्ता"]
+  deep learning:
+    expands: ["deep learning"]
+    aliases: ["dl", "neural networks", "neural network", "tensorflow", "pytorch", "keras", "cnn", "transformer"]
+  natural language processing:
+    expands: ["natural language processing"]
+    aliases: ["nlp", "text mining", "spacy", "nltk", "text analytics"]
+  computer vision:
+    expands: ["computer vision", "image processing"]
+    aliases: ["opencv", "image analysis", "வடிவங்களை கண்டறிதல்"]
+  data analysis:
+    expands: ["data analysis", "interpretation of data", "analyzing data or information"]
+    aliases: ["analytics", "data analytics", "business analytics", "தரவு பகுப்பாய்வு", "डेटा विश्लेषण"]
+  data science:
+    expands: ["data science", "data mining", "knowledge of data science"]
+    aliases: ["datascience", "data scientist", "டேட்டா சயின்ஸ்", "डेटा साइंस"]
+  statistics:
+    expands: ["statistics", "mathematics"]
+    aliases: ["stats", "statistical analysis", "statistical modelling", "regression", "hypothesis testing", "புள்ளியியல்", "सांख्यिकी"]
+  mathematics:
+    expands: ["mathematics"]
+    aliases: ["maths", "math", "quantitative aptitude", "arithmetic", "गणित", "கணிதம்"]
+  data visualization:
+    expands: ["data visualization", "presentation software"]
+    aliases: ["dataviz", "dashboards", "charts", "தரவு காட்சிப்படுத்தல்", "डेटा विज़ुअलाइज़ेशन"]
+  excel:
+    expands: ["excel", "spreadsheet software"]
+    aliases: ["microsoft excel", "ms excel", "spreadsheets", "spreadsheet", "advanced excel", "pivot tables", "vlookup", "எக்செல்", "एक्सेल"]
+  power bi:
+    expands: ["power bi", "business intelligence"]
+    aliases: ["powerbi", "microsoft power bi", "dax"]
+  tableau:
+    expands: ["tableau"]
+    aliases: ["tableau software", "tableau desktop"]
+  r:
+    expands: ["r"]
+    aliases: ["r programming", "rstudio", "tidyverse"]
+  sas:
+    expands: ["sas"]
+    aliases: ["sas programming", "sas studio"]
+  spss:
+    expands: ["spss", "ibm spss statistics"]
+    aliases: ["ibm spss", "pspp"]
+  stata:
+    expands: ["stata"]
+    aliases: ["statacorp stata"]
+  matlab:
+    expands: ["matlab"]
+    aliases: ["octave", "simulink"]
+  pandas:
+    expands: ["pandas", "python"]
+    aliases: ["numpy", "scipy", "dataframes", "jupyter", "jupyter notebook"]
+  big data:
+    expands: ["big data", "hadoop", "apache spark", "apache hive", "apache kafka"]
+    aliases: ["hadoop", "spark", "pyspark", "hive", "kafka", "databricks", "snowflake"]
+  etl:
+    expands: ["extract transform load etl", "data warehousing"]
+    aliases: ["etl pipelines", "airflow", "dbt", "informatica", "data pipeline"]
+  database design:
+    expands: ["database management system software", "database software", "database design"]
+    aliases: ["dbms", "data modelling", "data modeling", "normalization", "oracle", "mongodb", "nosql", "redis", "ஆரக்கிள்"]
+  cyber security:
+    expands: ["information security", "network security", "cyber security"]
+    aliases: ["cybersecurity", "infosec", "penetration testing", "ethical hacking", "siem", "firewall", "network security", "சைபர் பாதுகாப்பு", "साइबर सुरक्षा"]
+  networking:
+    expands: ["computer networking", "telecommunications", "network monitoring"]
+    aliases: ["ccna", "tcp/ip", "dns", "routers", "network administration", "lan", "wan", "5g"]
+  cloud computing:
+    expands: ["cloud computing", "cloud technologies"]
+    aliases: ["cloud", "saas", "iaas", "serverless", "lambda"]
+  mobile development:
+    expands: ["android", "ios", "mobile application development"]
+    aliases: ["android", "ios", "flutter", "react native", "kotlin", "swift", "xamarin", "ஆண்ட்ராய்டு"]
+  game development:
+    expands: ["game design", "unity", "unreal engine"]
+    aliases: ["unity", "unreal", "godot", "game engine"]
+  embedded systems:
+    expands: ["embedded systems", "microcontrollers", "programmable logic controller plc software"]
+    aliases: ["plc", "arduino", "raspberry pi", "rtos", "firmware", "iot", "internet of things"]
+  # ------------------------------------------------------- business & finance
+  accounting software:
+    expands: ["accounting software", "bookkeeping software", "bookkeeping, accounting, and auditing clerks"]
+    aliases: ["tally", "tally erp", "tally erp 9", "tally prime", "zoho books", "busy accounting", "sage 50 accounting", "கணக்கு மென்பொருள்", "टैली", "लेखा सॉफ्टवेयर"]
+  accounting:
+    expands: ["economics and accounting", "accounting"]
+    aliases: ["accountancy", "bookkeeping", "ledger", "journal entries", "reconciliation", "bank reconciliation", "accounts payable", "accounts receivable", "finacle", "கணக்கியல்", "लेखांकन"]
+  audit:
+    expands: ["auditing", "audit", "quality control analysis"]
+    aliases: ["internal audit", "statutory audit", "assurance", "audit trailing"]
+  tax:
+    expands: ["tax software", "law and government", "taxation"]
+    aliases: ["gst", "gst filing", "tds", "income tax", "vat", "taxation", "gst return", "ஜிஎஸ்டி", "जीएसटी", "कर"]
+  financial analysis:
+    expands: ["financial planning software", "management of financial resources", "finance", "financial analysis"]
+    aliases: ["financial modelling", "financial modeling", "budgeting", "forecasting", "valuation", "dcf", "equity research", "fintech", "நிதி பகுப்பாய்வு", "वित्तीय विश्लेषण"]
+  banking:
+    expands: ["banking", "financial services", "loan software"]
+    aliases: ["core banking", "nbfc", "microfinance", "kyc", "bank operations", "credit analysis", "வங்கி", "बैंकिंग"]
+  insurance:
+    expands: ["insurance", "claims processing"]
+    aliases: ["underwriting", "claims", "insurance sales"]
+  enterprise resource planning erp software:
+    expands: ["enterprise resource planning erp software"]
+    aliases: ["erp", "sap", "sap fico", "sap mm", "oracle erp", "netsuite erp", "microsoft dynamics", "odoo", "ஈஆர்பி"]
+  customer relationship management crm software:
+    expands: ["customer relationship management crm software", "salesforce software", "hubspot software"]
+    aliases: ["crm", "salesforce", "hubspot", "zoho crm", "freshsales", "lead management"]
+  sales:
+    expands: ["selling or influencing others", "persuasion", "sales and marketing"]
+    aliases: ["salesmanship", "business development", "inside sales", "b2b sales", "cold calling", "upselling", "retail sales", "field sales", "விற்பனை", "बिक्री"]
+  marketing:
+    expands: ["sales and marketing", "marketing"]
+    aliases: ["digital marketing", "performance marketing", "brand management", "market research", "மார்க்கெட்டிங்", "मार्केटिंग"]
+  seo:
+    expands: ["search engine optimization seo software", "search marketing"]
+    aliases: ["search engine optimisation", "sem", "google ads", "adwords", "google analytics", "meta ads", "content marketing"]
+  social media management:
+    expands: ["social media", "facebook", "instagram", "linkedin"]
+    aliases: ["social media marketing", "community management", "instagram marketing", "youtube marketing", "influencer marketing", "சமூக வலைதளம்"]
+  content writing:
+    expands: ["writing", "communications and media", "creative writing"]
+    aliases: ["copywriting", "blogging", "technical writing", "content strategy", "proofreading", "எழுத்து", "सामग्री लेखन"]
+  video production:
+    expands: ["adobe premiere pro", "video editing software", "film editing"]
+    aliases: ["video editing", "premiere pro", "final cut", "davinci resolve", "motion graphics", "after effects", "youtube", "வீடியோ எடிட்டிங்"]
+  public relations:
+    expands: ["communications and media", "public relations"]
+    aliases: ["pr", "media relations", "corporate communications", "press release"]
+  human resources:
+    expands: ["personnel and human resources", "human resources", "recruiting"]
+    aliases: ["hr", "hr generalist", "talent acquisition", "recruitment", "hiring", "payroll", "employee relations", "hris", "मानव संसाधन", "மனிதவளம்"]
+  project management:
+    expands: ["project management software", "management of personnel resources", "coordination", "project management"]
+    aliases: ["pmp", "prince2", "ms project", "microsoft project", "asana", "trello", "gantt", "stakeholder management", "திட்ட மேலாண்மை", "परियोजना प्रबंधन"]
+  operations management:
+    expands: ["administration and management", "operations analysis", "production and processing"]
+    aliases: ["operations", "business operations", "process improvement", "lean", "six sigma", "sop development", "காரிய செயல்பாட்டு மேலாண்மை"]
+  supply chain:
+    expands: ["transportation", "logistics", "inventory tracking software", "production and processing"]
+    aliases: ["logistics", "warehouse management", "inventory management", "inventory tracking", "procurement", "purchasing", "3pl", "supply chain management", "scm", "விநியோக சங்கிலி", "आपूर्ति श्रृंखला"]
+  quality control:
+    expands: ["quality control analysis", "quality assurance", "industrial engineering"]
+    aliases: ["qc", "quality inspection", "iso 9001", "capability analysis", "தரக் கட்டுப்பாடு", "गुणवत्ता नियंत्रण"]
+  customer service:
+    expands: ["customer and personal service", "service orientation", "customer service"]
+    aliases: ["client servicing", "customer support", "call centre", "call center", "bpo", "technical support", "helpdesk", "complaint handling", "வாடிக்கையாளர் சேவை", "ग्राहक सेवा"]
+  hospitality:
+    expands: ["food production", "customer and personal service", "service orientation"]
+    aliases: ["hotel management", "front office", "housekeeping", "food and beverage", "f&b service", "barista", "culinary", "chef", "உணவு சேவை"]
+  teaching:
+    expands: ["instructing", "education and training", "training and development"]
+    aliases: ["teacher", "tutoring", "lecturing", "pedagogy", "lesson planning", "classroom management", "curriculum design", "educational technology", "கற்பித்தல்", "शिक्षण"]
+  early childhood education:
+    expands: ["education and training", "therapy and counseling", "psychology"]
+    aliases: ["kindergarten", "montessori", "pre-primary teaching", "child development", "early years"]
+  special education:
+    expands: ["education and training", "therapy and counseling"]
+    aliases: ["special needs", "inclusive education", "remedial teaching", "learning disabilities"]
+  psychology:
+    expands: ["psychology", "therapy and counseling", "sociology and anthropology"]
+    aliases: ["counselling", "counseling", "psychotherapy", "behavioural therapy", "mental health", "clinical psychology", "உளவியல்", "मनोविज्ञान"]
+  social work:
+    expands: ["therapy and counseling", "sociology and anthropology", "public safety and security"]
+    aliases: ["community development", "ngo", "social service", "child welfare", "csr", "சமூக பணி", "समाज कार्य"]
+  # ------------------------------------------------------------- healthcare
+  nursing:
+    expands: ["medicine and dentistry", "therapy and counseling", "patient care"]
+    aliases: ["staff nurse", "gnm", "bsc nursing", "icu nursing", "bedside care", "nurse practitioner", "செவிலியர்", "नर्सिंग"]
+  patient care:
+    expands: ["medicine and dentistry", "therapy and counseling"]
+    aliases: ["patient handling", "clinical care", "vital signs", "caregiving", "elderly care", "home care", "நோயாளி பராமரிப்பு", "रोगी देखभाल"]
+  medical coding:
+    expands: ["medical procedure coding software", "medical condition coding software", "icd coding"]
+    aliases: ["icd-10", "cpt coding", "medical billing", "health information management", "medical scribe"]
+  pharmacy:
+    expands: ["medicine and dentistry", "chemistry", "pharmaceutical"]
+    aliases: ["pharmacist", "dispensing", "b.pharm", "d.pharm", "clinical pharmacy", "மருந்தகம்", "फार्मेसी"]
+  physiotherapy:
+    expands: ["therapy and counseling", "medicine and dentistry"]
+    aliases: ["physical therapy", "rehab", "rehabilitation", "manual therapy", "உடற்பயிற்சி சிகிச்சை"]
+  radiology:
+    expands: ["medicine and dentistry", "medical imaging"]
+    aliases: ["x-ray", "ct scan", "mri", "radiography", "ultrasound", "radiologic technology"]
+  medical laboratory:
+    expands: ["medicine and dentistry", "biology", "chemistry"]
+    aliases: ["pathology", "lab technician", "phlebotomy", "blood bank", "microbiology lab", "ஆய்வகம்"]
+  public health:
+    expands: ["public safety and security", "medicine and dentistry", "biology"]
+    aliases: ["epidemiology", "health administration", "community health", "hospital administration", "healthcare management", "सार्वजनिक स्वास्थ्य"]
+  # ------------------------------------------------- engineering & technical
+  mechanical engineering:
+    expands: ["mechanical", "engineering and technology", "equipment maintenance"]
+    aliases: ["mechanical design", "gd&t", "thermodynamics", "machine design", "production engineering", "இயந்திரவியல்", "मैकेनिकल इंजीनियरिंग"]
+  civil engineering:
+    expands: ["building and construction", "engineering and technology", "design"]
+    aliases: ["construction management", "structural engineering", "site engineering", "quantity surveying", "rcc", "estimation and costing", "சிவில்", "सिविल इंजीनियरिंग"]
+  electrical engineering:
+    expands: ["engineering and technology", "computers and electronics", "equipment maintenance"]
+    aliases: ["electrical wiring", "power systems", "switchgear", "transformer", "motor control", "electrical design", "மின்சாரம்", "विद्युत"]
+  electronics engineering:
+    expands: ["computers and electronics", "engineering and technology"]
+    aliases: ["vlsi", "pcb design", "embedded c", "signal processing", "microcontroller", "analog circuits"]
+  autocad:
+    expands: ["autodesk autocad", "computer aided design cad software"]
+    aliases: ["cad", "autocad 2d", "autocad 3d", "drafting", "revit", "autodesk revit", "bim", "கேட்"]
+  solidworks:
+    expands: ["dassault systemes solidworks", "computer aided design cad software"]
+    aliases: ["catia", "dassault systemes catia", "creo", "nx", "3d modelling", "3d modeling", "fusion 360"]
+  finite element analysis:
+    expands: ["ansys", "ansys fluent", "finite element analysis"]
+    aliases: ["ansys", "fea", "cfd", "abaqus", "simulation"]
+  industrial automation:
+    expands: ["programmable logic controller plc software", "supervisory control and data acquisition scada software", "operation and control"]
+    aliases: ["scada", "hmi", "instrumentation", "control systems", "robotics", "automation engineering", "robotic process automation", "rpa"]
+  welding:
+    expands: ["welding", "repairing", "equipment maintenance"]
+    aliases: ["arc welding", "tig welding", "mig welding", "gas welding", "fabrication", "வெல்டிங்", "वेल्डिंग"]
+  electrical technician:
+    expands: ["repairing", "installation", "equipment maintenance", "operation monitoring"]
+    aliases: ["electrician", "wiring", "electrician technician", "house wiring", "மின்சார தொழிலாளி", "इलेक्ट्रिशियन"]
+  plumbing:
+    expands: ["installation", "repairing", "building and construction"]
+    aliases: ["plumber", "pipe fitting", "sanitary fitting", "குழாய் வேலை", "प्लंबर"]
+  automotive:
+    expands: ["mechanical", "repairing", "troubleshooting"]
+    aliases: ["automobile", "auto mechanic", "vehicle maintenance", "two wheeler mechanic", "ev technician", "tractor mechanic", "வாகன பழுது"]
+  hvac:
+    expands: ["equipment maintenance", "installation", "mechanical"]
+    aliases: ["air conditioning", "refrigeration", "ac technician", "hvac technician", "குளிர்பதனம்"]
+  agricultural science:
+    expands: ["food production", "biology", "building and construction"]
+    aliases: ["agriculture", "agronomy", "horticulture", "farming", "soil science", "agri extension", "விவசாயம்", "कृषि"]
+  environmental science:
+    expands: ["biology", "chemistry", "public safety and security"]
+    aliases: ["environmental engineering", "sustainability", "esg", "waste management", "climate", "சுற்றுச்சூழல்", "पर्यावरण"]
+  laboratory science:
+    expands: ["chemistry", "biology", "physics"]
+    aliases: ["wet lab", "hplc", "quality testing lab", "qc chemist", "analytical chemistry", "ஆய்வக அறிவியல்"]
+  # -------------------------------------------------------- design & creative
+  graphic design:
+    expands: ["design", "fine arts", "adobe photoshop", "adobe illustrator"]
+    aliases: ["photoshop", "illustrator", "adobe photoshop", "adobe illustrator", "canva", "coreldraw", "logo design", "branding", "கிராபிக் டிசைன்", "ग्राफिक डिज़ाइन"]
+  ux design:
+    expands: ["design", "user experience", "human centered design"]
+    aliases: ["ux", "ui", "ux/ui", "ui/ux", "figma", "wireframes", "usability testing", "interaction design", "ux research", "यूएक्स डिज़ाइन"]
+  interior design:
+    expands: ["design", "building and construction", "fine arts"]
+    aliases: ["interior designing", "space planning", "3ds max", "sketchup", "வீட்டு அலங்காரம்"]
+  fashion design:
+    expands: ["design", "fine arts", "production and processing"]
+    aliases: ["fashion technology", "apparel design", "textile design", "garment construction"]
+  photography:
+    expands: ["fine arts", "communications and media", "design"]
+    aliases: ["photo editing", "lightroom", "portrait photography", "videography", "புகைப்படம்"]
+  performing arts:
+    expands: ["fine arts", "communications and media"]
+    aliases: ["music", "dance", "theatre", "acting", "dubbing", "இசை"]
+  journalism:
+    expands: ["communications and media", "writing", "law and government"]
+    aliases: ["reporter", "news writing", "editor", "media studies", "anchor", "செய்தியியல்", "पत्रकारिता"]
+  # ------------------------------------------------------------- soft skills
+  communication:
+    expands: ["speaking", "writing", "active listening", "reading comprehension"]
+    aliases: ["english communication", "verbal communication", "spoken english", "presentation skills", "public speaking", "business english", "தொடர்பு", "संचार"]
+  teamwork:
+    expands: ["coordination", "social perceptiveness", "cooperation"]
+    aliases: ["collaboration", "team player", "cross functional collaboration", "குழு வேலை", "टीम वर्क"]
+  leadership:
+    expands: ["management of personnel resources", "leadership", "coordination"]
+    aliases: ["team management", "people management", "supervision", "mentoring", "தலைமைத்துவம்", "नेतृत्व"]
+  problem solving:
+    expands: ["complex problem solving", "critical thinking", "judgment and decision making"]
+    aliases: ["analytical thinking", "critical thinking", "root cause analysis", "decision making", "logic", "பிரச்சினை தீர்த்தல்", "समस्या समाधान"]
+  time management:
+    expands: ["time management", "active learning", "self management"]
+    aliases: ["prioritisation", "multitasking", "planning and organising", "நேர மேலாண்மை", "समय प्रबंधन"]
+  adaptability:
+    expands: ["active learning", "learning strategies", "flexibility"]
+    aliases: ["fast learner", "quick learner", "flexible", "willingness to learn", "resilience", "grit"]
+  negotiation:
+    expands: ["negotiation", "persuasion", "selling or influencing others"]
+    aliases: ["deal closing", "vendor negotiation", "conflict resolution", "பேச்சுவார்த்தை"]
+  attention to detail:
+    expands: ["monitoring", "quality control analysis", "clerical"]
+    aliases: ["detail oriented", "accuracy", "data entry", "data entry software", "word processing software", "typing speed", "admin work"]
+  computer literacy:
+    expands: ["computers and electronics", "word processing software", "microsoft windows", "email software"]
+    aliases: ["ms office", "microsoft office", "ms word", "powerpoint", "google workspace", "g suite", "computer basics", "कंप्यूटर", "கணினி"]
+  research:
+    expands: ["science", "systems analysis", "information gathering"]
+    aliases: ["literature review", "survey design", "field research", "market intelligence", "ஆராய்ச்சி", "अनुसंधान"]
+  compliance:
+    expands: ["law and government", "public safety and security", "auditing"]
+    aliases: ["regulatory compliance", "iso", "sop compliance", "aml", "kyc compliance", "labour law", "labor law"]

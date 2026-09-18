@@ -8,6 +8,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { extraEn, extraHi, extraTa } from "./i18n-extra";
+
 export type Locale = "en" | "ta" | "hi";
 
 export const LOCALES: { id: Locale; label: string; native: string }[] = [
@@ -112,6 +114,11 @@ const en = {
   forgot_password: "Forgot password?",
   reset_sent: "Password reset e-mail sent to {email}.",
   enter_email_first: "Enter your e-mail address first.",
+  waking_server: "Waking up the server… (up to 60 s) — retrying automatically.",
+  server_unreachable: "The server is not responding yet. Check your connection, then retry.",
+  continue_google_redirect: "Continue with Google (redirect)",
+  redirect_fallback_hint: "Popups are blocked here — use the redirect button above to sign in on a full page.",
+  ...extraEn,
 };
 
 export type Dict = typeof en;
@@ -119,6 +126,10 @@ export type Key = keyof Dict;
 
 const ta: Dict = {
   ...en,
+  waking_server: "சேவையகம் விழித்தெழுகிறது… (60 வினாடிகள் வரை) — தானாக மீண்டும் முயற்சிக்கிறது.",
+  server_unreachable: "சேவையகம் இன்னும் பதிலளிக்கவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+  continue_google_redirect: "Google மூலம் தொடரவும் (திருப்பிவிடல்)",
+  redirect_fallback_hint: "பாப்-அப் தடுக்கப்பட்டுள்ளது — மேலே உள்ள திருப்பிவிடல் பொத்தானைப் பயன்படுத்தவும்.",
   app_name: "தொழில் வழிகாட்டி AI",
   connecting: "இணைக்கிறது…",
   careers_count: "{n} தொழில்கள்",
@@ -213,10 +224,15 @@ const ta: Dict = {
   forgot_password: "கடவுச்சொல் மறந்துவிட்டதா?",
   reset_sent: "{email} க்கு கடவுச்சொல் மீட்டமைப்பு மின்னஞ்சல் அனுப்பப்பட்டது.",
   enter_email_first: "முதலில் உங்கள் மின்னஞ்சலை உள்ளிடவும்.",
+  ...extraTa,
 };
 
 const hi: Dict = {
   ...en,
+  waking_server: "सर्वर जाग रहा है… (60 सेकंड तक) — अपने आप फिर प्रयास हो रहा है।",
+  server_unreachable: "सर्वर ने अभी जवाब नहीं दिया। कनेक्शन जाँचें और फिर कोशिश करें।",
+  continue_google_redirect: "Google से जारी रखें (रीडायरेक्ट)",
+  redirect_fallback_hint: "पॉपअप अवरुद्ध है — ऊपर दिए रीडायरेक्ट बटन से साइन इन करें।",
   app_name: "करियर गाइडेंस AI",
   connecting: "कनेक्ट हो रहा है…",
   careers_count: "{n} करियर",
@@ -311,6 +327,7 @@ const hi: Dict = {
   forgot_password: "पासवर्ड भूल गए?",
   reset_sent: "{email} पर पासवर्ड रीसेट ई-मेल भेजा गया।",
   enter_email_first: "पहले अपना ई-मेल दर्ज करें।",
+  ...extraHi,
 };
 
 export const DICTS: Record<Locale, Dict> = { en, ta, hi };

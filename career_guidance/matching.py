@@ -138,7 +138,11 @@ class Matcher:
         user = self.user_terms(profile)
         # Expand user skills into implied O*NET competencies.
         implied: dict[str, str] = {}  # competency (lower) -> user skill that implies it
-        for skill in user:
+        # `sorted` matters: set iteration order depends on the process hash seed,
+        # and the *first* skill claiming a hint wins. Without it the same profile
+        # scored differently between runs (coverage moved by ~0.3 in the golden
+        # set, which flipped one case in and out of the top 5).
+        for skill in sorted(user):
             for hint in DOMAIN_HINTS.get(skill, ()):
                 implied.setdefault(hint.lower(), skill)
 
@@ -168,7 +172,7 @@ class Matcher:
 
             # Technology overlap
             tech = self._tech[idx]
-            tech_hits = [t for t in user if t in tech or self._fuzzy_in(t, tech)]
+            tech_hits = sorted(t for t in user if t in tech or self._fuzzy_in(t, tech))
             tech_gain = sum(self._tech_idf.get(t, self._tech_max_idf) for t in tech_hits)
             technology = 1 - math.exp(-tech_gain / 6.0)  # saturating
 
@@ -304,7 +308,10 @@ class Matcher:
 
 
 def _cosine(a: dict[str, float], b: dict[str, float]) -> float:
-    keys = set(a) | set(b)
+    # `sorted` keeps the floating-point sum reproducible: iterating a set gives
+    # a hash-seed dependent order, which changed the last bits of the score and
+    # made ties break differently between runs.
+    keys = sorted(set(a) | set(b))
     dot = sum(a.get(k, 0.0) * b.get(k, 0.0) for k in keys)
     na = math.sqrt(sum(v * v for v in a.values()))
     nb = math.sqrt(sum(v * v for v in b.values()))

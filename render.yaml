@@ -1,0 +1,77 @@
+# Render Blueprint — Career Guidance AI backend (FastAPI + built Next.js export)
+#
+# Deploy: Render Dashboard → New → Blueprint → pick this repo → Apply.
+# Docs:   docs/DEPLOY.md  (checklist, env vars, rotation, free-tier caveats)
+#
+# ⚠️ Persistent disks require a PAID instance type. Render rejects a Blueprint
+#    that attaches a disk to a `plan: free` service. Two supported setups:
+#
+#    A. Starter ($7/mo) — keep the `disk:` block below. SQLite survives
+#       redeploys at /app/data/career_guidance.db (recommended: accounts,
+#       history, plans and admin content are all kept).
+#    B. Free — delete the `disk:` block and set `plan: free`. The container
+#       filesystem is ephemeral, so the SQLite file resets whenever the service
+#       redeploys or the container is replaced. Schema migrations re-run
+#       automatically on boot, so the app always starts clean.
+#
+# The front end is deployed on Vercel (Root Directory: frontend); this service
+# serves /api/v1/* for it. The bundled static export is only used when you open
+# the Render URL directly.
+
+services:
+  - type: web
+    name: career-guidance-llm-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/v1/health
+    numInstances: 1
+    disk:
+      name: career-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Signs session cookies. `generateValue` creates a strong secret on first
+      # deploy; rotating it invalidates every existing session (see DEPLOY.md).
+      - key: SESSION_SECRET
+        generateValue: true
+      # Public origin of the *frontend* (used for redirects and magic links).
+      - key: PUBLIC_URL
+        value: https://career-guidance-web-sigma.vercel.app
+      # Anyone listed here becomes an admin on first sign-in.
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: career-ai-ecba3
+      - key: DATABASE_PATH
+        value: /app/data/career_guidance.db
+      # Leave false for the private product; true re-opens anonymous access.
+      - key: PUBLIC_APP
+        value: "false"
+      # ---- Optional -------------------------------------------------------
+      # SMTP (Gmail app password works): only needed for the magic-link fallback.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # Optional free market-data API (seeds are used when empty).
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
+      # No LLM key is required anywhere; the app runs with ai_mode=false.
+      - key: OPENAI_API_KEY
+        sync: false

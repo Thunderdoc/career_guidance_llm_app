@@ -4,6 +4,9 @@ WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ .
+# The static export prerenders /careers/[id] for every catalogue id; without
+# the catalogue next build refuses to export the dynamic route at all.
+COPY data/catalog/occupations.json ./data/catalog/occupations.json
 # Public Firebase web config is inlined at build time (pass with --build-arg / compose `args`).
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
