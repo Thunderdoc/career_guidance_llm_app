@@ -34,9 +34,7 @@ def extract_resume_text(filename: str, data: bytes, max_chars: int = 8000) -> st
     elif name.endswith(".pdf"):
         text = _extract_pdf(data)
     else:
-        raise InvalidInputError(
-            "Unsupported file type. Upload a .txt, .md, or .pdf resume."
-        )
+        raise InvalidInputError("Unsupported file type. Upload a .txt, .md, or .pdf resume.")
 
     text = " ".join(text.split())
     if not text:

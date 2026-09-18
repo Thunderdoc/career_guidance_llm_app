@@ -21,9 +21,7 @@ def test_too_long_profile_raises():
 
 
 def test_prompt_text_includes_optional_fields():
-    profile = CareerProfile(
-        skills="Python", interests="AI", goals="Become an ML engineer"
-    )
+    profile = CareerProfile(skills="Python", interests="AI", goals="Become an ML engineer")
     text = profile.to_prompt_text()
     assert "Skills: Python" in text
     assert "Interests: AI" in text

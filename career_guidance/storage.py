@@ -100,7 +100,7 @@ class Database:
                         is_demo=bool(row["is_demo"]),
                         profile=json.loads(row["profile_json"]),
                         recommendations=[
-                            CareerRecommendation(**item)
+                            CareerRecommendation.from_dict(item)
                             for item in json.loads(row["recommendations_json"])
                         ],
                     )

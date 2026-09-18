@@ -31,7 +31,7 @@ _RECOMMEND_SYSTEM_PROMPT = (
     'career fits), "suitability" (one of: beginner, intermediate, advanced), '
     '"matching_skills" (array of skills the candidate already has), '
     '"missing_skills" (array of skills to acquire), "learning_path" '
-    "(ordered array of learning milestones), and \"next_steps\" (array of "
+    '(ordered array of learning milestones), and "next_steps" (array of '
     "practical short-term actions such as projects or certifications)."
 )
 
@@ -297,8 +297,33 @@ def _parse_recommendations(payload: str) -> list[CareerRecommendation]:
 
 
 def get_provider(settings: Settings) -> SuggestionProvider:
-    """Select the provider based on configuration."""
+    """Select the provider based on configuration.
+
+    Uses the O*NET taxonomy engine when the bundled catalog is available
+    (grounded LLM with a key, offline matching without); otherwise falls back
+    to the legacy six-career mock.
+    """
+    try:
+        from career_guidance.engine import GroundedOpenAIProvider, TaxonomyProvider
+        from career_guidance.matching import get_matcher
+
+        matcher = get_matcher()
+    except Exception:  # noqa: BLE001 - catalog missing or sklearn unavailable
+        logger.warning("Taxonomy engine unavailable; using legacy providers", exc_info=True)
+        if settings.openai_api_key:
+            return OpenAIProvider(settings)
+        return MockProvider()
     if settings.openai_api_key:
-        return OpenAIProvider(settings)
-    logger.info("No OPENAI_API_KEY configured; using offline demo provider")
-    return MockProvider()
+        return GroundedOpenAIProvider(settings, matcher)
+    logger.info("No OPENAI_API_KEY configured; using offline taxonomy provider")
+    return TaxonomyProvider(matcher)
+
+
+def get_offline_provider() -> SuggestionProvider:
+    """Best available offline provider (used for fallback)."""
+    try:
+        from career_guidance.engine import TaxonomyProvider
+
+        return TaxonomyProvider()
+    except Exception:  # noqa: BLE001
+        return MockProvider()

@@ -28,9 +28,7 @@ class StaticProvider(SuggestionProvider):
 
     def recommend(self, profile):
         return [
-            CareerRecommendation(
-                title="Dev", match_reason="Codes well.", suitability="beginner"
-            )
+            CareerRecommendation(title="Dev", match_reason="Codes well.", suitability="beginner")
         ]
 
 
