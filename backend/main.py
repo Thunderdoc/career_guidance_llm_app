@@ -7,13 +7,14 @@ built Next.js front end from ``frontend/out`` when present.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,7 +37,7 @@ from career_guidance.resume import extract_resume_text
 from career_guidance.storage import Database, runs_to_json, runs_to_markdown
 from career_guidance.suggestions import format_recommendations_markdown, generate_recommendations
 from career_guidance.taxonomy import extract_skills, load_taxonomy
-from career_guidance.users import UserStore
+from career_guidance.users import User, UserStore
 
 load_dotenv()  # .env at repo root (ignored by git); real env vars take precedence
 settings = load_settings()
@@ -67,6 +68,47 @@ _me_router, _admin_router = build_account_routers(
 app.include_router(_auth_router)
 app.include_router(_me_router)
 app.include_router(_admin_router)
+
+
+# The product is private: every content endpoint requires a signed-in session.
+# Only ``/health``, ``/meta``, ``/skills/suggest`` and ``/careers/search`` stay
+# public (used by the sign-in screen and by uptime probes).
+GUEST_ID = "guest"
+
+_GUEST = User(
+    id=GUEST_ID,
+    email="guest@local",
+    name="Guest",
+    picture="",
+    provider="guest",
+    role="user",
+    created_at="",
+    last_login_at="",
+)
+
+
+def _optional_session(request: Request) -> User | None:
+    return _auth.user_from(request)
+
+
+def _session(request: Request) -> User:  # noqa: B008
+    """Session-required dependency: 401 unless signed in.
+
+    When the admin feature flag ``public_app`` (or env ``PUBLIC_APP=true``) is
+    set, anonymous visitors are served as a stateless guest instead — the
+    original open-mode behaviour, kept for local demos.
+    """
+    user = _auth.user_from(request)
+    if user:
+        return user
+    if _public_app():
+        return _GUEST
+    raise HTTPException(401, "Sign in required.")
+
+
+def _uid(user: User) -> str | None:
+    """Owner id for stored rows: guests are stored as anonymous."""
+    return None if user.id == GUEST_ID else user.id
 
 
 @app.middleware("http")
@@ -114,6 +156,23 @@ class FitRequest(BaseModel):
     job_description: str
 
 
+def _public_app() -> bool:
+    """True when anonymous visitors may use the app (default: private).
+
+    Set ``PUBLIC_APP=true`` to re-open the product to anonymous visitors; the
+    admin console feature flag of the same name wins when it is set.
+    """
+    try:
+        from career_guidance.settings_store import SettingsStore
+
+        overrides = SettingsStore(settings.database_path).overrides()
+        if "flags.public_app" in overrides:  # an admin decided explicitly
+            return bool(overrides["flags.public_app"])
+    except Exception:  # noqa: BLE001
+        pass
+    return os.getenv("PUBLIC_APP", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _client(request: Request) -> str:
     return request.headers.get(
         "x-forwarded-for", request.client.host if request.client else "?"
@@ -137,6 +196,7 @@ def health() -> dict:
         "ai_mode": bool(settings.openai_api_key),
         "occupations": len(load_taxonomy()),
         "auth": {"google": _auth_settings.google_enabled, "magic_link": True},
+        "public_app": _public_app(),
     }
 
 
@@ -151,7 +211,11 @@ def meta() -> dict:
 
 
 @app.post("/api/v1/recommend")
-def recommend(body: RecommendRequest, request: Request) -> dict:
+def recommend(
+    body: RecommendRequest,  # noqa: B008
+    request: Request,
+    user: User = Depends(_session),  # noqa: B008
+) -> dict:
     if not _limiter.allow(_client(request)):
         raise HTTPException(429, "Too many requests — please wait a minute.")
     if body.experience_level not in EXPERIENCE_LEVELS:
@@ -179,13 +243,12 @@ def recommend(body: RecommendRequest, request: Request) -> dict:
 
     run_id = None
     try:
-        user = _auth.user_from(request)
         run_id = _db.save_run(
             profile.to_dict(),
             result.recommendations,
             result.provider_name,
             result.is_demo,
-            user.id if user else None,
+            _uid(user),
         )
     except Exception:  # noqa: BLE001
         logger.exception("persist failed")
@@ -203,7 +266,10 @@ def recommend(body: RecommendRequest, request: Request) -> dict:
 
 
 @app.post("/api/v1/resume/extract")
-async def resume_extract(file: UploadFile = File(...)) -> dict:  # noqa: B008
+async def resume_extract(
+    file: UploadFile = File(...),  # noqa: B008
+    _: User = Depends(_session),  # noqa: B008
+) -> dict:
     data = await file.read()
     if len(data) > 5 * 1024 * 1024:
         raise HTTPException(413, "Resume exceeds 5 MB.")
@@ -243,7 +309,11 @@ def careers_search(q: str, limit: int = 10) -> dict:
 
 
 @app.get("/api/v1/careers/{career_id}")
-def career_detail(career_id: str, country: str = "in") -> dict:
+def career_detail(
+    career_id: str,  # noqa: B008
+    country: str = "in",
+    _: User = Depends(_session),  # noqa: B008
+) -> dict:
     occ = load_taxonomy().get(career_id)
     if not occ:
         raise HTTPException(404, "Unknown occupation.")
@@ -258,17 +328,17 @@ def career_detail(career_id: str, country: str = "in") -> dict:
 
 
 @app.get("/api/v1/assessment/questions")
-def assessment_questions() -> dict:
+def assessment_questions(_: User = Depends(_session)) -> dict:  # noqa: B008
     return {"questions": QUESTIONS}
 
 
 @app.post("/api/v1/assessment")
-def assessment(body: AssessmentRequest) -> dict:
+def assessment(body: AssessmentRequest, _: User = Depends(_session)) -> dict:  # noqa: B008
     return score_assessment(body.answers)
 
 
 @app.post("/api/v1/jobs/fit")
-def job_fit(body: FitRequest) -> dict:
+def job_fit(body: FitRequest, _: User = Depends(_session)) -> dict:  # noqa: B008
     have = set(extract_skills(body.skills)) | set(extract_skills(body.resume_text))
     need = extract_skills(body.job_description)
     need = [s for s in need if len(s) > 2][:25]
@@ -284,11 +354,9 @@ def job_fit(body: FitRequest) -> dict:
 
 
 @app.get("/api/v1/history")
-def history(request: Request, limit: int = 50) -> dict:
-    user = _auth.user_from(request)
-    runs = _db.list_runs(limit=1000 if user else limit)
-    if user:
-        runs = [r for r in runs if r.user_id == user.id][:limit]
+def history(user: User = Depends(_session), limit: int = 50) -> dict:  # noqa: B008
+    uid = _uid(user)
+    runs = [r for r in _db.list_runs(limit=1000) if r.user_id == uid][:limit]
     return {
         "runs": [
             {
@@ -307,22 +375,22 @@ def history(request: Request, limit: int = 50) -> dict:
 
 
 @app.delete("/api/v1/history")
-def clear_history(request: Request) -> dict:
-    user = _auth.user_from(request)
-    if user:
-        for r in _db.list_runs(limit=5000):
-            if r.user_id == user.id:
-                _db.delete_run(r.id)
-    else:
-        for r in _db.list_runs(limit=5000):
-            if r.user_id is None:
-                _db.delete_run(r.id)
+def clear_history(user: User = Depends(_session)) -> dict:  # noqa: B008
+    uid = _uid(user)
+    for r in _db.list_runs(limit=5000):
+        if r.user_id == uid:
+            _db.delete_run(r.id)
     return {"cleared": True}
 
 
 @app.get("/api/v1/analytics")
-def analytics() -> dict:
-    runs = _db.list_runs(limit=1000)
+def analytics(user: User = Depends(_session)) -> dict:  # noqa: B008
+    uid = _uid(user)
+    runs = (
+        _db.list_runs(limit=1000)
+        if user.is_admin
+        else [r for r in _db.list_runs(limit=1000) if r.user_id == uid]
+    )
     if not runs:
         return {"total_runs": 0}
     s = summarize(runs)
@@ -337,9 +405,9 @@ def analytics() -> dict:
 
 
 @app.get("/api/v1/export/{run_id}.{fmt}")
-def export_run(run_id: int, fmt: Literal["md", "json"]):
+def export_run(run_id: int, fmt: Literal["md", "json"], user: User = Depends(_session)):  # noqa: B008
     run = next((r for r in _db.list_runs(limit=1000) if r.id == run_id), None)
-    if not run:
+    if not run or (run.user_id != _uid(user) and not user.is_admin):
         raise HTTPException(404, "Run not found.")
     if fmt == "json":
         return PlainTextResponse(
@@ -355,8 +423,13 @@ def export_run(run_id: int, fmt: Literal["md", "json"]):
 
 
 @app.get("/api/v1/export/history.{fmt}")
-def export_history(fmt: Literal["md", "json"]):
-    runs = _db.list_runs(limit=1000)
+def export_history(fmt: Literal["md", "json"], user: User = Depends(_session)):  # noqa: B008
+    uid = _uid(user)
+    runs = (
+        _db.list_runs(limit=1000)
+        if user.is_admin
+        else [r for r in _db.list_runs(limit=1000) if r.user_id == uid]
+    )
     body = runs_to_json(runs) if fmt == "json" else runs_to_markdown(runs)
     return PlainTextResponse(
         body, media_type="application/json" if fmt == "json" else "text/markdown"

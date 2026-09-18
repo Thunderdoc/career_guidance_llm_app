@@ -327,7 +327,7 @@ function FeedbackTab() {
 
 function ContentTab() {
   const [q, setQ] = useState("");
-  const load = useCallback(() => admin.resources(q), [q]);
+  const load = useCallback(() => admin.skillResources(q), [q]);
   const { data, reload } = useLoad<{ skills: ResourceRow[] }>(load);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -342,7 +342,7 @@ function ContentTab() {
     if (!editing) return;
     setSaving(true);
     try {
-      await admin.putResources(editing, JSON.parse(draft));
+      await admin.setSkillResources(editing, JSON.parse(draft));
       setEditing(null);
       await reload();
     } catch (e) {
@@ -369,7 +369,7 @@ function ContentTab() {
                   <Save size={14} />
                 </IconBtn>
                 {r.overridden && (
-                  <IconBtn title="Reset to default" onClick={() => admin.resetResources(r.skill).then(reload)}>
+                  <IconBtn title="Reset to default" onClick={() => admin.resetSkillResources(r.skill).then(reload)}>
                     <RotateCcw size={14} />
                   </IconBtn>
                 )}

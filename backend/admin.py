@@ -205,7 +205,7 @@ def build_routers(
         store.audit(actor.email, f"feedback:{body.status}", str(fid))
         return {"ok": True}
 
-    @admin.get("/resources")
+    @admin.get("/resource-overrides")
     def list_resources(q: str = "", _: User = Depends(admin_user)) -> dict:  # noqa: B008
         overrides = store.resource_overrides()
         skills = sorted(set(all_skills()) | set(overrides))
@@ -222,14 +222,14 @@ def build_routers(
             ]
         }
 
-    @admin.put("/resources/{skill}")
+    @admin.put("/resource-overrides/{skill}")
     def put_resources(skill: str, body: ResourcesBody, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
         store.set_resources(skill, [r.model_dump() for r in body.resources], actor.email)
         set_overrides(store.resource_overrides())
         store.audit(actor.email, "resources:set", skill)
         return {"ok": True}
 
-    @admin.delete("/resources/{skill}")
+    @admin.delete("/resource-overrides/{skill}")
     def reset_resources(skill: str, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
         store.delete_resources(skill)
         set_overrides(store.resource_overrides())

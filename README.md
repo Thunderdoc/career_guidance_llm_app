@@ -125,8 +125,13 @@ and are public by design.
 
 ## Authentication & admin
 
-**Anonymous use is first-class** — recommendations, quiz, job fit and
-server-side history all work without an account.
+**The app is private**: `/` is wrapped in `<RequireAuth>`, so anonymous visitors
+are redirected to `/login?next=/` and see no content. On the API every content
+route (`/recommend`, `/assessment`, `/jobs/fit`, `/resume/*`, `/history`,
+`/plan`, `/learn`, `/admin`, …) returns **401** without a valid session; only
+`/health`, `/meta`, `/skills/suggest` and `/careers/search` stay public. Setting
+`PUBLIC_APP=true` (or the `public_app` admin flag) restores guest mode, in which
+anonymous runs are still counted in the admin “anonymous” metric.
 
 Signing in at **`/login`** (Firebase Authentication):
 

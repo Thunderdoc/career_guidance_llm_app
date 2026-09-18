@@ -74,11 +74,11 @@ def test_admin_flow(client):
 
     # content management: override + reset resources
     body = {"resources": [{"title": "T", "url": "https://x.y", "provider": "P", "free": True}]}
-    assert client.put("/api/v1/admin/resources/sql", json=body).status_code == 200
-    res = client.get("/api/v1/admin/resources?q=sql").json()["skills"]
+    assert client.put("/api/v1/admin/resource-overrides/sql", json=body).status_code == 200
+    res = client.get("/api/v1/admin/resource-overrides?q=sql").json()["skills"]
     sql = next(s for s in res if s["skill"] == "sql")
     assert sql["overridden"] and sql["resources"][0]["title"] == "T"
-    assert client.delete("/api/v1/admin/resources/sql").status_code == 200
+    assert client.delete("/api/v1/admin/resource-overrides/sql").status_code == 200
 
     # feedback triage
     client.post("/api/v1/me/feedback", json={"rating": 4, "comment": "nice"})
