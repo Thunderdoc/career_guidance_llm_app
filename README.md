@@ -45,6 +45,7 @@ LLM-written explanations when an OpenAI key is configured.
 | **Résumé upload** | .pdf / .txt / .md parsed in memory (≤ 5 MB), skills auto-detected. |
 | **Accounts** | Firebase Authentication (Google, e-mail + password with enforced verification). Per-user history, skill-progress checklist, export, delete-my-data. Anonymous use always works. |
 | **Admin console** | Users, runs, feedback triage, learning-resource content management, audit log, KPIs. Role verified server-side. |
+| **Billing & selling** | Free / Pro / Institute plans, one-time Pro trial, Razorpay checkout + signature-verified webhook, roadmap PDF as the Pro feature, public landing + pricing page, in-app `/billing` page, Terms / Privacy / Refund pages. See [`SELLING.md`](SELLING.md). |
 | **AI mode** | With `OPENAI_API_KEY`: grounded explanations validated against a strict schema, automatic fallback to offline mode. |
 | **UI** | Next.js 15 + React 19 + Motion + Tailwind 4, Motion-Primitives-style animations, honours `prefers-reduced-motion`, PWA manifest, 3 languages. |
 
@@ -171,6 +172,7 @@ Interactive docs at **`/api/docs`**. All routes are under `/api/v1`.
 | GET/DELETE | `/history` · `/export/{run_id}.{md,json}` · `/export/history.{md,json}` | History (scoped to user when signed in) |
 | GET/POST | `/auth/providers` · `/auth/firebase` · `/auth/me` · `/auth/logout` · `/auth/magic-link…` | Authentication |
 | GET/POST/PUT/DELETE | `/me/runs` · `/me/progress` · `/me/prefs` · `/me/feedback` · `/me` | Account (auth required) |
+| GET/POST | `/billing/plans` · `/billing/me` · `/billing/trial/start` · `/billing/checkout` · `/billing/webhook` | Plans, trial, Razorpay checkout + webhook (501 while keys are unset) |
 | GET/PATCH/PUT/DELETE | `/admin/overview` · `/admin/users…` · `/admin/runs…` · `/admin/feedback…` · `/admin/resources…` · `/admin/audit` | Admin (admin role required) |
 
 The recommendation contract (`run_id`, `provider`, `is_demo`, `priority_skills`,
@@ -250,6 +252,7 @@ from the table above through the host's secret manager, and mount a volume at
 
 ## Roadmap & docs
 
+- [`SELLING.md`](SELLING.md) — sell-standard status and go-live checklist (prices, Razorpay keys, business details, hosting).
 - [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) — acceptance criteria R1–R10 (all met), workstreams, API contract, status table.
 - [`docs/RESEARCH_ROADMAP.md`](docs/RESEARCH_ROADMAP.md) — research directions (ESCO/CareerBERT embeddings, RAG grounding, market data).
 

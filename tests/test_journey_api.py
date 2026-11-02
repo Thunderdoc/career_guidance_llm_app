@@ -136,6 +136,10 @@ def test_plan_readiness_roadmap_and_exports(auth_client):
     for fmt, marker in [("md", b"# "), ("json", b"{"), ("ics", b"BEGIN:VCALENDAR")]:
         response = client.get(f"/api/v1/plan/{plan['plan_id']}.{fmt}")
         assert response.status_code == 200 and response.content.startswith(marker), fmt
+    # Roadmap PDF is the Pro feature: free users get 402, a trial unlocks it.
+    assert client.get(f"/api/v1/plan/{plan['plan_id']}.pdf").status_code == 402
+    trial = client.post("/api/v1/billing/trial/start").json()
+    assert trial["trial_active"] is True
     pdf = client.get(f"/api/v1/plan/{plan['plan_id']}.pdf")
     assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
     assert client.get("/api/v1/plan/9999.md").status_code == 404

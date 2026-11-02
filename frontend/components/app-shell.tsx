@@ -17,6 +17,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Compass,
+  CreditCard,
   FileText,
   History,
   LayoutDashboard,
@@ -72,6 +73,7 @@ const NAV: { group: Key; items: NavItem[] }[] = [
       { href: "/compare", label: "nav_compare", icon: <BarChart3 size={17} /> },
       { href: "/transitions", label: "nav_transitions", icon: <ArrowLeftRight size={17} /> },
       { href: "/history", label: "nav_history", icon: <History size={17} /> },
+      { href: "/billing", label: "nav_billing", icon: <CreditCard size={17} /> },
     ],
   },
 ];

@@ -9,6 +9,7 @@
 
 export const extraEn = {
   nav_dashboard: "Dashboard",
+  nav_billing: "Billing",
   nav_discover: "Discover",
   nav_plan: "Plan",
   nav_learn: "Learn",
@@ -383,6 +384,7 @@ export const extraEn = {
 
 export const extraTa: typeof extraEn = {
   nav_dashboard: "டாஷ்போர்டு",
+  nav_billing: "கட்டணம்",
   nav_discover: "ஆர்வம் கண்டறி",
   nav_plan: "திட்டம்",
   nav_learn: "கற்க",
@@ -757,6 +759,7 @@ export const extraTa: typeof extraEn = {
 
 export const extraHi: typeof extraEn = {
   nav_dashboard: "डैशबोर्ड",
+  nav_billing: "बिलिंग",
   nav_discover: "रुचि जानें",
   nav_plan: "योजना",
   nav_learn: "सीखें",

@@ -753,4 +753,45 @@ export const admin = {
     request<{ log: { id: number; created_at: string; actor: string; action: string; target: string; detail: string }[] }>(`/api/v1/admin/audit?limit=${limit}`),
 };
 
+/* -------------------------------------------------------------------------- */
+/* Billing (sell-standard): plans, own status, trial                          */
+/* -------------------------------------------------------------------------- */
+
+export type BillingPlan = {
+  id: string;
+  name: string;
+  tagline: string;
+  features: string[];
+  price_inr: number | null;
+  trial_days: number;
+};
+
+export const billingApi = {
+  plans: () =>
+    request<{ plans: BillingPlan[]; payments_configured: boolean; trial_days: number }>(
+      "/api/v1/billing/plans",
+    ),
+  me: () =>
+    request<{
+      plan: string;
+      effective_plan: string;
+      trial_ends_at: string;
+      trial_active: boolean;
+      trial_used: boolean;
+    }>("/api/v1/billing/me"),
+  startTrial: () =>
+    request<{ plan: string; effective_plan: string; trial_ends_at: string; trial_active: boolean }>(
+      "/api/v1/billing/trial/start",
+      { method: "POST" },
+    ),
+  checkout: (plan: string) =>
+    request<{
+      order_id: string;
+      key_id: string;
+      amount_paise: number;
+      currency: string;
+      plan: string;
+    }>("/api/v1/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) }),
+};
+
 export type { FeedbackItem };

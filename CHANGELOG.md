@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Sell-standard billing: Free / Pro / Institute plans (`GET /billing/plans`,
+  public), one-time Pro trial (`POST /billing/trial/start`), Razorpay
+  checkout + HMAC-verified webhook (`POST /billing/checkout`, `/billing/webhook`),
+  payments ledger and user plan/trial columns (migration 3). Checkout and the
+  webhook answer 501 while Razorpay keys are unset; unset prices render as
+  "Contact us".
+- Roadmap PDF export is the Pro feature while `BILLING_ENFORCE_PRO` is on
+  (default); Markdown/JSON/ICS exports stay free.
+- Public landing page at `/` (server-rendered: hero, features, how it works,
+  live pricing, FAQ), Terms / Privacy / Refund pages, in-app `/billing` page
+  with sidebar link, and the classic tabbed shell preserved at `/classic`.
+- `frontend/.env.example` (was missing although the root `.env.example`
+  referenced it) and billing variables in `.env.example`.
+
+### Fixed
+
+- Journey PDF export test now covers the Pro gate (402 for Free, 200 after
+  trial) instead of assuming open access.
+
 ## [1.1.0] - 2026-09-03
 
 ### Added

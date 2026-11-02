@@ -221,6 +221,30 @@ class UserStore:
             conn.execute("UPDATE magic_links SET used=1 WHERE token=?", (token,))
             return row["email"]
 
+    # ---- billing ------------------------------------------------------- #
+
+    def plan_of(self, user_id: str) -> dict:
+        """Billing state for a user: assigned plan + trial window."""
+        with self._connect() as conn:
+            try:
+                row = conn.execute(
+                    "SELECT plan, trial_ends_at FROM users WHERE id=?", (user_id,)
+                ).fetchone()
+            except sqlite3.OperationalError:
+                # Database predates migration 3 (no billing columns yet).
+                return {"plan": "free", "trial_ends_at": ""}
+            if not row:
+                return {"plan": "free", "trial_ends_at": ""}
+            return {"plan": row["plan"] or "free", "trial_ends_at": row["trial_ends_at"] or ""}
+
+    def set_plan(self, user_id: str, plan: str) -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET plan=? WHERE id=?", (plan, user_id))
+
+    def start_trial(self, user_id: str, ends_at: str) -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET trial_ends_at=? WHERE id=?", (ends_at, user_id))
+
     # ---- progress ------------------------------------------------------ #
 
     def progress(self, user_id: str) -> list[str]:

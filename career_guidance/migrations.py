@@ -303,9 +303,27 @@ _V2 = [
     "ALTER TABLE feedback ADD COLUMN tool TEXT NOT NULL DEFAULT ''",
 ]
 
+_V3 = [
+    "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
+    "ALTER TABLE users ADD COLUMN trial_ends_at TEXT NOT NULL DEFAULT ''",
+    """CREATE TABLE IF NOT EXISTS payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL DEFAULT 'razorpay',
+        provider_order_id TEXT NOT NULL UNIQUE,
+        plan TEXT NOT NULL DEFAULT 'pro',
+        amount_paise INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'INR',
+        status TEXT NOT NULL DEFAULT 'created',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+]
+
 MIGRATIONS: list[tuple[int, str, list[str]]] = [
     (1, "baseline (runs, users, progress, feedback, overrides, audit)", _V1),
     (2, "journey, content, admin, gamification stores", _V2),
+    (3, "billing: user plan/trial + payments ledger", _V3),
 ]
 
 LATEST_VERSION = max(v for v, _, _ in MIGRATIONS)

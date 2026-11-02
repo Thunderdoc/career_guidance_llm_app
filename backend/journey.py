@@ -462,6 +462,12 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         plan = journey.plan_by_id(user.id, plan_id)
         if plan is None:
             raise HTTPException(404, "Plan not found.")
+        if fmt == "pdf":
+            # Roadmap PDF is the Pro feature: Free users get 402 while
+            # BILLING_ENFORCE_PRO is on (see backend/billing.py).
+            from backend.billing import require_pro
+
+            require_pro(user, users)
         roadmap = _roadmap_object(plan)
         if fmt == "md":
             return PlainTextResponse(

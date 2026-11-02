@@ -25,6 +25,7 @@ from backend.admin_console import build_router as build_console_router
 from backend.assessment import QUESTIONS, score_assessment
 from backend.auth import Auth, load_auth_settings
 from backend.auth import build_router as build_auth_router
+from backend.billing import build_router as build_billing_router
 from backend.journey import build_router as build_journey_router
 from backend.ratelimit import RateLimiter
 from career_guidance import __version__
@@ -67,10 +68,12 @@ _auth_router, _current_user, _admin_user = build_auth_router(_auth)
 _me_router = build_me_router(_users, _db, _current_user)
 _journey_router = build_journey_router(settings, _current_user, _db, _users)
 _admin_console_router = build_console_router(settings, _users, _db, _admin_user)
+_billing_router = build_billing_router(_current_user, _users, settings.database_path)
 app.include_router(_auth_router)
 app.include_router(_me_router)
 app.include_router(_journey_router)
 app.include_router(_admin_console_router)
+app.include_router(_billing_router)
 
 
 # The product is private: every content endpoint requires a signed-in session.
