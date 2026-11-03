@@ -73,9 +73,15 @@ class AuthSettings:
 def load_auth_settings() -> AuthSettings:
     secret = os.getenv("SESSION_SECRET", "")
     if not secret:
-        secret = "dev-insecure-secret-change-me"
         if os.getenv("APP_ENV", "development") == "production":
-            logger.error("SESSION_SECRET is not set in production!")
+            # Fail hard: running production on the known dummy secret would
+            # let anyone forge a session cookie. Render generates this value
+            # (see render.yaml), so a missing one means a broken deploy.
+            raise RuntimeError(
+                "SESSION_SECRET is not set in production — refusing to start "
+                "with a known dummy secret. Set SESSION_SECRET and redeploy."
+            )
+        secret = "dev-insecure-secret-change-me"
     return AuthSettings(
         secret=secret,
         google_client_id=os.getenv("GOOGLE_CLIENT_ID", ""),

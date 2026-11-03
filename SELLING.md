@@ -68,10 +68,6 @@ try it, pay for Pro, and get Pro. Everything else is polish.
 
 ## Follow-ups (not blocking a sale)
 
-- `SESSION_SECRET` fallback: production without a secret currently logs an
-  error but keeps running; make it fail hard at startup in production.
-- CORS is `allow_origins=["*"]` (no credentials); tighten to an env-driven
-  list once the production frontend origin is fixed.
 - Landing page in Tamil and Hindi (the signed-in app is trilingual).
 - Institute seat management in the admin console.
 

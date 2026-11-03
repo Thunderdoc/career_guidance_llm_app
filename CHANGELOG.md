@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Journey PDF export test now covers the Pro gate (402 for Free, 200 after
   trial) instead of assuming open access.
+- Production hardening: the app now refuses to start when `APP_ENV=production`
+  and `SESSION_SECRET` is unset (previously it logged an error and kept
+  running on a known dummy secret), and the CORS allow-list is env-driven
+  via `CORS_ALLOW_ORIGINS` instead of a hardcoded wildcard.
 
 ## [1.1.0] - 2026-09-03
 

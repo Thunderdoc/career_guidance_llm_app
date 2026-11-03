@@ -53,9 +53,22 @@ app = FastAPI(
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
 )
+
+
+def _cors_allow_origins() -> list[str]:
+    """Origins allowed to call the API cross-origin (CORS_ALLOW_ORIGINS).
+
+    The front end is same-origin in production, so the permissive default is
+    only for dev previews; set CORS_ALLOW_ORIGINS to the real front-end
+    origin(s), comma-separated, to lock it down.
+    """
+    origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "*").split(",") if o.strip()]
+    return origins or ["*"]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # front end is same-origin in prod; permissive for dev previews
+    allow_origins=_cors_allow_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
