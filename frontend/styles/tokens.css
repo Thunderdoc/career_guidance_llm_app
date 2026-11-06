@@ -1,0 +1,55 @@
+/*
+ * Career Guidance AI — design tokens (Phase 1.4).
+ *
+ * New `--cg-*` variables for the consolidated surfaces (landing, /start,
+ * /report, ui components). They sit alongside the legacy tokens in
+ * globals.css so existing screens are untouched; new components must use
+ * these. One accent, one neutral scale, semantic colours, 4-pt spacing.
+ * Dark values are the default (the app ships dark); a light theme is
+ * available under [data-theme="light"] and both are AA-checked pairs:
+ *  - light: fg #1a1a1a on bg #ffffff (16.1:1), muted #4b5563 on #ffffff (7.5:1),
+ *    accent-ink #047857 on #ffffff (5.5:1)
+ *  - dark:  fg #ffffff on bg #0f0f0f (17.9:1), muted #9a9a9a on #0f0f0f (6.4:1),
+ *    accent #00d4aa on #0f0f0f (9.7:1)
+ */
+:root {
+  --cg-accent: #00d4aa;
+  --cg-accent-ink: #00d4aa;
+  --cg-bg: #0f0f0f;
+  --cg-surface: #1a1a1a;
+  --cg-surface-2: #2a2a2a;
+  --cg-border: rgba(255, 255, 255, 0.1);
+  --cg-fg: #ffffff;
+  --cg-muted: #9a9a9a;
+  --cg-success: #22c55e;
+  --cg-warning: #e6a82c;
+  --cg-danger: #e86868;
+  --cg-space-1: 4px;
+  --cg-space-2: 8px;
+  --cg-space-3: 12px;
+  --cg-space-4: 16px;
+  --cg-space-6: 24px;
+  --cg-space-8: 32px;
+  --cg-radius-sm: 8px;
+  --cg-radius-md: 12px;
+  --cg-radius-lg: 16px;
+  --cg-radius-pill: 24px;
+  --cg-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --cg-font-ui: "Inter", ui-sans-serif, system-ui, "Noto Sans Tamil", "Noto Sans Devanagari", sans-serif;
+  --cg-font-report: "Instrument Serif", Georgia, serif;
+}
+
+[data-theme="light"] {
+  --cg-accent: #047857;
+  --cg-accent-ink: #047857;
+  --cg-bg: #ffffff;
+  --cg-surface: #f6f6f4;
+  --cg-surface-2: #ececea;
+  --cg-border: rgba(0, 0, 0, 0.12);
+  --cg-fg: #1a1a1a;
+  --cg-muted: #4b5563;
+  --cg-success: #15803d;
+  --cg-warning: #b45309;
+  --cg-danger: #b91c1c;
+  --cg-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+}

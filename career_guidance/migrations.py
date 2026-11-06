@@ -320,10 +320,26 @@ _V3 = [
     )""",
 ]
 
+# --- v4: Phase 1 institute demo-request leads --------------------------------
+_V4 = [
+    """CREATE TABLE IF NOT EXISTS demo_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        organisation TEXT NOT NULL,
+        seats INTEGER,
+        message TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'new'
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_demo_requests_created ON demo_requests (created_at)",
+]
+
 MIGRATIONS: list[tuple[int, str, list[str]]] = [
     (1, "baseline (runs, users, progress, feedback, overrides, audit)", _V1),
     (2, "journey, content, admin, gamification stores", _V2),
     (3, "billing: user plan/trial + payments ledger", _V3),
+    (4, "phase 1: institute demo-request leads", _V4),
 ]
 
 LATEST_VERSION = max(v for v, _, _ in MIGRATIONS)

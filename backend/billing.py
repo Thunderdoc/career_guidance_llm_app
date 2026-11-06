@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from career_guidance.billing import (
     BillingStore,
+    DemoRequestStore,
     effective_plan,
     load_billing_config,
     plans_payload,
@@ -35,6 +36,14 @@ _RAZORPAY_ORDERS_URL = "https://api.razorpay.com/v1/orders"
 
 class CheckoutRequest(BaseModel):
     plan: str
+
+
+class DemoRequest(BaseModel):
+    name: str
+    email: str
+    organisation: str
+    seats: int | None = None
+    message: str = ""
 
 
 def require_pro(user, users) -> None:
@@ -53,10 +62,38 @@ def require_pro(user, users) -> None:
         raise HTTPException(402, "Pro required for this feature.")
 
 
-def build_router(current_user, users, db_path) -> APIRouter:
+def build_router(current_user, users, db_path, admin_user=None) -> APIRouter:
     """Billing routes: plans, own status, trial, checkout, webhook."""
     router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
     store = BillingStore(db_path)
+    demo_store = DemoRequestStore(db_path)
+
+    @router.post("/demo-request")
+    def demo_request(body: DemoRequest) -> dict:
+        """Public institute lead capture (landing 'Request a demo' form).
+
+        Validates and stores the lead only — no e-mail is sent. Admins read
+        the leads via ``GET /demo-requests`` (admin role, server-side).
+        """
+        name = body.name.strip()
+        email = body.email.strip()
+        organisation = body.organisation.strip()
+        if len(name) < 2 or len(organisation) < 2:
+            raise HTTPException(422, "Name and organisation are required.")
+        if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+            raise HTTPException(422, "A valid e-mail address is required.")
+        if body.seats is not None and not (1 <= body.seats <= 100_000):
+            raise HTTPException(422, "Seats must be between 1 and 100000.")
+        lead_id = demo_store.create(
+            name[:120], email[:200], organisation[:200], body.seats, body.message.strip()[:2000]
+        )
+        return {"id": lead_id, "stored": True}
+
+    @router.get("/demo-requests")
+    def demo_requests(user=Depends(admin_user) if admin_user else Depends(current_user)) -> dict:  # noqa: B008
+        if admin_user is None:
+            raise HTTPException(403, "Admin only.")
+        return {"requests": demo_store.list()}
 
     @router.get("/plans")
     def plans() -> dict:

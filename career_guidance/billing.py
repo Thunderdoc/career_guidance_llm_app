@@ -212,3 +212,52 @@ class BillingStore:
                 "SELECT * FROM payments WHERE provider_order_id=?", (provider_order_id,)
             ).fetchone()
             return dict(row) if row else None
+
+
+class DemoRequestStore:
+    """Institute demo-request leads (Phase 1 landing form).
+
+    Stored in the same SQLite database; visible to admins through the
+    billing router's admin-only list endpoint. Deliberately minimal:
+    validate, store, list — no e-mail is sent and nothing is inferred.
+    """
+
+    def __init__(self, db_path: str) -> None:
+        self._path = db_path
+        with self._connect() as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS demo_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    organisation TEXT NOT NULL,
+                    seats INTEGER,
+                    message TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'new'
+                )"""
+            )
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def create(
+        self, name: str, email: str, organisation: str, seats: int | None, message: str
+    ) -> int:
+        created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO demo_requests (created_at, name, email, organisation, seats, message) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (created_at, name, email, organisation, seats, message),
+            )
+            return int(cur.lastrowid or 0)
+
+    def list(self, limit: int = 100) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM demo_requests ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(r) for r in rows]

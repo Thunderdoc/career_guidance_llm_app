@@ -784,6 +784,11 @@ export const billingApi = {
       "/api/v1/billing/trial/start",
       { method: "POST" },
     ),
+  demoRequest: (body: { name: string; email: string; organisation: string; seats?: number | null; message?: string }) =>
+    request<{ id: number; stored: boolean }>("/api/v1/billing/demo-request", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   checkout: (plan: string) =>
     request<{
       order_id: string;

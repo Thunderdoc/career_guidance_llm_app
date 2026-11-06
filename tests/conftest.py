@@ -1,6 +1,6 @@
 """Shared pytest fixtures.
 
-The product is private (all content endpoints require a session), so the API
+The product is public-first with gated depth (saved-data endpoints require a session), so the API
 tests need a signed-in client. ``login`` performs the magic-link flow, which
 needs no external services.
 """

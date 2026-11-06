@@ -12,7 +12,8 @@ PRIVATE = [
     ("GET", "/api/v1/assessment/questions"),
     ("GET", "/api/v1/history"),
     ("GET", "/api/v1/analytics"),
-    ("POST", "/api/v1/recommend"),
+    # POST /recommend is intentionally absent: Phase 1 guest-first access
+    # allows anonymous runs there (see tests/test_guest_access.py).
     ("POST", "/api/v1/assessment"),
     ("POST", "/api/v1/jobs/fit"),
 ]

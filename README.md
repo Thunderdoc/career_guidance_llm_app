@@ -126,13 +126,20 @@ and are public by design.
 
 ## Authentication & admin
 
-**The app is private**: `/` is wrapped in `<RequireAuth>`, so anonymous visitors
-are redirected to `/login?next=/` and see no content. On the API every content
-route (`/recommend`, `/assessment`, `/jobs/fit`, `/resume/*`, `/history`,
-`/plan`, `/learn`, `/admin`, …) returns **401** without a valid session; only
-`/health`, `/meta`, `/skills/suggest` and `/careers/search` stay public. Setting
-`PUBLIC_APP=true` (or the `public_app` admin flag) restores guest mode, in which
-anonymous runs are still counted in the admin “anonymous” metric.
+**The app is public-first with gated depth** (Phase 1): the landing page,
+career search and a visitor's **first recommendation run** work without
+signing in — `POST /api/v1/recommend` accepts anonymous, rate-limited runs
+(30/min/IP), stored with no account attached and flagged `anonymous`.
+Sign-in is required for everything that *saves* or *belongs to* a user:
+history, exports, plans, progress, the full journey tools, saved reports
+and the admin console all return **401** without a valid session, and
+`/api/v1/admin/*` additionally re-checks the admin role server-side
+(403 for non-admins). Anonymous runs never appear in any user's history
+or exports. Setting `PUBLIC_APP=true` (or the `public_app` admin flag)
+additionally serves the other content routes to guests as before; see
+[`docs/ROUTES.md`](docs/ROUTES.md) for the full route/access map and
+[`docs/SOURCES.md`](docs/SOURCES.md) for the source of every displayed
+figure.
 
 Signing in at **`/login`** (Firebase Authentication):
 
@@ -164,7 +171,7 @@ Interactive docs at **`/api/docs`**. All routes are under `/api/v1`.
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/health`, `/meta` | Status, mode, catalog size |
-| POST | `/recommend` | Profile → 5 recommendations (rate-limited 30/min) |
+| POST | `/recommend` | Profile → 5 recommendations (rate-limited 30/min; anonymous guest runs allowed, saved-data routes stay signed-in only) |
 | POST | `/resume/extract` | Upload résumé → text + detected skills |
 | GET | `/skills/suggest?q=` · `/careers/search?q=` · `/careers/{id}` | Autocomplete & career detail |
 | GET/POST | `/assessment/questions` · `/assessment` | RIASEC quiz |
@@ -172,7 +179,7 @@ Interactive docs at **`/api/docs`**. All routes are under `/api/v1`.
 | GET/DELETE | `/history` · `/export/{run_id}.{md,json}` · `/export/history.{md,json}` | History (scoped to user when signed in) |
 | GET/POST | `/auth/providers` · `/auth/firebase` · `/auth/me` · `/auth/logout` · `/auth/magic-link…` | Authentication |
 | GET/POST/PUT/DELETE | `/me/runs` · `/me/progress` · `/me/prefs` · `/me/feedback` · `/me` | Account (auth required) |
-| GET/POST | `/billing/plans` · `/billing/me` · `/billing/trial/start` · `/billing/checkout` · `/billing/webhook` | Plans, trial, Razorpay checkout + webhook (501 while keys are unset) |
+| GET/POST | `/billing/plans` · `/billing/me` · `/billing/trial/start` · `/billing/checkout` · `/billing/webhook` · `/billing/demo-request` | Plans, trial, Razorpay checkout + webhook (501 while keys are unset); demo-request stores an institute lead (admin reads via `/billing/demo-requests`) |
 | GET/PATCH/PUT/DELETE | `/admin/overview` · `/admin/users…` · `/admin/runs…` · `/admin/feedback…` · `/admin/resources…` · `/admin/audit` | Admin (admin role required) |
 
 The recommendation contract (`run_id`, `provider`, `is_demo`, `priority_skills`,

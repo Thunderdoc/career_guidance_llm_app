@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase 1 consolidation (local `upgrade/phase1` branch): 7-surface route map
+  in `docs/ROUTES.md` with redirects for every old route; guest-first access
+  (anonymous, rate-limited `POST /recommend`, flagged `anonymous`, saved-data
+  routes unchanged); `docs/SOURCES.md`; landing rework (live try-it box,
+  sample report, differentiators with honest phase labels, trust strip,
+  4 steps, Individuals/Institutions pricing tabs, institute demo-request
+  form backed by `POST /api/v1/billing/demo-request` + migration 4
+  `demo_requests` table, admin-only lead list); design tokens
+  (`frontend/styles/tokens.css`) + lightweight `frontend/components/ui/*`
+  primitives; `/start` 4-step wizard with localStorage draft and an
+  additive, backward-compatible `constraints` object on recommend runs;
+  `/report/[runId]`, `/explore` and `/account` surfaces reusing existing
+  views; new wizard/landing strings in English, Tamil and Hindi.
+- README Authentication section now describes the public-first model.
+
+### Added
+
 - Sell-standard billing: Free / Pro / Institute plans (`GET /billing/plans`,
   public), one-time Pro trial (`POST /billing/trial/start`), Razorpay
   checkout + HMAC-verified webhook (`POST /billing/checkout`, `/billing/webhook`),

@@ -47,6 +47,8 @@ export type Recommendation = {
 
 export type RecommendResponse = {
   run_id: number | null;
+  anonymous?: boolean;
+  constraints_used?: RecommendConstraints | null;
   provider: string;
   is_demo: boolean;
   used_fallback: boolean;
@@ -57,7 +59,18 @@ export type RecommendResponse = {
   recommendations: Recommendation[];
 };
 
+export type RecommendConstraints = {
+  persona?: string;
+  city?: string;
+  relocate?: boolean | null;
+  hours_per_week?: number | null;
+  budget_range?: string;
+  language?: string;
+  goal_type?: string;
+};
+
 export type ProfileInput = {
+  constraints?: RecommendConstraints | null;
   skills: string;
   interests: string;
   education: string;

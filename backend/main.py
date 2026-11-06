@@ -81,7 +81,7 @@ _auth_router, _current_user, _admin_user = build_auth_router(_auth)
 _me_router = build_me_router(_users, _db, _current_user)
 _journey_router = build_journey_router(settings, _current_user, _db, _users)
 _admin_console_router = build_console_router(settings, _users, _db, _admin_user)
-_billing_router = build_billing_router(_current_user, _users, settings.database_path)
+_billing_router = build_billing_router(_current_user, _users, settings.database_path, _admin_user)
 app.include_router(_auth_router)
 app.include_router(_me_router)
 app.include_router(_journey_router)
@@ -89,9 +89,10 @@ app.include_router(_admin_console_router)
 app.include_router(_billing_router)
 
 
-# The product is private: every content endpoint requires a signed-in session.
-# Only ``/health``, ``/meta``, ``/skills/suggest`` and ``/careers/search`` stay
-# public (used by the sign-in screen and by uptime probes).
+# The product is public-first with gated depth (Phase 1): ``/health``,
+# ``/meta``, ``/skills/suggest``, ``/careers/search`` and an anonymous,
+# rate-limited ``POST /recommend`` are public; every saved-data endpoint
+# (history, /me, /plan, exports, /admin, …) requires a signed-in session.
 GUEST_ID = "guest"
 
 _GUEST = User(
@@ -123,6 +124,18 @@ def _session(request: Request) -> User:  # noqa: B008
     if _public_app():
         return _GUEST
     raise HTTPException(401, "Sign in required.")
+
+
+def _recommend_session(request: Request) -> User:
+    """Phase 1 guest-first dependency for POST /recommend ONLY.
+
+    A signed-in user is used as-is. Without a session the caller is served
+    as the stateless guest (anonymous run, stored with user_id NULL and
+    flagged ``anonymous``) — the existing 30/min rate limiter on the route
+    is the abuse control. Every other content route keeps using
+    ``_session`` and still answers 401 anonymously.
+    """
+    return _auth.user_from(request) or _GUEST
 
 
 def _uid(user: User) -> str | None:
@@ -162,7 +175,20 @@ def _warm() -> None:
 # ----------------------------------------------------------------------------- #
 
 
+class RecommendConstraints(BaseModel):
+    """Optional wizard constraints (Phase 1.5) — additive, all optional."""
+
+    persona: str = ""
+    city: str = ""
+    relocate: bool | None = None
+    hours_per_week: int | None = Field(default=None, ge=0, le=80)
+    budget_range: str = ""
+    language: str = ""
+    goal_type: str = ""
+
+
 class RecommendRequest(BaseModel):
+    constraints: RecommendConstraints | None = None
     skills: str = ""
     interests: str = ""
     education: str = ""
@@ -312,8 +338,9 @@ def meta() -> dict:
 def recommend(
     body: RecommendRequest,  # noqa: B008
     request: Request,
-    user: User = Depends(_session),  # noqa: B008
+    user: User = Depends(_recommend_session),  # noqa: B008
 ) -> dict:
+    anonymous = user.id == GUEST_ID
     if not _limiter.allow(_client(request)):
         raise HTTPException(429, "Too many requests — please wait a minute.")
     if body.experience_level not in EXPERIENCE_LEVELS:
@@ -331,7 +358,7 @@ def recommend(
     # Interests: explicit quiz scores from the client, otherwise the most recent
     # stored assessment run for this user.
     interests = body.interests_profile
-    if not interests:
+    if not interests and not anonymous:
         latest = _assessment_store().latest(user.id)
         interests = latest["scores"] if latest else None
 
@@ -381,6 +408,7 @@ def recommend(
             "source": "Source: offline provider fallback (template explanations)",
         }
 
+    constraints_used = body.constraints.model_dump() if body.constraints else None
     run_id = None
     try:
         from career_guidance.models import CareerRecommendation
@@ -392,6 +420,8 @@ def recommend(
                 **profile.to_dict(),
                 "tool": "recommend",
                 "flagged": 0,
+                "anonymous": anonymous,
+                "constraints": constraints_used,
                 "readiness": round(float(readiness) * 100, 1),
             },
             stored,
@@ -404,12 +434,15 @@ def recommend(
         logger.exception("persist failed")
 
     try:
-        _gamification().award(user.id, "run", f"run:{run_id}")
+        if not anonymous:
+            _gamification().award(user.id, "run", f"run:{run_id}")
     except Exception:  # noqa: BLE001 - gamification must never break a run
         logger.warning("gamification award failed", exc_info=True)
 
     return {
         "run_id": run_id,
+        "anonymous": anonymous,
+        "constraints_used": constraints_used,
         "provider": result["provider"],
         "is_demo": result["is_demo"],
         "used_fallback": result["used_fallback"],
@@ -630,6 +663,11 @@ if _STATIC.exists():
         candidate = _STATIC / path
         if path and candidate.is_file():
             return FileResponse(candidate)
+        if path.startswith("report/"):
+            # Phase 1: /report/[runId] exports a single placeholder page.
+            placeholder = _STATIC / "report" / "_.html"
+            if placeholder.is_file():
+                return FileResponse(placeholder)
         html = _STATIC / f"{path}.html" if path else _STATIC / "index.html"
         if html.is_file():
             return FileResponse(html)

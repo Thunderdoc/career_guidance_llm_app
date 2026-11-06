@@ -1,3 +1,4 @@
+@import "../styles/tokens.css";
 @import "tailwindcss";
 
 /* ---- Design tokens (Manus-inspired dark system) ---- */
