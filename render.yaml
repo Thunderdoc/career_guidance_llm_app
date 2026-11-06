@@ -52,6 +52,13 @@ services:
         value: career-ai-ecba3
       - key: DATABASE_PATH
         value: /app/data/career_guidance.db
+      # Phase 6 Postgres OPTION (commented example — do not enable blindly):
+      # setting DATABASE_URL moves the core store + migrations to Postgres
+      # via career_guidance/db.py; the per-feature stores still use the
+      # SQLite file above. Requires requirements-postgres.txt in the image.
+      # See docs/DEPLOY.md §6 for the decision table + smoke procedure.
+      # - key: DATABASE_URL
+      #   sync: false  # postgres://… internal connection URL from the add-on
       # Leave false for the private product; true re-opens anonymous access.
       - key: PUBLIC_APP
         value: "false"

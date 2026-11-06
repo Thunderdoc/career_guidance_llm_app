@@ -45,9 +45,11 @@ LLM-written explanations when an OpenAI key is configured.
 | **Résumé upload** | .pdf / .txt / .md parsed in memory (≤ 5 MB), skills auto-detected. |
 | **Accounts** | Firebase Authentication (Google, e-mail + password with enforced verification). Per-user history, skill-progress checklist, export, delete-my-data. Anonymous use always works. |
 | **Admin console** | Users, runs, feedback triage, learning-resource content management, audit log, KPIs. Role verified server-side. |
-| **Billing & selling** | Free / Pro / Institute plans, one-time Pro trial, Razorpay checkout + signature-verified webhook, roadmap PDF as the Pro feature, public landing + pricing page, in-app `/billing` page, Terms / Privacy / Refund pages. See [`SELLING.md`](SELLING.md). |
+| **Billing & selling** | Free / Pro / Institute plans, one-time Pro trial, Razorpay checkout + signature-verified webhook, roadmap PDF as the Pro feature, public landing + pricing page, in-app `/billing` page, Terms / Privacy / Refund pages. Phase 9 adds Razorpay **subscriptions** (additional auto-renew option), admin-created **coupons** and **referral attribution** — see the Billing section in [`SELLING.md`](SELLING.md). |
 | **AI mode** | With `OPENAI_API_KEY`: grounded explanations validated against a strict schema, automatic fallback to offline mode. |
 | **UI** | Next.js 15 + React 19 + Motion + Tailwind 4, Motion-Primitives-style animations, honours `prefers-reduced-motion`, PWA manifest, 3 languages. |
+| **Sharing (Phase 8)** | Revocable, expiring share links for any report (`/shared/[token]`): owner creates from the report page, anyone with the link sees a read-only, source-labelled view of the share-safe fields only. See `docs/SECURITY.md` → Share tokens. |
+| **PWA & low-bandwidth (Phase 8)** | Installable PWA: completed manifest, hand-written service worker (app-shell precache, static cache-first, `/api` never cached, offline fallback, update-available toast), `/offline` page. Low-bandwidth mode (Settings toggle + header chips, auto-on with Save-Data): kills animations, hides decorative layers, defers the chat/share panels until asked. |
 
 ## Architecture
 
@@ -101,6 +103,10 @@ All configuration is via environment variables. **Never commit `.env`,
 | `MIN_INPUT_LENGTH` / `MAX_INPUT_LENGTH` | `3` / `10000` | Profile validation bounds |
 | `OPENAI_API_KEY` | *(empty)* | Enables AI explanations; empty = offline mode |
 | `OPENAI_MODEL` / `OPENAI_TIMEOUT_SECONDS` | `gpt-4o-mini` / `30` | LLM settings |
+| `LLM_PROVIDER` | *(empty = auto)* | Phase 7 provider factory: `openai` \| `gemini` \| `ollama`; empty = OpenAI key, else Gemini key, else offline |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | *(empty)* / `gemini-2.0-flash` | Gemini provider (plain HTTPS, key in header) |
+| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | `http://localhost:11434` / `llama3.1` | Local Ollama provider (no key) |
+| `SEMANTIC_MATCHING_ENABLED` / `SEMANTIC_BLEND_WEIGHT` / `SEMANTIC_EMBEDDING_MODEL` | `false` / `0.25` / *(empty)* | Phase 7 semantic blend at the MatcherV2 seam; embedding model optional, fails soft to TF-IDF |
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | *(empty)* | Live salary/postings data |
 | `SESSION_SECRET` | *(dev default)* | Signs session cookies — **required in production** |
 | `PUBLIC_URL` | *(derived from request)* | Public origin, used in e-mailed links |
@@ -170,8 +176,10 @@ Interactive docs at **`/api/docs`**. All routes are under `/api/v1`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/health`, `/meta` | Status, mode, catalog size |
+| GET | `/health`, `/meta` | Liveness: status, mode, catalog size |
+| GET | `/ready` | Readiness (Phase 6): DB + catalog checks, `503` with component breakdown when not ready |
 | POST | `/recommend` | Profile → 5 recommendations (rate-limited 30/min; anonymous guest runs allowed, saved-data routes stay signed-in only) |
+| POST | `/chat` | Phase 7 scoped chat over one stored run `{run_id, message}` → `{answer, mode, refused, refusal_key}` (rate-limited 20/min; signed-in = own or anonymous run, guest = anonymous run only, other users' runs 404; answers grounded only in that run + named taxonomy entries, deterministic off-topic refusal, offline fallback with no LLM key) |
 | POST | `/resume/extract` | Upload résumé → text + detected skills |
 | GET | `/skills/suggest?q=` · `/careers/search?q=` · `/careers/{id}` | Autocomplete & career detail |
 | GET/POST | `/assessment/questions` · `/assessment` | RIASEC quiz |
@@ -180,27 +188,71 @@ Interactive docs at **`/api/docs`**. All routes are under `/api/v1`.
 | GET/POST | `/auth/providers` · `/auth/firebase` · `/auth/me` · `/auth/logout` · `/auth/magic-link…` | Authentication |
 | GET/POST/PUT/DELETE | `/me/runs` · `/me/progress` · `/me/prefs` · `/me/feedback` · `/me` | Account (auth required) |
 | GET/POST | `/billing/plans` · `/billing/me` · `/billing/trial/start` · `/billing/checkout` · `/billing/webhook` · `/billing/demo-request` | Plans, trial, Razorpay checkout + webhook (501 while keys are unset); demo-request stores an institute lead (admin reads via `/billing/demo-requests`) |
+| POST/GET | `/billing/subscribe` · `/billing/coupon/validate` · `/billing/admin/coupons` · `/me/referral` | Phase 9: Razorpay subscriptions (501 while keys unset, 409 while the plan's `RAZORPAY_*_PLAN_ID` is unset; webhook handles `subscription.*` events idempotently); coupon preview (no state change — redemption happens atomically inside checkout); coupon create/list/deactivate is platform-admin only + audit-logged; `/me/referral` returns my referral code + attribution counts (referrals are attribution-only — no discount exists unless an admin creates a coupon) |
 | GET/PATCH/PUT/DELETE | `/admin/overview` · `/admin/users…` · `/admin/runs…` · `/admin/feedback…` · `/admin/resources…` · `/admin/audit` | Admin (admin role required) |
+| GET/POST | `/skills/verify/quizzes` · `/skills/verify/{skill}/quiz` · `/skills/verify/{skill}/submit` · `/skills/verify/{skill}/project` · `/skills/verify/mine` | Phase 3 skill verification (auth required; answer keys never leave the server) |
+| POST | `/skills/verify/admin/review` | Approve/reject a submitted project (platform admin, or an institute_admin/counsellor for a student of their own institute) |
+| GET/POST/PATCH/DELETE | `/institutes` · `/institutes/mine` · `/institutes/{id}/members` · `/institutes/{id}/invites` · `/institutes/{id}/invites/csv` · `/institutes/{id}/cohort` · `/institutes/{id}/students…` · `/institutes/{id}/cohort/report.{csv,pdf}` · `/institutes/{id}/review-queue` · `/institutes/{id}/runs/{run_id}/review` · `/institutes/invites/claim` · `/institutes/reviews/mine` | Phase 4 institute portal: one institute per user, seat-limited invites (pending invites reserve a seat; default seat limit is a documented constant until the owner sets plan config), aggregate-first cohort (no e-mails), counsellor run reviews labelled "Reviewed by counsellor". Phase 9 analytics v2: `cohort?period=current\|previous` adds term-over-term comparison (a term is a **calendar quarter**; current vs previous quarter aggregates + deltas, honest zeros for an empty period), review-queue returns unreviewed runs only (oldest first, `limit`/`offset`), and `PATCH /institutes/{id}` accepts `report_schedule` (`none\|weekly\|monthly` — a preference record with a nominal `next_run`; **no scheduler sends reports yet**) |
+| POST/GET/DELETE | `/institutes/{id}/api-keys` | Phase 10 institute API keys: create (raw `cgk_…` key returned ONCE; only its SHA-256 hash is stored), list metadata, revoke — institute_admin of that institute or a platform admin, audit-logged |
+| GET | `/public/institutes/{slug}/cohort` · `/public/institutes/{slug}/top-careers` | Phase 10 public institute API: `X-API-Key` header ONLY (a session cookie does not authenticate); the key must belong to the institute named by `{slug}` (valid key + wrong slug → 404); aggregates only — the Phase 4 cohort payload with the needs-attention list reduced to a count, never e-mails/names/user ids; 401 missing/wrong/revoked key; rate-limited 30/min per key |
+| GET | `/p/{handle}` | Public profile (opt-in only; 404 for non-opted-in users and minors) |
+| PUT | `/me/public-profile` | Set profile handle, opt-in and under-18 flag (auth required) |
+| POST/GET/PATCH | `/plan/90day` · `/plan/90day/{id}/tasks` · `/plan/90day/export.{md,ics}` | 90-day plan from a recommendation run (auth required) |
+| GET/PUT | `/me/age-declaration` · `/me/consent` · `/me/consent/request` · `/me/consent/revoke` · `/consent/confirm/{token}` | Phase 5 privacy: least-data age declaration + versioned parental-consent flow (confirm link is public, token-secured) |
+| GET/PUT | `/admin/india-market` | Phase 2 India market overrides editor (admin only, audit-logged); Reality Score data layer in `career_guidance/india.py` + `reality.py` |
+| POST/GET/DELETE | `/runs/{run_id}/share` · `/runs/{run_id}/shares` · `/runs/{run_id}/share/{token_id}` | Phase 8 share links (owner only; guest session for anonymous runs): create (expiry 1–30 days, default 7), list, revoke. Token stored as SHA-256 hash only, raw token shown once |
+| GET | `/shared/{token}` | Phase 8 public shared-report view — rate-limited, built from a field allowlist (titles, match %, skills, Reality Score, labelled-estimate salary ladder, learning path); never owner identity/constraints/profile text. 404 unknown, 410 expired/revoked |
 
 The recommendation contract (`run_id`, `provider`, `is_demo`, `priority_skills`,
 `recommendations[]` with `match_score`, `matching/missing_skills`,
 `learning_path`, `next_steps`, `market`, `resources`, `provenance`) is frozen
 in [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md#4-api-contract-frozen-at-end-of-p0).
 
+## PWA & offline (Phase 8)
+
+The app is an installable PWA. `frontend/public/manifest.webmanifest`
+(name, icons 192/512/maskable/SVG, theme `#0f0f0f` matching
+`styles/tokens.css`, `start_url: /`) and the hand-written service worker
+`frontend/public/sw.js` (cache version `cg-v4`) ship in `frontend/public/`,
+so the static export copies both verbatim — verified in the
+`NEXT_EXPORT=1` build output. Caching rules, exactly as shipped:
+critical shell assets are precached at install (`/`, `/explore` best
+effort), static assets (`/_next/static/*`, images, fonts) are
+cache-first, navigations are network-first with a cache/offline
+fallback, and **`/api/*` is never cached**. The worker does not
+self-activate: an update surfaces an "update available" toast and only
+then skips waiting. Offline fallback is the dependency-free
+`frontend/public/sw-offline.html` (named distinctly because the export
+emits the localised `/offline` route to `out/offline.html`); the backend
+SPA fallback serves `sw.js` with `Cache-Control: no-cache`. The worker
+is same-origin, covered by the report-only CSP's `script-src 'self'`
+(see `docs/SECURITY.md`).
+
 ## Quality gates
 
 ```bash
 make ci           # lint + test + coverage gate (≥ 85 %) + eval — the CI round
 make lint         # ruff check + format, eslint, tsc --noEmit
-make test         # 190 pytest tests (core, API, auth, admin, journey, golden set)
+make test         # 468 pytest tests (core, API, auth, admin, journey, golden set, phases 1–8)
 make cov          # coverage over career_guidance + backend, fails under 85 %
-make eval         # offline matcher: 50 golden profiles + 7 interest profiles
+make eval         # offline matcher: 50 golden profiles + 7 interest profiles, then the Phase 7 faithfulness + chat-grounding eval (eval/run_chat_eval.py; also `make eval-chat`)
 make blackbox     # 43-check HTTP round against a running API (add API=https://…)
 make blackbox-prod  # the same round against Render and the Vercel origin
 ```
 
-Current numbers: **skills Hit@5 1.0 (MRR 0.827) · interests Hit@5 1.0 · p95 ≈ 100 ms ·
-coverage 91 %**; static first-load JS ≤ 245 kB.
+Current numbers (Phase 8 gate run, 2026-11-06): **468 pytest passed · skills Hit@5 1.0
+(MRR 0.827) · interests Hit@5 1.0 · eval p95 ≈ 128 ms · coverage 91 % (91.23 %; new
+Phase 8 modules: `career_guidance/sharing.py` 96 %, `backend/sharing.py` 97 %)** ·
+faithfulness 4/4, chat grounding 8/8 (`eval/run_chat_eval.py`). Semantic blend
+(Phase 7, opt-in `SEMANTIC_MATCHING_ENABLED`, TF-IDF w=0.25) measured separately:
+Hit@5 1.0, MRR 0.888 — ships OFF by default (see `career_guidance/semantic.py`).
+First-load JS (export build table): `/` 257 kB, `/report/[runId]` 259 kB (chat +
+share panels code-split into lazy chunks), **`/shared/[token]` 218 kB and
+`/offline` 155 kB — within the 245 kB budget**. Most other app routes sit at
+**253–268 kB — over the 245 kB budget** — driven by the ~103 kB shared bundle
+(i18n dictionary included); within budget: `/methodology` 206 kB, `/p/[handle]` 211 kB,
+`/start` 216 kB, `/privacy` 149 kB. Splitting the shared i18n bundle is the known
+Phase 10 fix; the overage is structural and pre-dates Phase 6.
 CI (`.github/workflows/ci.yml`) runs lint, tests, the coverage gate and the eval on
 every push and PR, and fails if Hit@5 drops below 0.75.
 
@@ -222,6 +274,36 @@ docker compose up --build -d
 Any container host (Render, Railway, Fly.io, a VPS) works — set the env vars
 from the table above through the host's secret manager, and mount a volume at
 `/app/data`. Set `APP_ENV=production` and a strong `SESSION_SECRET`.
+
+**Run / deploy / rollback** — the full runbook (Render + Vercel steps,
+backup/restore scripts, readiness checks) lives in
+[`docs/DEPLOY.md`](docs/DEPLOY.md). Rollback in one line: Render → redeploy
+the previous deploy; Vercel → promote the previous deployment; migrations
+are additive, so the database never needs rolling back with the code
+(restore from `scripts/restore_db.py` only if the data itself is bad).
+
+**Postgres option (Phase 6)** — SQLite is the default. Setting
+`DATABASE_URL=postgres://…` (plus `pip install -r requirements-postgres.txt`)
+moves the core recommendation store and the migration runner to Postgres
+through the central dialect layer (`career_guidance/db.py`). The remaining
+per-feature stores still use the SQLite file — see the decision table and
+smoke procedure in `docs/DEPLOY.md` §6 before considering a cutover.
+
+**Observability (Phase 6)** — JSON-line logs with propagated
+`X-Request-ID`s; `/api/v1/health` is liveness, `/api/v1/ready` is
+readiness (DB + catalog, 503 with a component breakdown). Optional
+`ERROR_WEBHOOK_URL` receives minimal error JSON on unhandled 500s.
+The public `/status` page renders both checks live in the browser.
+
+**Scale & trust (Phase 10)** — public catalog responses cached
+in-process (300 s TTL, `career_guidance/cache.py`; details +
+`/recommend` bench method in `docs/PERFORMANCE.md`); migration v10
+adds per-user indexes for the hot lookups; the frontend i18n
+dictionaries are split per locale (EN bundled, TA/HI lazy) so every
+route's first-load JS is ≤245 kB; accessibility audit + fixes in
+`docs/ACCESSIBILITY.md`. `.env.example` was re-audited against the
+code in Phase 10: every env var the code reads is documented there
+(frontend `NEXT_PUBLIC_*` vars live in `frontend/.env.example`).
 
 ## Project layout
 

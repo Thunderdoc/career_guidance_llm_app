@@ -70,6 +70,22 @@ def build_me_router(store: UserStore, db: Database, current_user) -> APIRouter:
         store.set_prefs(user.id, body.prefs)
         return {"ok": True}
 
+    @me.get("/referral")
+    def my_referral(user: User = Depends(current_user)) -> dict:  # noqa: B008
+        """Phase 9: my referral code + attribution counts.
+
+        Referrals v1 are attribution only — no reward value exists until
+        the owner links a coupon (see career_guidance/coupons.py).
+        """
+        from career_guidance.coupons import ReferralStore
+
+        summary = ReferralStore(db._path).summary(user.id)  # noqa: SLF001 - same-db store
+        return {
+            "code": summary["code"],
+            "referrals": summary["referrals"],
+            "pending_rewards": summary["pending_rewards"],
+        }
+
     @me.delete("")
     def delete_me(user: User = Depends(current_user)) -> dict:  # noqa: B008
         store.audit(user.email, "self-delete", user.id)

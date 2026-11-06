@@ -36,10 +36,48 @@ export async function generateStaticParams() {
   return catalogueIds().map((id) => ({ id }));
 }
 
-export const metadata: Metadata = {
-  title: "Career — Career Guidance AI",
-  robots: { index: false },
-};
+function catalogueEntry(id: string): { title?: string; description?: string } | null {
+  const candidates = [
+    path.join(process.cwd(), "..", "data", "catalog", "occupations.json"),
+    path.join(process.cwd(), "data", "catalog", "occupations.json"),
+  ];
+  for (const file of candidates) {
+    try {
+      const rows = JSON.parse(fs.readFileSync(file, "utf8")) as {
+        id?: string;
+        title?: string;
+        description?: string;
+      }[];
+      const hit = rows.find((row) => row.id === id);
+      if (hit) return hit;
+    } catch {
+      /* try the next location */
+    }
+  }
+  return null;
+}
+
+/**
+ * Per-career metadata (Phase 6 SEO): real catalogue title + description,
+ * indexable. The interactive body still needs a session (it calls the
+ * session-gated detail API); the static shell and metadata are public.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const entry = catalogueEntry(decodeURIComponent(id));
+  if (!entry?.title) return { title: "Career" };
+  const description = (entry.description || "").slice(0, 160);
+  return {
+    title: entry.title,
+    description,
+    openGraph: { title: entry.title, description, type: "article" },
+    robots: { index: true, follow: true },
+  };
+}
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

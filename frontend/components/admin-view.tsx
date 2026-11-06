@@ -144,6 +144,10 @@ function Bars({ rows, max }: { rows: [string, number][]; max?: number }) {
 function Overview() {
   const load = useCallback(() => admin.overview(), []);
   const { data: o, err } = useLoad<AdminOverview>(load);
+  // Phase 4: institute demo-request leads (Phase 1 form) surface here.
+  const leads = useLoad<{ requests: unknown[] }>(
+    useCallback(() => import("@/lib/api").then((m) => m.institutesApi.demoRequests()), []),
+  );
   if (err) return <p className="text-sm text-red-400">{err}</p>;
   if (!o) return <Loader2 className="animate-spin text-fg-3" />;
   const perDay = o.runs.per_day;
@@ -155,6 +159,7 @@ function Overview() {
         <Stat label="Runs" value={o.runs.total} hint={`${o.runs.ai} AI · ${o.runs.demo} offline · ${o.runs.anonymous} anon`} />
         <Stat label="Feedback" value={o.feedback.total} hint={`avg ${o.feedback.avg_rating} ★ · ${o.feedback.open} open`} />
         <Stat label="Occupations" value={o.system.occupations} hint={`v${o.system.version} · ${o.system.ai_mode ? "AI" : "offline"} · up ${Math.round(o.system.uptime_s / 60)}m`} />
+        <Stat label="Demo leads" value={leads.data?.requests.length ?? 0} hint="Institute demo requests (GET /billing/demo-requests)" />
       </div>
       <Card>
         <div className="mb-3 text-xs uppercase tracking-wider text-fg-3">Runs per day (30d)</div>
@@ -325,6 +330,24 @@ function FeedbackTab() {
   );
 }
 
+function IndiaMarketEditor() {
+  const load = useCallback(() => admin.indiaMarket(), []);
+  const { data, reload } = useLoad(load);
+  const [draft, setDraft] = useState("");
+  useEffect(() => { if (data) setDraft(JSON.stringify(data.overrides ?? {}, null, 2)); }, [data]);
+  const save = async () => {
+    try { await admin.setIndiaMarket(JSON.parse(draft || "{}")); await reload(); } catch (e) { alert((e as Error).message); }
+  };
+  return (
+    <Card>
+      <div className="text-sm font-medium">India market overrides (Phase 2)</div>
+      <p className="mt-1 text-xs text-fg-3">Base entries are estimates derived from the project market seed — not official statistics. Overrides are keyed by career family or career id, stored like other settings and audit-logged. {data ? `${data.entries.length} base entries · as of ${data.as_of}` : ""}</p>
+      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={5} className="mt-3 w-full rounded-lg bg-bg-4 p-2 font-mono text-[11px] text-fg focus:outline-none focus:ring-1 focus:ring-accent" />
+      <div className="mt-2 flex justify-end"><button onClick={save} className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-black">Save overrides</button></div>
+    </Card>
+  );
+}
+
 function ContentTab() {
   const [q, setQ] = useState("");
   const load = useCallback(() => admin.skillResources(q), [q]);
@@ -353,6 +376,7 @@ function ContentTab() {
   };
   return (
     <div className="flex flex-col gap-3">
+      <IndiaMarketEditor />
       <SearchBox value={q} onChange={setQ} placeholder="Filter skills (e.g. python)" />
       <p className="text-xs text-fg-3">Learning resources shown to users, per skill. Overrides are stored in the database and take precedence over data/learning_resources.yaml.</p>
       <div className="flex flex-col gap-2">

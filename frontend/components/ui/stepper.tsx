@@ -4,7 +4,7 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
   return (
     <ol className="flex flex-wrap items-center gap-2" aria-label="Progress">
       {steps.map((label, i) => (
-        <li key={label} className="flex items-center gap-2">
+        <li key={label} className="flex items-center gap-2" aria-current={i === current ? "step" : undefined}>
           <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold",
             i < current && "bg-[var(--cg-success)] text-black", i === current && "bg-white text-black", i > current && "border border-white/20 text-fg-3")}>
             {i < current ? <Check size={14} /> : i + 1}

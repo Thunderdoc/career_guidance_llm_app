@@ -235,7 +235,16 @@ class JourneyStore:
 
     # ------------------------------------------------------------- purges
     def purge_user(self, user_id: str) -> None:
-        """Delete every row that belongs to a user (GDPR-style delete)."""
+        """Delete every row that belongs to a user (GDPR-style delete).
+
+        Phase 5: the table list now matches ``UserStore.delete_user``
+        (verifications, quiz attempts, projects, 90-day plans, payments,
+        tool events, consent records, reviews). ``UserStore.delete_user``
+        is the comprehensive path used by self-delete and admin delete;
+        this method stays for callers that only hold a JourneyStore and
+        keeps its historical run/feedback *anonymisation* for any rows a
+        caller created after the user row went away.
+        """
         tables = [
             "plans",
             "skill_ratings",
@@ -248,23 +257,78 @@ class JourneyStore:
             "profiles",
             "skill_progress",
             "assessment_runs",
+            "plans_90day",
+            "skill_verifications",
+            "quiz_attempts",
+            "skill_projects",
+            "tool_events",
+            "payments",
+            "consent_records",
         ]
         with self._connect() as conn:
+            existing = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             for table in tables:
-                conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+                if table in existing:
+                    conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+            if "run_reviews" in existing:
+                conn.execute("DELETE FROM run_reviews WHERE reviewer_id = ?", (user_id,))
             conn.execute(
                 "UPDATE recommendation_runs SET user_id = NULL WHERE user_id = ?", (user_id,)
             )
             conn.execute("UPDATE feedback SET user_id = NULL WHERE user_id = ?", (user_id,))
 
     def export_user(self, user_id: str) -> dict:
-        """Everything we hold about a user, as JSON."""
+        """Everything we hold about a user, as JSON.
+
+        Phase 5: now also includes skill verifications, quiz attempts,
+        project evidence, 90-day plans, payments and consent records —
+        the pre-Phase-5 export silently omitted them. Consent token
+        hashes are never exported (they are credentials, not user data).
+        """
         with self._connect() as conn:
+            existing = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
 
             def rows(sql: str, params=()) -> list[dict]:
                 return [dict(r) for r in conn.execute(sql, params)]
 
+            def rows_if(table: str, sql: str, params=()) -> list[dict]:
+                return rows(sql, params) if table in existing else []
+
+            extra = {
+                "skill_verifications": rows_if(
+                    "skill_verifications",
+                    "SELECT * FROM skill_verifications WHERE user_id = ?",
+                    (user_id,),
+                ),
+                "quiz_attempts": rows_if(
+                    "quiz_attempts",
+                    "SELECT * FROM quiz_attempts WHERE user_id = ?",
+                    (user_id,),
+                ),
+                "skill_projects": rows_if(
+                    "skill_projects",
+                    "SELECT * FROM skill_projects WHERE user_id = ?",
+                    (user_id,),
+                ),
+                "plans_90day": rows_if(
+                    "plans_90day", "SELECT * FROM plans_90day WHERE user_id = ?", (user_id,)
+                ),
+                "payments": rows_if(
+                    "payments", "SELECT * FROM payments WHERE user_id = ?", (user_id,)
+                ),
+                "consent_records": rows_if(
+                    "consent_records",
+                    "SELECT id, user_id, guardian_email, notice_version, status, method, "
+                    "requested_at, decided_at FROM consent_records WHERE user_id = ?",
+                    (user_id,),
+                ),
+            }
             return {
+                **extra,
                 "profile": rows("SELECT * FROM profiles WHERE user_id = ?", (user_id,)),
                 "targets": rows("SELECT * FROM targets WHERE user_id = ?", (user_id,)),
                 "ratings": rows("SELECT * FROM skill_ratings WHERE user_id = ?", (user_id,)),

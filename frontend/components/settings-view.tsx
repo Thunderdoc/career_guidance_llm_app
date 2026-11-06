@@ -13,6 +13,7 @@ import { auth, downloadFile, pathway as pathwayApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { LOCALES, useI18n } from "@/lib/i18n";
 import { TextEffect } from "./motion";
+import { BandwidthToggle } from "./bandwidth-toggle";
 import { Badge, Button, Card, Field, SourceLabel, Spinner, inputCls } from "./ui";
 
 export function SettingsView() {
@@ -125,6 +126,11 @@ export function SettingsView() {
           </Button>
         </div>
         <SourceLabel text={t("st_source")} />
+      </Card>
+
+      <Card>
+        {/* Phase 8: low-bandwidth preference (synced to account prefs). */}
+        <BandwidthToggle variant="full" />
       </Card>
 
       <Card className="border-danger/30">

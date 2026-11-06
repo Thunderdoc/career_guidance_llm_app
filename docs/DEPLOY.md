@@ -163,3 +163,103 @@ and the Firebase console checklist, lives in
 * Restore from the same page (uploads replace the file, then migrations re-run).
 * On Starter, the disk already survives redeploys; a monthly download is still
   the cheapest insurance policy.
+
+### 5.1 Command-line scripts (Phase 6)
+
+For scheduled/off-box backups, use the scripts (SQLite deployments):
+
+```bash
+# Timestamped, integrity-checked copy into ./backups (keeps the newest 14)
+python scripts/backup_db.py --db /app/data/career_guidance.db --out-dir backups --keep 14
+
+# Restore: validates the backup FIRST, copies the current DB aside as
+# <db>.pre-restore-<timestamp>, then swaps and re-checks. Stop the app first.
+python scripts/restore_db.py backups/career_guidance-20261106T120000Z.db --db /app/data/career_guidance.db
+```
+
+Both scripts exit non-zero without touching anything when a file fails
+SQLite's `PRAGMA integrity_check`. Postgres deployments: use `pg_dump` /
+`pg_restore` instead — the scripts refuse nothing, they simply only speak
+SQLite files.
+
+---
+
+## 6. Choosing Postgres on Render (Phase 6 option)
+
+SQLite stays the default. `DATABASE_URL` switches the **core storage
+layer** (`career_guidance.storage.Database`) and the **migration runner**
+to Postgres through the central dialect layer
+(`career_guidance/db.py`); dialect differences (placeholder style, row
+factory, DDL translation) live only there.
+
+| | SQLite on persistent disk | Postgres |
+| --- | --- | --- |
+| Render cost | Starter instance + 1 GB disk | Free/paid Postgres add-on (check current Render pricing; the free tier has an expiry — owner decision, free-only rule) |
+| Survives redeploys | Yes (disk) | Yes |
+| Backups | File copy / scripts in §5.1 | `pg_dump` (managed snapshots on paid tiers) |
+| Concurrency | One writer at a time — fine for this app's load | Full concurrent writes |
+| Ops burden | None | Connection string rotation, add-on lifecycle |
+
+**Current boundary (honest):** the per-feature stores (users, journey,
+billing, verification, institutes, consent, …) still open the SQLite
+file directly. Running with `DATABASE_URL=postgres://…` today migrates
+and serves the recommendation-runs `Database` on Postgres while the
+remaining stores keep using `DATABASE_PATH`. A full cutover is a
+store-by-store migration behind the same dialect layer — do not point
+production at Postgres until that lands. The option exists now so the
+schema, migrations and core store are proven portable ahead of it.
+
+To enable (staging first):
+
+1. Provision the Postgres instance; copy its **internal** connection URL.
+2. `pip install -r requirements-postgres.txt` must be part of the image
+   (add it to the Docker build) — psycopg is an optional extra so
+   SQLite-only installs stay lean.
+3. Set `DATABASE_URL=postgres://…` (Render env). Leave `DATABASE_PATH`
+   set for the remaining stores.
+4. Smoke procedure (no production data): boot the app, then verify
+   `GET /api/v1/ready` → `checks.database == "ok"`, run one anonymous
+   `POST /api/v1/recommend`, and confirm a row landed:
+   `psql "$DATABASE_URL" -c "SELECT count(*) FROM recommendation_runs;"`
+   and `psql "$DATABASE_URL" -c "SELECT version FROM schema_migrations ORDER BY 1;"`
+   (expect versions 1..7).
+5. Roll back by unsetting `DATABASE_URL` and redeploying; the SQLite
+   file was never modified by the Postgres path.
+
+---
+
+## 7. Readiness, health & observability (Phase 6)
+
+| Endpoint | Meaning | Use |
+| --- | --- | --- |
+| `GET /api/v1/health` | Liveness: process up, catalog size, version | Render `healthCheckPath` |
+| `GET /api/v1/ready` | Readiness: DB `SELECT 1` + catalog loaded; `503` with a per-component `checks` breakdown when not ready | Load-balancer / deploy verification |
+
+Logs are JSON lines (one object per record: `ts`, `level`, `logger`,
+`msg`, `request_id`, and for access lines `method`, redacted `path`,
+`status`, `duration_ms`). Incoming `X-Request-ID` headers are propagated
+and echoed on the response. Bodies, e-mails, tokens and profile text are
+never logged. Set `ERROR_WEBHOOK_URL` to receive a minimal JSON POST
+(`event`, `error_type`, truncated `message`, `request_id`) on unhandled
+500s; unset (default) disables it, and webhook failures are swallowed.
+
+---
+
+## 8. Rollback runbook
+
+Migrations are **additive only** (new tables/columns, never drops), so
+rolling back code never requires rolling back the database.
+
+1. **Backend (Render)** — Dashboard → the service → *Deploys* → pick the
+   last known-good deploy → **Redeploy** (or push the previous commit).
+   The schema on disk stays at the newer version; older code ignores
+   columns/tables it does not know.
+2. **Frontend (Vercel)** — Dashboard → the project → *Deployments* →
+   pick the last known-good deployment → **Promote to Production**.
+3. **Database (only if data itself is bad)** — stop the service, restore
+   the newest good backup with `scripts/restore_db.py` (§5.1; it keeps a
+   `.pre-restore-*` copy of whatever it replaces), start the service,
+   verify `GET /api/v1/ready`.
+4. **Config-only regression** — revert the env change in the dashboard
+   and redeploy/restart; no code or DB action needed. Rotating
+   `SESSION_SECRET` signs everyone out (see §1.2).

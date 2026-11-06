@@ -2,6 +2,7 @@ import type {
   AssessmentHistoryItem,
   AssessmentResult,
   CareerDetail,
+  ChatResponse,
   CompareResult,
   DiscoverItem,
   FeedbackItem,
@@ -17,6 +18,9 @@ import type {
   RecommendResponse,
   ResumeScore,
   RoadmapResult,
+  ShareCreated,
+  ShareLink,
+  SharedReport,
   TransitionResult,
   XpStatus,
 } from "./types";
@@ -186,6 +190,11 @@ export const api = {
     request<{ experience_levels: string[]; ai_mode: boolean; occupations: number; version: string }>("/api/v1/meta"),
   recommend: (body: ProfileInput) =>
     request<RecommendResponse>("/api/v1/recommend", { method: "POST", body: JSON.stringify(body) }),
+  chat: (runId: number, message: string) =>
+    request<ChatResponse>("/api/v1/chat", {
+      method: "POST",
+      body: JSON.stringify({ run_id: runId, message }),
+    }),
   compare: (ids: string[], country = "in") =>
     request<CompareResult>(`/api/v1/compare?ids=${ids.map(encodeURIComponent).join(",")}&country=${country}`),
   extractResume: async (file: File) => {
@@ -281,6 +290,14 @@ export type User = {
   last_login_at: string;
   disabled: boolean;
   runs?: number;
+  handle?: string;
+  public_profile?: boolean;
+  is_minor?: boolean;
+  age_band?: string;
+  birth_year?: number | null;
+  institute_id?: number | null;
+  institute_role?: string;
+  prefs?: Record<string, unknown>;
 };
 
 export const auth = {
@@ -303,6 +320,9 @@ export const auth = {
   setProgress: (skill: string, done: boolean) =>
     request<{ done: string[] }>("/api/v1/me/progress", { method: "POST", body: JSON.stringify({ skill, done }) }),
   deleteMe: () => request<{ deleted: boolean }>("/api/v1/me", { method: "DELETE" }),
+  /** Replace the account prefs blob (server stores it whole — merge first). */
+  setPrefs: (prefs: Record<string, unknown>) =>
+    request<{ ok: boolean }>("/api/v1/me/prefs", { method: "PUT", body: JSON.stringify({ prefs }) }),
   exportData: () => request<Record<string, unknown>>("/api/v1/me/export"),
   dashboard: () => request<DashboardPayload>("/api/v1/me/dashboard"),
 };
@@ -316,6 +336,147 @@ export type DashboardPayload = {
   recent_runs: HistoryRun[];
   announcements: FeedbackItem["announcements"];
   streak: { current: number; longest: number; days: string[] };
+  plan90?: Plan90Summary | null;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Phase 3: skill verification, public profiles, 90-day plan                   */
+/* -------------------------------------------------------------------------- */
+
+export type QuizMeta = { skill: string; title: string; questions: number };
+export type QuizQuestion = { id: string; question: string; options: string[] };
+export type QuizAttempt = {
+  skill: string;
+  title: string;
+  pass_percent: number;
+  questions: QuizQuestion[];
+  attempt_token: string;
+};
+export type QuizResult = {
+  skill: string;
+  total: number;
+  correct: number;
+  score_percent: number;
+  passed: boolean;
+  detail: { id: string; correct: boolean; explanation: string }[];
+};
+export type VerificationState = {
+  skill: string;
+  status: "unverified" | "quiz_passed" | "project_submitted" | "verified";
+  source: string;
+  self_reported: boolean;
+  updated_at: string;
+  best_score: number | null;
+  projects: {
+    id: number;
+    skill: string;
+    title: string;
+    link: string;
+    description: string;
+    checklist: string[];
+    self_reported: boolean;
+    created_at: string;
+  }[];
+};
+export type Plan90Task = {
+  id: string;
+  title: string;
+  skill: string;
+  hours: number;
+  done: boolean;
+  resource: { title: string; url: string; provider: string; free: boolean };
+};
+export type Plan90Week = {
+  week: number;
+  skill: string;
+  theme: string;
+  hours: number;
+  tasks: Plan90Task[];
+  note: string;
+  verification_check: string;
+};
+export type Plan90 = {
+  plan_id?: number;
+  kind: string;
+  run_id: number | null;
+  start_date: string;
+  total_weeks: number;
+  hours_per_week: number;
+  priority_skills: string[];
+  weeks: Plan90Week[];
+  tasks_total: number;
+  source: string;
+};
+export type Plan90Progress = { tasks_total: number; tasks_done: number; percent: number };
+export type Plan90Summary = {
+  plan_id: number;
+  current_week: Plan90Week | null;
+  progress: Plan90Progress;
+  total_weeks: number;
+  hours_per_week: number;
+};
+export type PublicProfile = {
+  handle: string;
+  display_name: string;
+  verified_skills: { skill: string; method: string; verified_at: string }[];
+  projects: { skill: string; title: string; link: string; verified: boolean }[];
+  plan_progress: (Plan90Progress & { current_week: number | null; total_weeks: number }) | null;
+  source: string;
+};
+
+export const verifyApi = {
+  quizzes: () => request<{ quizzes: QuizMeta[] }>("/api/v1/skills/verify/quizzes"),
+  mine: () => request<{ verifications: VerificationState[]; quizzes: QuizMeta[] }>("/api/v1/skills/verify/mine"),
+  startQuiz: (skill: string) => request<QuizAttempt>(`/api/v1/skills/verify/${skill}/quiz`),
+  submitQuiz: (skill: string, attempt_token: string, answers: Record<string, number>) =>
+    request<{ result: QuizResult; verification: VerificationState }>(`/api/v1/skills/verify/${skill}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ attempt_token, answers }),
+    }),
+  submitProject: (skill: string, body: { title: string; link: string; description: string; checklist: string[] }) =>
+    request<{ verification: VerificationState }>(`/api/v1/skills/verify/${skill}/project`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  setPublicProfile: (body: { handle: string; public_profile: boolean; is_minor?: boolean }) =>
+    request<{ user: User }>("/api/v1/me/public-profile", { method: "PUT", body: JSON.stringify(body) }),
+  publicProfile: (handle: string) => request<PublicProfile>(`/api/v1/p/${encodeURIComponent(handle)}`),
+};
+
+/* -------------------------------------------------------------------------- */
+/* Phase 8: shareable report links                                             */
+/* -------------------------------------------------------------------------- */
+
+export const sharingApi = {
+  /** Mint a link (owner only). The raw token comes back ONCE, here. */
+  create: (runId: number, expiryDays?: number) =>
+    request<ShareCreated>(`/api/v1/runs/${runId}/share`, {
+      method: "POST",
+      body: JSON.stringify({ expiry_days: expiryDays ?? null }),
+    }),
+  /** Owner metadata for a run's links (never tokens or hashes). */
+  list: (runId: number) => request<{ shares: ShareLink[] }>(`/api/v1/runs/${runId}/shares`),
+  revoke: (runId: number, tokenId: number) =>
+    request<{ share: ShareLink; revoked: boolean }>(`/api/v1/runs/${runId}/share/${tokenId}`, {
+      method: "DELETE",
+    }),
+  /** Public read of a shared report (no session needed). */
+  shared: (token: string) => request<SharedReport>(`/api/v1/shared/${encodeURIComponent(token)}`),
+};
+
+export const plan90 = {
+  create: (body: { run_id?: number; hours_per_week?: number } = {}) =>
+    request<{ plan: Plan90 }>("/api/v1/plan/90day", { method: "POST", body: JSON.stringify(body) }),
+  latest: () =>
+    request<{ plan: Plan90 | null; current_week: Plan90Week | null; progress: Plan90Progress | null }>(
+      "/api/v1/plan/90day",
+    ),
+  setTaskDone: (planId: number, taskId: string, done: boolean) =>
+    request<{ plan: Plan90; current_week: Plan90Week | null; progress: Plan90Progress }>(
+      `/api/v1/plan/90day/${planId}/tasks`,
+      { method: "PATCH", body: JSON.stringify({ task_id: taskId, done }) },
+    ),
+  exportUrl: (fmt: "md" | "ics") => `${BASE}/api/v1/plan/90day/export.${fmt}`,
 };
 
 export const profile = {
@@ -687,6 +848,9 @@ export const admin = {
   upsertAssessmentItem: (body: { id: string; dim: string; text: string; weight?: number; active?: boolean }) =>
     request<{ ok: boolean }>("/api/v1/admin/assessment-items", { method: "POST", body: JSON.stringify(body) }),
   deleteAssessmentItem: (id: string) => request(`/api/v1/admin/assessment-items/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  indiaMarket: () => request<{ entries: Record<string, unknown>[]; overrides: Record<string, unknown>; source: string; as_of: string }>("/api/v1/admin/india-market"),
+  setIndiaMarket: (overrides: Record<string, unknown>) =>
+    request<{ ok: boolean; overrides: Record<string, unknown> }>("/api/v1/admin/india-market", { method: "PUT", body: JSON.stringify({ overrides }) }),
   weights: () => request<{ weights: Record<string, number> }>("/api/v1/admin/weights"),
   setWeights: (weights: Record<string, number>) =>
     request<{ weights: Record<string, number> }>("/api/v1/admin/weights", { method: "PUT", body: JSON.stringify({ weights }) }),
@@ -766,11 +930,20 @@ export type BillingPlan = {
   trial_days: number;
 };
 
+export type BillingSubscription = {
+  plan: string;
+  status: string;
+  current_period_end: string;
+} | null;
+
 export const billingApi = {
   plans: () =>
-    request<{ plans: BillingPlan[]; payments_configured: boolean; trial_days: number }>(
-      "/api/v1/billing/plans",
-    ),
+    request<{
+      plans: BillingPlan[];
+      payments_configured: boolean;
+      subscriptions_enabled: boolean;
+      trial_days: number;
+    }>("/api/v1/billing/plans"),
   me: () =>
     request<{
       plan: string;
@@ -778,6 +951,7 @@ export const billingApi = {
       trial_ends_at: string;
       trial_active: boolean;
       trial_used: boolean;
+      subscription: BillingSubscription;
     }>("/api/v1/billing/me"),
   startTrial: () =>
     request<{ plan: string; effective_plan: string; trial_ends_at: string; trial_active: boolean }>(
@@ -789,14 +963,223 @@ export const billingApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  checkout: (plan: string) =>
+  checkout: (plan: string, couponCode = "", referralCode = "") =>
     request<{
       order_id: string;
       key_id: string;
       amount_paise: number;
+      discount_paise: number;
       currency: string;
       plan: string;
-    }>("/api/v1/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) }),
+    }>("/api/v1/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ plan, coupon_code: couponCode, referral_code: referralCode }),
+    }),
+  // Phase 9: subscriptions are an additional option beside one-time
+  // checkout; the backend answers 501/409 honestly while Razorpay keys
+  // or plan ids are unset, and the UI only offers this when the plans
+  // payload says subscriptions_enabled.
+  subscribe: (plan: string) =>
+    request<{ subscription_id: string; key_id: string; plan: string; status: string }>(
+      "/api/v1/billing/subscribe",
+      { method: "POST", body: JSON.stringify({ plan }) },
+    ),
+  validateCoupon: (code: string, plan: string) =>
+    request<{
+      valid: boolean;
+      reason?: string;
+      code?: string;
+      kind?: string;
+      value?: number;
+      discount_preview_paise?: number | null;
+      final_amount_paise?: number | null;
+    }>("/api/v1/billing/coupon/validate", {
+      method: "POST",
+      body: JSON.stringify({ code, plan }),
+    }),
+  myReferral: () =>
+    request<{ code: string; referrals: number; pending_rewards: number }>(
+      "/api/v1/me/referral",
+    ),
 };
 
 export type { FeedbackItem };
+
+/* -------------------------------------------------------------------------- */
+/* Phase 4: institute portal                                                   */
+/* -------------------------------------------------------------------------- */
+
+export type CounsellorReview = {
+  reviewed: boolean;
+  label: string;
+  note: string;
+  approved: boolean;
+  reviewer_role: string;
+  reviewed_at: string;
+};
+export type Institute = {
+  id: number;
+  name: string;
+  slug: string;
+  logo_url: string;
+  accent_color: string;
+  plan: string;
+  seat_limit: number;
+  created_by: string;
+  created_at: string;
+};
+export type SeatUsage = {
+  seat_limit: number;
+  members: number;
+  pending_invites: number;
+  seats_used: number;
+  seats_available: number;
+};
+export type InstituteMine = { institute: Institute | null; my_role: string; seat_usage?: SeatUsage };
+export type InstituteMember = {
+  user_id: string;
+  email: string;
+  name: string;
+  institute_role: string;
+  joined_at: string;
+};
+export type InviteRowResult = { row: number; email: string; status: string; error?: string };
+export type InviteReport = { results: InviteRowResult[]; invited: number; pending: number; errors: number };
+export type Cohort = {
+  member_count: number;
+  student_count: number;
+  runs_count: number;
+  top_recommended_careers: { title: string; count: number }[];
+  most_missing_skills: { skill: string; count: number }[];
+  readiness_distribution: { bucket: string; count: number }[];
+  needs_attention: {
+    user_id: string;
+    name: string;
+    reasons: string[];
+    last_run_at: string;
+    top_match_percent: number | null;
+  }[];
+};
+export type ReviewQueueItem = {
+  run_id: number;
+  student_id: string;
+  student_name: string;
+  created_at: string;
+  top_career: string;
+  reviewed: boolean;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Phase 5: age declaration + parental consent                                 */
+/* -------------------------------------------------------------------------- */
+
+export type ConsentRecordPayload = {
+  id: number;
+  guardian_email?: string;
+  notice_version: string;
+  current_notice_version: string;
+  status: string;
+  effective_status: string;
+  method: string;
+  requested_at: string;
+  decided_at: string;
+  token_expires_at: string;
+  delivered?: boolean;
+  dev_link?: string;
+};
+
+export type PrivacyStatus = {
+  user_id: string;
+  is_minor: boolean;
+  age_band: string;
+  birth_year: number | null;
+  notice_version: string;
+  effective_status: string;
+  consent: ConsentRecordPayload | null;
+  restrictions: {
+    is_minor: boolean;
+    restricted: boolean;
+    core_guidance_allowed: boolean;
+    public_profile_allowed: boolean;
+    behavioural_analytics_allowed: boolean;
+    streak_nudges_allowed: boolean;
+    needs_attention_individual_allowed: boolean;
+  };
+};
+
+export const consentApi = {
+  status: () => request<PrivacyStatus>("/api/v1/me/consent"),
+  declare: (body: { age_band: string; birth_year?: number | null }) =>
+    request<{ user: User; privacy: PrivacyStatus }>("/api/v1/me/age-declaration", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  requestConsent: (guardian_email: string) =>
+    request<{ consent: ConsentRecordPayload; privacy: PrivacyStatus }>("/api/v1/me/consent/request", {
+      method: "POST",
+      body: JSON.stringify({ guardian_email }),
+    }),
+  revoke: () =>
+    request<{ consent: ConsentRecordPayload; privacy: PrivacyStatus }>("/api/v1/me/consent/revoke", {
+      method: "POST",
+    }),
+};
+
+export const institutesApi = {
+  mine: () => request<InstituteMine>("/api/v1/institutes/mine"),
+  create: (body: { name: string; logo_url?: string; accent_color?: string }) =>
+    request<{ institute: Institute; my_role: string; seat_usage: SeatUsage }>("/api/v1/institutes", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  claim: () =>
+    request<{ claimed: boolean; institute_id: number }>("/api/v1/institutes/invites/claim", {
+      method: "POST",
+    }),
+  members: (id: number) =>
+    request<{ members: InstituteMember[]; invites: unknown[]; seat_usage: SeatUsage }>(
+      `/api/v1/institutes/${id}/members`,
+    ),
+  removeMember: (id: number, userId: string) =>
+    request<{ removed: boolean }>(`/api/v1/institutes/${id}/members/${userId}`, { method: "DELETE" }),
+  invite: (id: number, members: { email: string; name?: string; role?: string }[]) =>
+    request<InviteReport>(`/api/v1/institutes/${id}/invites`, {
+      method: "POST",
+      body: JSON.stringify({ members }),
+    }),
+  inviteCsv: async (id: number, file: File): Promise<InviteReport> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE}/api/v1/institutes/${id}/invites/csv`, {
+      method: "POST",
+      body: form,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        detail = JSON.stringify((await res.json()).detail ?? detail);
+      } catch { /* keep status text */ }
+      throw new ApiError(detail, res.status);
+    }
+    return (await res.json()) as InviteReport;
+  },
+  cohort: (id: number) =>
+    request<{ cohort: Cohort; institute: Institute }>(`/api/v1/institutes/${id}/cohort`),
+  reviewQueue: (id: number) =>
+    request<{ queue: ReviewQueueItem[] }>(`/api/v1/institutes/${id}/review-queue`),
+  reviewRun: (id: number, runId: number, body: { note: string; approved: boolean }) =>
+    request<{ counsellor_review: CounsellorReview }>(`/api/v1/institutes/${id}/runs/${runId}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  myReviews: () =>
+    request<{ reviews: { run_id: number; counsellor_review: CounsellorReview }[] }>(
+      "/api/v1/institutes/reviews/mine",
+    ),
+  reportUrl: (id: number, fmt: "csv" | "pdf") => `${BASE}/api/v1/institutes/${id}/cohort/report.${fmt}`,
+  demoRequests: () =>
+    request<{ requests: { id: number; name: string; email: string; organisation: string }[] }>(
+      "/api/v1/billing/demo-requests",
+    ),
+};

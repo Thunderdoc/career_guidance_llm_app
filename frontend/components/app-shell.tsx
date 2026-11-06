@@ -224,6 +224,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               collapsed && "justify-center px-0",
             )}
             title={t("feedback_cta")}
+            aria-label={t("feedback_cta")}
           >
             <MessageSquare size={17} />
             {!collapsed && <span>{t("feedback_cta")}</span>}
@@ -330,7 +331,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Badge>
                 <span className="font-medium text-fg">{a.title}</span>
                 <span className="flex-1">{a.body}</span>
-                <button onClick={() => dismiss(a.id)} className="text-fg-3 hover:text-fg">
+                <button onClick={() => dismiss(a.id)} className="text-fg-3 hover:text-fg" aria-label={t("p10_dismiss")}>
                   ×
                 </button>
               </div>

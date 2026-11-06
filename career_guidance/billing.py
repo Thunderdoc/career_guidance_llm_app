@@ -13,6 +13,12 @@ Sell-standard core, kept deliberately boring:
 - Razorpay is the only provider in v1 (UPI + cards for India). Without
   ``RAZORPAY_KEY_ID``/``RAZORPAY_KEY_SECRET`` checkout and the webhook
   answer 501 — never a fake success.
+- Phase 9 adds Razorpay **subscriptions** as an additional option beside
+  the one-time checkout (the manual flow stays). Subscription plan ids
+  come only from env (``RAZORPAY_PRO_PLAN_ID`` /
+  ``RAZORPAY_INSTITUTE_PLAN_ID``); while either the keys or a plan id
+  are unset, subscribing answers the same honest 501/409 as checkout —
+  never a fake success and never an invented plan id.
 """
 
 from __future__ import annotations
@@ -23,6 +29,8 @@ import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+import httpx
 
 FREE_FEATURES = [
     "Career matching across 974 occupations",
@@ -47,6 +55,29 @@ INSTITUTE_FEATURES = [
 TRIAL_PLAN = "pro"
 
 
+class BillingError(Exception):
+    """Billing failure carrying the HTTP status the API should answer.
+
+    Used by the subscription core so the honest-placeholder behaviour
+    (501 while keys are unset, 409 while a plan id is unset) is identical
+    in core tests and in the API.
+    """
+
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+
+
+#: Razorpay subscriptions need a finite billing-cycle count at creation.
+#: 12 cycles (12 months on a monthly plan) is the shipped product term;
+#: when it completes the customer can subscribe again. Documented in
+#: README/SELLING — not a hidden renewal trap.
+SUBSCRIPTION_TOTAL_COUNT = 12
+
+_RAZORPAY_SUBSCRIPTIONS_URL = "https://api.razorpay.com/v1/subscriptions"
+
+
 @dataclass(frozen=True)
 class BillingConfig:
     pro_price_inr: int | None
@@ -55,10 +86,28 @@ class BillingConfig:
     enforce_pro: bool
     razorpay_key_id: str
     razorpay_key_secret: str
+    # Phase 9: Razorpay *plan* ids for subscriptions (dashboard-created).
+    # Env-only — a plan id is never invented in code.
+    razorpay_pro_plan_id: str = ""
+    razorpay_institute_plan_id: str = ""
 
     @property
     def payments_configured(self) -> bool:
         return bool(self.razorpay_key_id and self.razorpay_key_secret)
+
+    def subscription_plan_id(self, plan: str) -> str:
+        if plan == "pro":
+            return self.razorpay_pro_plan_id
+        if plan == "institute":
+            return self.razorpay_institute_plan_id
+        return ""
+
+    @property
+    def subscriptions_configured(self) -> bool:
+        """True only when keys AND at least one Razorpay plan id are set."""
+        return self.payments_configured and bool(
+            self.razorpay_pro_plan_id or self.razorpay_institute_plan_id
+        )
 
 
 def _price(env_name: str) -> int | None:
@@ -86,6 +135,8 @@ def load_billing_config() -> BillingConfig:
         in {"1", "true", "yes", "on"},
         razorpay_key_id=os.getenv("RAZORPAY_KEY_ID", "").strip(),
         razorpay_key_secret=os.getenv("RAZORPAY_KEY_SECRET", "").strip(),
+        razorpay_pro_plan_id=os.getenv("RAZORPAY_PRO_PLAN_ID", "").strip(),
+        razorpay_institute_plan_id=os.getenv("RAZORPAY_INSTITUTE_PLAN_ID", "").strip(),
     )
 
 
@@ -183,16 +234,61 @@ class BillingStore:
         plan: str,
         amount_paise: int,
         currency: str = "INR",
+        discount_paise: int = 0,
+        coupon: dict | None = None,
+        coupon_code: str = "",
+        referral_code: str = "",
+        referrer_user_id: str | None = None,
     ) -> int:
+        """Record a checkout order — atomically with its coupon/referral rows.
+
+        ``amount_paise`` is the amount actually charged (after discount).
+        When ``coupon`` is given, the redemption is re-validated and
+        inserted in the SAME transaction as the payment row (a limit hit
+        raises :class:`career_guidance.coupons.CouponError` and rolls the
+        payment row back too). When ``referrer_user_id`` is given, the
+        referral attribution + pending valueless reward are written in
+        the same transaction.
+        """
+        from career_guidance.coupons import insert_attribution, insert_redemption
+
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as conn:
+            # The discount/code columns arrive with migration v9; tolerate
+            # a pre-v9 ledger (older tests / un-migrated files) by writing
+            # only the columns that exist.
+            columns = {r[1] for r in conn.execute("PRAGMA table_info(payments)")}
+            extra_cols = [
+                c for c in ("discount_paise", "coupon_code", "referral_code") if c in columns
+            ]
+            extra_vals = {
+                "discount_paise": int(discount_paise),
+                "coupon_code": coupon_code,
+                "referral_code": referral_code,
+            }
+            col_sql = "".join(f", {c}" for c in extra_cols)
+            val_sql = "".join(", ?" for _ in extra_cols)
             cur = conn.execute(
                 "INSERT INTO payments (user_id, provider, provider_order_id, plan,"
-                " amount_paise, currency, status, created_at, updated_at)"
-                " VALUES (?, 'razorpay', ?, ?, ?, ?, 'created', ?, ?)",
-                (user_id, provider_order_id, plan, amount_paise, currency, now, now),
+                f" amount_paise, currency, status, created_at, updated_at{col_sql})"
+                f" VALUES (?, 'razorpay', ?, ?, ?, ?, 'created', ?, ?{val_sql})",
+                (
+                    user_id,
+                    provider_order_id,
+                    plan,
+                    amount_paise,
+                    currency,
+                    now,
+                    now,
+                    *[extra_vals[c] for c in extra_cols],
+                ),
             )
-            return int(cur.lastrowid or 0)
+            payment_id = int(cur.lastrowid or 0)
+            if coupon is not None:
+                insert_redemption(conn, coupon, user_id, provider_order_id, discount_paise)
+            if referrer_user_id:
+                insert_attribution(conn, referrer_user_id, user_id, provider_order_id)
+            return payment_id
 
     def payment_by_order(self, provider_order_id: str) -> dict | None:
         with self._connect() as conn:
@@ -212,6 +308,154 @@ class BillingStore:
                 "SELECT * FROM payments WHERE provider_order_id=?", (provider_order_id,)
             ).fetchone()
             return dict(row) if row else None
+
+
+class SubscriptionStore:
+    """Subscriptions ledger + webhook idempotency (migration v9 tables)."""
+
+    def __init__(self, db_path: str) -> None:
+        self._path = str(db_path)
+        from career_guidance.migrations import migrate
+
+        migrate(self._path)
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def create(
+        self, user_id: str, plan: str, razorpay_subscription_id: str, status: str = "created"
+    ) -> dict:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO subscriptions (user_id, plan, razorpay_subscription_id, status,"
+                " current_period_end, created_at, updated_at) VALUES (?,?,?,?, '', ?, ?)"
+                " ON CONFLICT(razorpay_subscription_id) DO UPDATE SET status=excluded.status,"
+                " updated_at=excluded.updated_at",
+                (user_id, plan, razorpay_subscription_id, status, now, now),
+            )
+            row = conn.execute(
+                "SELECT * FROM subscriptions WHERE razorpay_subscription_id=?",
+                (razorpay_subscription_id,),
+            ).fetchone()
+        return dict(row)
+
+    def by_razorpay_id(self, razorpay_subscription_id: str) -> dict | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM subscriptions WHERE razorpay_subscription_id=?",
+                (razorpay_subscription_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def for_user(self, user_id: str) -> dict | None:
+        """The user's most recent subscription, or None."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM subscriptions WHERE user_id=? ORDER BY id DESC LIMIT 1",
+                (user_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def update(
+        self, razorpay_subscription_id: str, status: str | None = None, period_end: str = ""
+    ) -> dict | None:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            if status is not None:
+                conn.execute(
+                    "UPDATE subscriptions SET status=?, updated_at=? WHERE razorpay_subscription_id=?",  # noqa: E501
+                    (status, now, razorpay_subscription_id),
+                )
+            if period_end:
+                conn.execute(
+                    "UPDATE subscriptions SET current_period_end=?, updated_at=?"
+                    " WHERE razorpay_subscription_id=?",
+                    (period_end, now, razorpay_subscription_id),
+                )
+            row = conn.execute(
+                "SELECT * FROM subscriptions WHERE razorpay_subscription_id=?",
+                (razorpay_subscription_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def record_webhook_event(self, event_key: str, event: str) -> bool:
+        """True the FIRST time an event key is seen; False on replay."""
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO webhook_events (event_key, event, created_at)"
+                " VALUES (?,?,?)",
+                (event_key, event, now),
+            )
+            return cur.rowcount > 0
+
+
+def create_subscription(
+    config: BillingConfig,
+    store: SubscriptionStore,
+    user_id: str,
+    plan: str,
+    transport: httpx.BaseTransport | None = None,
+) -> dict:
+    """Create a Razorpay subscription for ``user_id`` on ``plan``.
+
+    Honest-placeholder contract (same as one-time checkout):
+    - keys unset → :class:`BillingError` 501, nothing is faked;
+    - the plan's Razorpay plan id unset (``RAZORPAY_PRO_PLAN_ID`` /
+      ``RAZORPAY_INSTITUTE_PLAN_ID``) → 409 "subscriptions not
+      configured" — a plan id is never invented;
+    - provider failure → 502.
+
+    ``transport`` is injectable so tests drive the Razorpay HTTP layer
+    with ``httpx.MockTransport`` — no real network in tests.
+    """
+    if not config.payments_configured:
+        raise BillingError(501, "Payments are not configured yet.")
+    if plan not in ("pro", "institute"):
+        raise BillingError(400, "Subscriptions are only for Pro or Institute plans.")
+    plan_id = config.subscription_plan_id(plan)
+    if not plan_id:
+        raise BillingError(409, "Subscriptions are not configured for this plan.")
+    payload = {
+        "plan_id": plan_id,
+        "total_count": SUBSCRIPTION_TOTAL_COUNT,
+        "quantity": 1,
+        "customer_notify": 1,
+        "notes": {"plan": plan, "user_id": user_id},
+    }
+    try:
+        if transport is not None:
+            with httpx.Client(transport=transport, timeout=15) as client:
+                response = client.post(
+                    _RAZORPAY_SUBSCRIPTIONS_URL,
+                    auth=(config.razorpay_key_id, config.razorpay_key_secret),
+                    json=payload,
+                )
+        else:
+            response = httpx.post(
+                _RAZORPAY_SUBSCRIPTIONS_URL,
+                auth=(config.razorpay_key_id, config.razorpay_key_secret),
+                json=payload,
+                timeout=15,
+            )
+    except httpx.HTTPError:
+        raise BillingError(502, "Payment provider unreachable.") from None
+    if response.status_code not in (200, 201):
+        raise BillingError(502, "Payment provider rejected the subscription.")
+    data = response.json()
+    subscription_id = data.get("id", "")
+    if not subscription_id:
+        raise BillingError(502, "Payment provider returned no subscription id.")
+    row = store.create(user_id, plan, subscription_id, str(data.get("status") or "created"))
+    return {
+        "subscription_id": subscription_id,
+        "key_id": config.razorpay_key_id,
+        "plan": plan,
+        "status": row["status"],
+    }
 
 
 class DemoRequestStore:

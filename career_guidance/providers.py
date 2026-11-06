@@ -6,8 +6,11 @@ structured, schema-validated recommendations. Callers fall back to demo
 mode when no API key is configured or the external service fails.
 """
 
+from __future__ import annotations
+
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -16,6 +19,245 @@ from career_guidance.models import CareerRecommendation, CareerSuggestion, Provi
 from career_guidance.profile import CareerProfile
 
 logger = logging.getLogger("career_guidance.providers")
+
+# --------------------------------------------------------------------------- #
+# Phase 7: chat completers + multi-provider factory.
+#
+# A ``ChatCompleter`` is the raw text-in/text-out transport for one LLM
+# backend. Every completer shares: the configured timeout, exactly ONE
+# retry on transient failures (timeouts, transport errors, HTTP 429/5xx),
+# and ``ProviderError`` on any final failure — callers (suggestions,
+# grounded engine, chat) then fall back to the offline path identically
+# regardless of which provider was configured. Schema validation and the
+# faithfulness check are NOT reimplemented per provider: suggestion
+# providers reuse ``_parse_suggestions`` / ``_parse_recommendations``
+# below, and the grounded engine reuses its merge + the shared
+# ``career_guidance.faithfulness`` filter for every provider.
+# --------------------------------------------------------------------------- #
+
+
+class ChatCompleter(ABC):
+    """Raw LLM transport: system + user prompt in, response text out."""
+
+    name: str = "base"
+    display_name: str = "LLM"
+
+    @abstractmethod
+    def complete(self, system_prompt: str, user_content: str) -> str:
+        """Return the model's response text or raise ``ProviderError``."""
+
+
+def _with_retry(call, label: str):
+    """Run ``call`` with one retry on transient failure (2 attempts total)."""
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            return call()
+        except _NonTransient:
+            raise
+        except Exception as error:  # noqa: BLE001 - normalised below
+            last_error = error
+            if attempt == 0:
+                time.sleep(0.05)
+    raise ProviderError(f"{label} request failed: {last_error}") from last_error
+
+
+def _post_json(
+    url: str,
+    *,
+    payload: dict,
+    headers: dict,
+    timeout: float,
+    transport=None,
+    label: str = "LLM",
+) -> dict:
+    """POST JSON via httpx with the shared timeout + one transient retry."""
+    import httpx
+
+    def attempt() -> dict:
+        with httpx.Client(timeout=timeout, transport=transport) as client:
+            response = client.post(url, json=payload, headers=headers)
+        if response.status_code in (429, 500, 502, 503, 504):
+            raise ProviderError(f"transient HTTP {response.status_code}")
+        if response.status_code >= 400:
+            # Non-transient (auth, bad request): fail immediately, no retry.
+            raise _NonTransient(f"HTTP {response.status_code}")
+        return response.json()
+
+    try:
+        return _with_retry(attempt, label)
+    except _NonTransient as error:
+        raise ProviderError(f"{label} request failed: {error}") from error
+
+
+class _NonTransient(Exception):
+    """Internal marker: do not retry this failure."""
+
+
+class OpenAICompleter(ChatCompleter):
+    name = "openai"
+    display_name = "OpenAI"
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    def complete(self, system_prompt: str, user_content: str) -> str:
+        try:
+            from openai import OpenAI
+        except ImportError as error:  # pragma: no cover - env specific
+            raise ProviderError("The 'openai' package is not installed.") from error
+
+        def attempt() -> str:
+            client = OpenAI(
+                api_key=self._settings.openai_api_key,
+                timeout=self._settings.openai_timeout_seconds,
+            )
+            response = client.chat.completions.create(
+                model=self._settings.openai_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            return response.choices[0].message.content or ""
+
+        return _with_retry(attempt, "OpenAI")
+
+
+class GeminiCompleter(ChatCompleter):
+    """Google Gemini via the Generative Language REST API (plain HTTPS).
+
+    The API key travels in the ``x-goog-api-key`` header — never in the
+    URL. ``transport`` is injectable so tests use ``httpx.MockTransport``.
+    """
+
+    name = "gemini"
+    display_name = "Google Gemini"
+
+    def __init__(self, settings: Settings, transport=None) -> None:
+        self._settings = settings
+        self._transport = transport
+
+    def complete(self, system_prompt: str, user_content: str) -> str:
+        settings = self._settings
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{settings.gemini_model}:generateContent"
+        )
+        payload = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_content}]}],
+            "generationConfig": {"temperature": 0.4},
+        }
+        data = _post_json(
+            url,
+            payload=payload,
+            headers={
+                "x-goog-api-key": settings.gemini_api_key,
+                "Content-Type": "application/json",
+            },
+            timeout=settings.llm_timeout_seconds or settings.openai_timeout_seconds,
+            transport=self._transport,
+            label="Gemini",
+        )
+        try:
+            parts = data["candidates"][0]["content"]["parts"]
+            text = "".join(str(part.get("text", "")) for part in parts)
+        except (KeyError, IndexError, TypeError) as error:
+            raise ProviderError("Could not parse the Gemini response.") from error
+        if not text.strip():
+            raise ProviderError("The Gemini response was empty.")
+        return text
+
+
+class OllamaCompleter(ChatCompleter):
+    """Local Ollama via its HTTP chat API (no key; localhost by default)."""
+
+    name = "ollama"
+    display_name = "Ollama (local)"
+
+    def __init__(self, settings: Settings, transport=None) -> None:
+        self._settings = settings
+        self._transport = transport
+
+    def complete(self, system_prompt: str, user_content: str) -> str:
+        settings = self._settings
+        data = _post_json(
+            f"{settings.ollama_base_url}/api/chat",
+            payload={
+                "model": settings.ollama_model,
+                "stream": False,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+            },
+            headers={"Content-Type": "application/json"},
+            timeout=settings.llm_timeout_seconds or settings.openai_timeout_seconds,
+            transport=self._transport,
+            label="Ollama",
+        )
+        try:
+            text = str(data["message"]["content"])
+        except (KeyError, TypeError) as error:
+            raise ProviderError("Could not parse the Ollama response.") from error
+        if not text.strip():
+            raise ProviderError("The Ollama response was empty.")
+        return text
+
+
+class ProviderFactory:
+    """Selects the LLM backend from configuration (Phase 7).
+
+    Selection rules:
+    * ``LLM_PROVIDER=openai|gemini|ollama`` wins when set (openai/gemini
+      additionally require their key; ollama needs no key).
+    * Unset: the pre-Phase-7 behaviour first — OpenAI when
+      ``OPENAI_API_KEY`` is set — then Gemini when only its key is set.
+    * Nothing configured → ``None`` → callers use the offline provider.
+    """
+
+    @staticmethod
+    def selected_name(settings: Settings) -> str | None:
+        explicit = (settings.llm_provider or "").strip().lower()
+        if explicit in {"openai", "gemini", "ollama"}:
+            if explicit == "openai" and not settings.openai_api_key:
+                return None
+            if explicit == "gemini" and not settings.gemini_api_key:
+                return None
+            return explicit
+        if explicit:
+            logger.warning("Unknown LLM_PROVIDER %r; using offline mode", explicit)
+            return None
+        if settings.openai_api_key:
+            return "openai"
+        if settings.gemini_api_key:
+            return "gemini"
+        return None
+
+    @staticmethod
+    def create_completer(settings: Settings, transport=None) -> ChatCompleter | None:
+        name = ProviderFactory.selected_name(settings)
+        if name == "openai":
+            return OpenAICompleter(settings)
+        if name == "gemini":
+            return GeminiCompleter(settings, transport=transport)
+        if name == "ollama":
+            return OllamaCompleter(settings, transport=transport)
+        return None
+
+    @staticmethod
+    def create_provider(settings: Settings, transport=None) -> SuggestionProvider | None:
+        """The plain (non-grounded) suggestion provider, if one is configured."""
+        name = ProviderFactory.selected_name(settings)
+        if name == "openai":
+            return OpenAIProvider(settings)
+        if name == "gemini":
+            return GeminiProvider(settings, transport=transport)
+        if name == "ollama":
+            return OllamaProvider(settings, transport=transport)
+        return None
+
 
 _SYSTEM_PROMPT = (
     "You are an experienced career counselor. Given a person's skills, "
@@ -206,35 +448,19 @@ class MockProvider(SuggestionProvider):
         return [recommendation for _, recommendation in scored[:5]]
 
 
-class OpenAIProvider(SuggestionProvider):
-    """Provider backed by the OpenAI API with schema-validated output."""
+class _CompleterProvider(SuggestionProvider):
+    """Suggestion provider over a :class:`ChatCompleter`.
 
-    name = "OpenAI"
+    Parsing is the shared strict schema validation
+    (``_parse_suggestions`` / ``_parse_recommendations``) for EVERY
+    provider — Phase 7 did not fork it per backend.
+    """
+
     is_demo = False
-
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
+    _completer: ChatCompleter
 
     def _complete(self, system_prompt: str, user_content: str) -> str:
-        try:
-            from openai import OpenAI
-        except ImportError as error:  # pragma: no cover - env specific
-            raise ProviderError("The 'openai' package is not installed.") from error
-        try:
-            client = OpenAI(
-                api_key=self._settings.openai_api_key,
-                timeout=self._settings.openai_timeout_seconds,
-            )
-            response = client.chat.completions.create(
-                model=self._settings.openai_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
-            )
-            return response.choices[0].message.content or ""
-        except Exception as error:
-            raise ProviderError(f"OpenAI request failed: {error}") from error
+        return self._completer.complete(system_prompt, user_content)
 
     def suggest(self, profile_text: str) -> list[CareerSuggestion]:
         payload = self._complete(_SYSTEM_PROMPT, profile_text)
@@ -243,6 +469,36 @@ class OpenAIProvider(SuggestionProvider):
     def recommend(self, profile: CareerProfile) -> list[CareerRecommendation]:
         payload = self._complete(_RECOMMEND_SYSTEM_PROMPT, profile.to_prompt_text())
         return _parse_recommendations(payload)
+
+
+class OpenAIProvider(_CompleterProvider):
+    """Provider backed by the OpenAI API with schema-validated output."""
+
+    name = "OpenAI"
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._completer = OpenAICompleter(settings)
+
+
+class GeminiProvider(_CompleterProvider):
+    """Provider backed by Google Gemini with schema-validated output."""
+
+    name = "Google Gemini"
+
+    def __init__(self, settings: Settings, transport=None) -> None:
+        self._settings = settings
+        self._completer = GeminiCompleter(settings, transport=transport)
+
+
+class OllamaProvider(_CompleterProvider):
+    """Provider backed by a local Ollama server with schema-validated output."""
+
+    name = "Ollama (local)"
+
+    def __init__(self, settings: Settings, transport=None) -> None:
+        self._settings = settings
+        self._completer = OllamaCompleter(settings, transport=transport)
 
 
 def _strip_code_fence(payload: str) -> str:
@@ -300,22 +556,23 @@ def get_provider(settings: Settings) -> SuggestionProvider:
     """Select the provider based on configuration.
 
     Uses the O*NET taxonomy engine when the bundled catalog is available
-    (grounded LLM with a key, offline matching without); otherwise falls back
-    to the legacy six-career mock.
+    (grounded LLM when the factory selects one, offline matching without);
+    otherwise falls back to the legacy six-career mock. Provider selection
+    is the Phase 7 :class:`ProviderFactory`'s job (LLM_PROVIDER env, with
+    the pre-Phase-7 OpenAI-key default preserved).
     """
     try:
-        from career_guidance.engine import GroundedOpenAIProvider, TaxonomyProvider
+        from career_guidance.engine import GroundedLLMProvider, TaxonomyProvider
         from career_guidance.matching import get_matcher
 
         matcher = get_matcher()
     except Exception:  # noqa: BLE001 - catalog missing or sklearn unavailable
         logger.warning("Taxonomy engine unavailable; using legacy providers", exc_info=True)
-        if settings.openai_api_key:
-            return OpenAIProvider(settings)
-        return MockProvider()
-    if settings.openai_api_key:
-        return GroundedOpenAIProvider(settings, matcher)
-    logger.info("No OPENAI_API_KEY configured; using offline taxonomy provider")
+        return ProviderFactory.create_provider(settings) or MockProvider()
+    completer = ProviderFactory.create_completer(settings)
+    if completer is not None:
+        return GroundedLLMProvider(settings, matcher, completer=completer)
+    logger.info("No LLM provider configured; using offline taxonomy provider")
     return TaxonomyProvider(matcher)
 
 

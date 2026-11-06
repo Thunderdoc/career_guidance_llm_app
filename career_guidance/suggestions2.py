@@ -58,6 +58,7 @@ def recommend_v2(
     explanations=None,
     taxonomy=None,
     db_path: str | Path | None = None,
+    india_overrides: dict | None = None,
 ) -> dict:
     """Rank careers with matcher v2 and return an explainable payload."""
     explanations = explanations or get_explanations()
@@ -79,7 +80,10 @@ def recommend_v2(
 
     base = Matcher(taxonomy)
     matcher = MatcherV2(base, weights)
-    ranked = matcher.rank(profile, top_k=top_k, interests=interests)
+    # Rank extra candidates in the SAME run so why_not explanations in
+    # reality.enrich_result quote real scores, never invented reasons.
+    ranked_all = matcher.rank(profile, top_k=max(top_k, 20), interests=interests)
+    ranked = ranked_all[:top_k]
     active = matcher.active_weights(bool(detected or profile.goals), bool(interests))
 
     recommendations: list[dict] = []
@@ -99,7 +103,25 @@ def recommend_v2(
         )
 
     priority = _priority_skills(ranked)
-    return {
+    # why_not pool: popular = high-demand family (demand >= 4) in the seed.
+    extras = []
+    for cand in ranked_all[top_k:]:
+        try:
+            demand = market.seed.demand_score(cand.occupation)
+        except Exception:  # noqa: BLE001
+            demand = 0
+        if demand >= 4:
+            extras.append(
+                {
+                    "career_id": cand.occupation.id,
+                    "title": cand.occupation.title,
+                    "match_percent": cand.match_percent,
+                    "missing_skills": list(cand.match.missing_skills),
+                }
+            )
+        if len(extras) >= 2:
+            break
+    payload = {
         "provider": "matcher-v2",
         "is_demo": False,
         "used_fallback": False,
@@ -110,7 +132,11 @@ def recommend_v2(
         "active_weights": active,
         "recommendations": recommendations,
         "source": explanations.source(),
+        "_scored_extra": extras,
     }
+    from career_guidance.reality import enrich_result
+
+    return enrich_result(payload, taxonomy, profile, india_overrides=india_overrides)
 
 
 def _to_recommendation(

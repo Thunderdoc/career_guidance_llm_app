@@ -4,6 +4,19 @@ _Date: 2026-09-18 · Companion to `RESEARCH_ROADMAP.md` (the why); this document
 
 ---
 
+## Status addendum (2026-11-06, Phase 10 — Master Build complete)
+
+The table below is the 2026-09-18 snapshot. Current verified state on
+the local `upgrade/final` branch after Phases 1–10 (see
+`docs/UPGRADE_PLAN.md` §5 for per-phase status): **514 pytest passed,
+coverage 91.93 %, golden eval Hit@5 1.0 / MRR 0.827**, every frontend
+route ≤245 kB first load (per-locale i18n split), public catalog
+cached, institute public API shipped, accessibility audit in
+`docs/ACCESSIBILITY.md`, and the only remaining go-live items are the
+owner inputs listed in `SELLING.md` (prices, Razorpay, business
+details, SMTP decision, hosting decision, data licences, pilot
+college).
+
 ## Status (2026-09-18)
 
 | Criterion | Status |

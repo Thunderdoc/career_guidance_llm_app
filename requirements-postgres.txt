@@ -1,0 +1,4 @@
+# Optional Postgres support (Phase 6) — install ONLY when DATABASE_URL
+# selects Postgres. The default SQLite deployment does not need this file.
+# Usage: pip install -r requirements.txt -r requirements-postgres.txt
+psycopg[binary]>=3.2,<4.0

@@ -31,8 +31,10 @@ from career_guidance.profile import EXPERIENCE_LEVELS
 from career_guidance.profiles import EDUCATION_LEVELS, PERSONAS, ProfileStore
 from career_guidance.reports import build_report
 from career_guidance.resume_score import score as score_resume
-from career_guidance.roadmap import Roadmap, to_ics, to_json, to_markdown
+from career_guidance.roadmap import Plan90Store, Roadmap, to_ics, to_json, to_markdown
+from career_guidance.roadmap import current_week as plan90_current_week
 from career_guidance.roadmap import generate as generate_roadmap
+from career_guidance.roadmap import plan_progress as plan90_progress
 from career_guidance.settings_store import SettingsStore
 from career_guidance.skillgap import catalog_importance, evaluate
 from career_guidance.tasks import derive_tasks, education_path
@@ -59,6 +61,11 @@ class ProfileBody(BaseModel):
     country: str | None = None
     onboarded: bool | None = None
     set_target: str | None = None
+    # Phase 5 (additive, optional): least-data age declaration — a band
+    # plus an optional birth YEAR. Stored on the user record (not the
+    # profile) and derives users.is_minor; see career_guidance/consent.py.
+    age_band: str | None = None
+    birth_year: int | None = None
 
 
 class RatingsBody(BaseModel):
@@ -162,6 +169,36 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     profiles = ProfileStore(settings.database_path)
     journey = JourneyStore(settings.database_path)
     gamification = GamificationStore(settings.database_path)
+
+    # Phase 5 minor protections: XP awards are behavioural nudges, so an
+    # unconsented minor earns none and their streak surfaces read zeroed.
+    # (Plan-item completion rows double as progress storage, not nudges,
+    # and keep working — see docs/COMPLIANCE.md.)
+    from career_guidance.consent import ConsentStore, is_unconsented_minor
+
+    consent_store = ConsentStore(settings.database_path)
+
+    def _restricted(user: User) -> bool:
+        return is_unconsented_minor(user, consent_store)
+
+    def _award(user: User, kind: str, detail: str = "") -> None:
+        if not _restricted(user):
+            gamification.award(user.id, kind, detail)
+
+    def _xp_status(user: User) -> dict:
+        payload = gamification.status(user.id)
+        if _restricted(user):
+            payload = {
+                **payload,
+                "streak": {"current": 0, "longest": 0, "days": []},
+                "badges": [],
+                "all_badges": [],
+                "next_badge": None,
+                "recent": [],
+                "minor_restricted": True,
+            }
+        return payload
+
     content = ContentStore(settings.database_path)
     settings_store = SettingsStore(settings.database_path)
     assessments = riasec.AssessmentStore(settings.database_path)
@@ -181,8 +218,15 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     # ---------------------------------------------------------------- profile
     @router.get("/profile")
     def get_profile(user: User = Depends(current_user)) -> dict:  # noqa: B008
+        fresh = users.get(user.id) or user
         return {
             "profile": (profiles.get(user.id) or None) and profiles.get(user.id).to_dict(),
+            "age": {
+                "age_band": fresh.age_band,
+                "birth_year": fresh.birth_year,
+                "is_minor": bool(fresh.is_minor),
+                "consent_status": consent_store.effective_status(user.id),
+            },
             "target": profiles.target(user.id),
             "options": {
                 "personas": list(PERSONAS),
@@ -199,6 +243,22 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     def save_profile(body: ProfileBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
         payload = body.model_dump(exclude_none=True)
         target = payload.pop("set_target", None)
+        # Phase 5: the age declaration belongs to the user record, not the
+        # profile row — apply it (validating) before saving the profile.
+        age_band = payload.pop("age_band", None)
+        birth_year = payload.pop("birth_year", None)
+        if age_band is not None or birth_year is not None:
+            current = users.get(user.id)
+            try:
+                users.set_age_declaration(
+                    user.id,
+                    age_band if age_band is not None else (current.age_band if current else ""),
+                    birth_year
+                    if birth_year is not None
+                    else (current.birth_year if current else None),  # noqa: E501
+                )
+            except ValueError as error:
+                raise HTTPException(422, str(error)) from error
         if payload.get("hours_per_week") is not None:
             # The UI uses a 1–40 h/week slider; clamp instead of rejecting so a
             # hand-typed 60 h becomes the documented maximum.
@@ -262,7 +322,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
                 interest_top=leads["name"],
                 interest_pct=round(career.get("fit", 0)),
             )
-        gamification.award(user.id, "assessment", f"holland:{result['holland_code']}")
+        _award(user, "assessment", f"holland:{result['holland_code']}")
         users.audit(user.email, "assessment:submit", result["holland_code"])
         return {
             **result,
@@ -429,7 +489,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         )
         plan = journey.save_plan(user.id, body.career_id, result, roadmap)
         profiles.set_target(user.id, body.career_id)
-        gamification.award(user.id, "plan", body.career_id)
+        _award(user, "plan", body.career_id)
         users.audit(user.email, "plan:create", body.career_id)
         payload = _roadmap_payload(plan, date.today())
         payload["ratings"] = ratings
@@ -451,7 +511,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             raise HTTPException(404, "Plan not found.")
         payload = _roadmap_payload(plan, date.today())
         payload["ratings"] = journey.ratings(user.id, plan["career_id"])
-        return {"plan": payload, "xp": gamification.status(user.id)}
+        return {"plan": payload, "xp": _xp_status(user)}
 
     @router.get("/plan/{plan_id}.{fmt}")
     def export_plan(
@@ -577,8 +637,8 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         done = bool((body or {}).get("done", True))
         journey.mark_resource(user.id, resource_id, done)
         if done:
-            gamification.award(user.id, "course_done", f"resource:{resource_id}")
-        return {"done": done, "xp": gamification.status(user.id)}
+            _award(user, "course_done", f"resource:{resource_id}")
+        return {"done": done, "xp": _xp_status(user)}
 
     # ----------------------------------------------------------------- résumé
     @router.post("/resume/score")
@@ -606,7 +666,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
                 missing_count=len(payload["keyword_coverage"]["missing"]),
                 gap=payload["keyword_coverage"]["missing"][0],
             )
-        gamification.award(user.id, "resume", body.target_career_id or "no-target")
+        _award(user, "resume", body.target_career_id or "no-target")
         users.audit(user.email, "resume:score", str(payload["score"]))
         return payload
 
@@ -840,8 +900,8 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     @router.post("/interview/sessions")
     def save_session(body: InterviewBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
         session_id = journey.save_interview(user.id, body.career_id, body.seconds, body.notes)
-        gamification.award(user.id, "interview", body.career_id)
-        return {"id": session_id, "xp": gamification.status(user.id)}
+        _award(user, "interview", body.career_id)
+        return {"id": session_id, "xp": _xp_status(user)}
 
     @router.get("/interview/sessions")
     def sessions(user: User = Depends(current_user)) -> dict:  # noqa: B008
@@ -852,14 +912,14 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     def xp(user: User = Depends(current_user)) -> dict:  # noqa: B008
         if not settings_store.module_enabled("gamification"):
             raise HTTPException(503, "Gamification is disabled by the administrator.")
-        payload = gamification.status(user.id)
+        payload = _xp_status(user)
         payload["rules"] = XP_RULES
         return payload
 
     @router.post("/gamification/event")
     def xp_event(body: EventBody, user: User = Depends(current_user)) -> dict:  # noqa: B008
-        gamification.award(user.id, body.kind, body.detail)
-        return gamification.status(user.id)
+        _award(user, body.kind, body.detail)
+        return _xp_status(user)
 
     # ------------------------------------------------------- announcements
     @router.get("/announcements")
@@ -878,7 +938,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         if body.tool:
             with users._connect() as conn:  # noqa: SLF001 - same package write
                 conn.execute("UPDATE feedback SET tool = ? WHERE id = ?", (body.tool, feedback_id))
-        gamification.award(user.id, "feedback", f"feedback:{feedback_id}")
+        _award(user, "feedback", f"feedback:{feedback_id}")
         return {"id": feedback_id}
 
     # ------------------------------------------------------------ dashboard
@@ -904,9 +964,28 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             if plan and plan["career_id"] == target["career_id"]:
                 roadmap = _roadmap_payload(plan, date.today())
         runs = [r for r in db.list_runs(limit=200) if r.user_id == user.id][:6]
-        xp_payload = gamification.status(user.id)
+        xp_payload = _xp_status(user)
         announcements_payload = settings_store.announcements(active_only=True)
+        # Phase 3: "this week" of the 90-day plan, when one exists.
+        plan90_payload = None
+        plan90 = Plan90Store(settings.database_path).latest(user.id)
+        if plan90:
+            done_ids = {
+                t["id"]
+                for w in plan90.get("weeks", [])
+                for t in w.get("tasks", [])
+                if t.get("done")
+            }
+            week = plan90_current_week(plan90)
+            plan90_payload = {
+                "plan_id": plan90.get("plan_id"),
+                "current_week": week,
+                "progress": plan90_progress(plan90, done_ids),
+                "total_weeks": plan90.get("total_weeks", 13),
+                "hours_per_week": plan90.get("hours_per_week", 6),
+            }
         return {
+            "plan90": plan90_payload,
             "profile": profile.to_dict() if profile else None,
             "target": target,
             "readiness": readiness_payload,
@@ -951,6 +1030,12 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             }
         )
         payload["account"] = user.public()
+        from career_guidance.consent import restrictions_for
+
+        payload["privacy"] = {
+            "consent_status": consent_store.effective_status(user.id),
+            "restrictions": restrictions_for(users.get(user.id) or user, consent_store),
+        }
         payload["exported_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         payload["note"] = "Complete copy of your data in this app (JSON)."
         return payload
@@ -1003,6 +1088,19 @@ def build_router(settings, current_user, db, users) -> APIRouter:
 
     @router.get("/me/activity")
     def activity(days: int = 30, user: User = Depends(current_user)) -> dict:  # noqa: B008
+        if _restricted(user):
+            # Phase 5: streak/activity surfaces are suppressed server-side
+            # for unconsented minors (no behavioural history is returned).
+            return {
+                "daily": [],
+                "streak": {"current": 0, "longest": 0, "days": []},
+                "minor_restricted": True,
+                "levels": [
+                    {"level": i + 1, "name": name, "xp": xp}
+                    for i, (xp, name) in enumerate(_levels())
+                ],
+                "source": "Source: your XP events in this app",
+            }
         daily = gamification.daily_xp(user.id, days=min(max(days, 7), 120))
         return {
             "daily": daily,

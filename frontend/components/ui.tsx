@@ -9,6 +9,8 @@
  *    explains exactly what to do next.
  */
 
+import { useRef } from "react";
+
 import { motion } from "motion/react";
 import { AlertTriangle, Info, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -244,13 +246,32 @@ export function Tabs<T extends string>({
   value: T;
   onChange: (id: T) => void;
 }) {
+  // Phase 10 a11y: WAI-ARIA tab keyboard pattern — roving tabindex,
+  // ArrowLeft/Right move + activate, Home/End jump to the ends.
+  const listRef = useRef<HTMLDivElement>(null);
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const current = Math.max(
+      0,
+      tabs.findIndex((t) => t.id === value),
+    );
+    let next = current;
+    if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
+    if (event.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = tabs.length - 1;
+    onChange(tabs[next].id);
+    listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
+  };
   return (
-    <div className="flex flex-wrap gap-1" role="tablist">
+    <div className="flex flex-wrap gap-1" role="tablist" ref={listRef} onKeyDown={onKeyDown}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
           role="tab"
           aria-selected={value === tab.id}
+          tabIndex={value === tab.id ? 0 : -1}
           onClick={() => onChange(tab.id)}
           className={cn(
             "rounded-xl px-3 py-1.5 text-sm transition",

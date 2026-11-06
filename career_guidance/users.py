@@ -82,6 +82,19 @@ class User:
     last_login_at: str
     disabled: bool = False
     prefs: dict | None = None
+    # Phase 3 public profile: user-chosen unique slug + opt-in switch.
+    handle: str = ""
+    public_profile: bool = False
+    # Phase 3/5: minors never get a public profile, regardless of opt-in.
+    is_minor: bool = False
+    # Phase 4: at most one institute per user; institute_role is one of
+    # institute_admin | counsellor | student ("" when not a member).
+    institute_id: int | None = None
+    institute_role: str = ""
+    # Phase 5: least-data age declaration — band + optional birth YEAR
+    # only (never a full date of birth). is_minor is derived from these.
+    age_band: str = ""
+    birth_year: int | None = None
 
     @property
     def is_admin(self) -> bool:
@@ -106,6 +119,26 @@ class UserStore:
             cols = [r[1] for r in conn.execute("PRAGMA table_info(recommendation_runs)")]
             if cols and "user_id" not in cols:
                 conn.execute("ALTER TABLE recommendation_runs ADD COLUMN user_id TEXT")
+            # Phase 3 columns (migration v5 adds them on the app path; the
+            # store also self-heals so standalone use keeps working).
+            ucols = {r[1] for r in conn.execute("PRAGMA table_info(users)")}
+            for col, ddl in (
+                ("institute_id", "ALTER TABLE users ADD COLUMN institute_id INTEGER"),
+                (
+                    "institute_role",
+                    "ALTER TABLE users ADD COLUMN institute_role TEXT NOT NULL DEFAULT ''",
+                ),
+                ("handle", "ALTER TABLE users ADD COLUMN handle TEXT NOT NULL DEFAULT ''"),
+                (
+                    "public_profile",
+                    "ALTER TABLE users ADD COLUMN public_profile INTEGER NOT NULL DEFAULT 0",
+                ),
+                ("is_minor", "ALTER TABLE users ADD COLUMN is_minor INTEGER NOT NULL DEFAULT 0"),
+                ("age_band", "ALTER TABLE users ADD COLUMN age_band TEXT NOT NULL DEFAULT ''"),
+                ("birth_year", "ALTER TABLE users ADD COLUMN birth_year INTEGER"),
+            ):
+                if col not in ucols:
+                    conn.execute(ddl)
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._path)
@@ -118,6 +151,7 @@ class UserStore:
     def _row(row: sqlite3.Row | None) -> User | None:
         if not row:
             return None
+        keys = row.keys()
         return User(
             id=row["id"],
             email=row["email"],
@@ -129,6 +163,13 @@ class UserStore:
             last_login_at=row["last_login_at"],
             disabled=bool(row["disabled"]),
             prefs=json.loads(row["prefs_json"] or "{}"),
+            handle=row["handle"] if "handle" in keys else "",
+            public_profile=bool(row["public_profile"]) if "public_profile" in keys else False,
+            is_minor=bool(row["is_minor"]) if "is_minor" in keys else False,
+            institute_id=row["institute_id"] if "institute_id" in keys else None,
+            institute_role=row["institute_role"] if "institute_role" in keys else "",
+            age_band=row["age_band"] if "age_band" in keys else "",
+            birth_year=row["birth_year"] if "birth_year" in keys else None,
         )
 
     def upsert_login(self, email: str, provider: str, name: str = "", picture: str = "") -> User:
@@ -192,14 +233,140 @@ class UserStore:
             conn.execute("UPDATE users SET disabled=? WHERE id=?", (int(disabled), user_id))
 
     def delete_user(self, user_id: str) -> None:
+        """Delete a user and ALL of their personal data (Phase 5 fix).
+
+        Root-cause note: the pre-Phase-5 version deleted only the user
+        row, skill progress and runs — verifications, quiz attempts,
+        projects, 90-day plans, payments, tool events, consent records
+        (with the guardian's e-mail), reviews and more survived as orphan
+        personal data, and the journey purge was only wired into the
+        *admin* delete path, never into self-delete. This method is now
+        the single comprehensive path used by both.
+
+        Behaviour (matches the privacy notice): runs are hard-deleted;
+        feedback is anonymised (user_id → NULL, the rating itself is
+        product data); audit rows keep the action but the actor e-mail is
+        anonymised. Tables that do not exist yet are skipped.
+        """
+        user = self.get(user_id)
+        email = user.email if user else ""
+        # Tables keyed by user_id whose rows are purely the user's data.
+        hard_delete = [
+            "skill_progress",
+            "recommendation_runs",
+            "profiles",
+            "targets",
+            "plans",
+            "plans_90day",
+            "skill_ratings",
+            "saved_resources",
+            "resource_progress",
+            "interview_sessions",
+            "xp_events",
+            "badges",
+            "assessment_runs",
+            "skill_verifications",
+            "quiz_attempts",
+            "skill_projects",
+            "tool_events",
+            "payments",
+            "consent_records",
+        ]
         with self._connect() as conn:
+            existing = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            # Reviews OF this user's runs go with the runs; reviews BY this
+            # user (as counsellor/reviewer) are their personal data too.
+            if "run_reviews" in existing and "recommendation_runs" in existing:
+                conn.execute(
+                    "DELETE FROM run_reviews WHERE run_id IN "
+                    "(SELECT id FROM recommendation_runs WHERE user_id = ?)",
+                    (user_id,),
+                )
+            if "run_reviews" in existing:
+                conn.execute("DELETE FROM run_reviews WHERE reviewer_id = ?", (user_id,))
+            # Phase 8: share links the user minted die with the account
+            # (the table keys its owner column ``created_by``, not user_id).
+            if "share_tokens" in existing:
+                conn.execute("DELETE FROM share_tokens WHERE created_by = ?", (user_id,))
+            for table in hard_delete:
+                if table in existing:
+                    conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))  # noqa: S608
+            if "feedback" in existing:
+                conn.execute("UPDATE feedback SET user_id = NULL WHERE user_id = ?", (user_id,))
+            if email:
+                if "magic_links" in existing:
+                    conn.execute("DELETE FROM magic_links WHERE email = ?", (email,))
+                if "institute_invites" in existing:
+                    conn.execute("DELETE FROM institute_invites WHERE email = ?", (email,))
+                if "audit_log" in existing:
+                    conn.execute(
+                        "UPDATE audit_log SET actor = 'deleted-user' WHERE actor = ?", (email,)
+                    )
             conn.execute("DELETE FROM users WHERE id=?", (user_id,))
-            conn.execute("DELETE FROM skill_progress WHERE user_id=?", (user_id,))
-            conn.execute("DELETE FROM recommendation_runs WHERE user_id=?", (user_id,))
 
     def set_prefs(self, user_id: str, prefs: dict) -> None:
         with self._connect() as conn:
             conn.execute("UPDATE users SET prefs_json=? WHERE id=?", (json.dumps(prefs), user_id))
+
+    # ---- public profile (Phase 3) --------------------------------------- #
+
+    def set_public_profile(self, user_id: str, handle: str, enabled: bool) -> User:
+        """Set the public-profile handle + opt-in. Raises ValueError on a
+        malformed or already-taken handle."""
+        import re
+
+        handle = (handle or "").strip().lower()
+        if enabled or handle:
+            if not re.fullmatch(r"[a-z0-9][a-z0-9-]{2,29}", handle):
+                raise ValueError(
+                    "Handle must be 3–30 characters: lower-case letters, digits and hyphens."
+                )
+            with self._connect() as conn:
+                clash = conn.execute(
+                    "SELECT id FROM users WHERE handle = ? AND id <> ?", (handle, user_id)
+                ).fetchone()
+                if clash:
+                    raise ValueError("That handle is already taken.")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET handle = ?, public_profile = ? WHERE id = ?",
+                (handle, int(bool(enabled)), user_id),
+            )
+            return self._row(conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
+
+    def set_minor(self, user_id: str, is_minor: bool) -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE users SET is_minor = ? WHERE id = ?", (int(is_minor), user_id))
+
+    def set_age_declaration(
+        self, user_id: str, age_band: str = "", birth_year: int | None = None
+    ) -> User:
+        """Record the least-data age declaration and derive ``is_minor``.
+
+        Validation lives in career_guidance.consent (single source); this
+        method stores the normalised values and the derived flag together
+        so Phase 3/4 enforcement (public profile, …) keeps working.
+        """
+        from career_guidance.consent import derive_is_minor, validate_age_declaration
+
+        band, year = validate_age_declaration(age_band, birth_year)
+        is_minor = derive_is_minor(band, year)
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET age_band = ?, birth_year = ?, is_minor = ? WHERE id = ?",
+                (band, year, int(is_minor), user_id),
+            )
+            return self._row(conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
+
+    def get_by_handle(self, handle: str) -> User | None:
+        with self._connect() as conn:
+            return self._row(
+                conn.execute(
+                    "SELECT * FROM users WHERE handle = ?", ((handle or "").strip().lower(),)
+                ).fetchone()
+            )
 
     # ---- magic links --------------------------------------------------- #
 

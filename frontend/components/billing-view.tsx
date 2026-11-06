@@ -10,8 +10,9 @@
  * a successful checkout so the new plan appears without a reload.
  */
 import { useCallback, useEffect, useState } from "react";
-import { billingApi, type BillingPlan } from "@/lib/api";
-import { Badge, Button, Card, ErrorNote, PageHeader, Spinner } from "./ui";
+import { billingApi, type BillingPlan, type BillingSubscription } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { Badge, Button, Card, ErrorNote, PageHeader, Spinner, inputCls } from "./ui";
 
 type Me = {
   plan: string;
@@ -19,7 +20,10 @@ type Me = {
   trial_ends_at: string;
   trial_active: boolean;
   trial_used: boolean;
+  subscription: BillingSubscription;
 };
+
+type Referral = { code: string; referrals: number; pending_rewards: number };
 
 declare global {
   interface Window {
@@ -45,13 +49,21 @@ function priceLabel(plan: BillingPlan): string {
 }
 
 export function BillingView() {
+  const { t } = useI18n();
   const [me, setMe] = useState<Me | null>(null);
   const [plans, setPlans] = useState<BillingPlan[] | null>(null);
   const [paymentsConfigured, setPaymentsConfigured] = useState(false);
+  const [subscriptionsEnabled, setSubscriptionsEnabled] = useState(false);
   const [trialDays, setTrialDays] = useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // Phase 9: coupon + referral codes for checkout, and my referral summary.
+  const [couponCode, setCouponCode] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [couponMsg, setCouponMsg] = useState("");
+  const [couponOk, setCouponOk] = useState(false);
+  const [referral, setReferral] = useState<Referral | null>(null);
 
   const load = useCallback(() => {
     setError("");
@@ -60,9 +72,14 @@ export function BillingView() {
         setMe(meRes);
         setPlans(plansRes.plans);
         setPaymentsConfigured(plansRes.payments_configured);
+        setSubscriptionsEnabled(plansRes.subscriptions_enabled);
         setTrialDays(plansRes.trial_days);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Could not load billing."));
+    billingApi
+      .myReferral()
+      .then(setReferral)
+      .catch(() => setReferral(null));
   }, []);
 
   useEffect(load, [load]);
@@ -82,12 +99,34 @@ export function BillingView() {
     }
   };
 
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponMsg("");
+    try {
+      const res = await billingApi.validateCoupon(couponCode.trim(), "pro");
+      if (res.valid) {
+        setCouponOk(true);
+        setCouponMsg(
+          res.discount_preview_paise != null
+            ? t("p9_coupon_valid", { amount: (res.discount_preview_paise / 100).toLocaleString() })
+            : res.code || "",
+        );
+      } else {
+        setCouponOk(false);
+        setCouponMsg(res.reason || "");
+      }
+    } catch (e: unknown) {
+      setCouponOk(false);
+      setCouponMsg(e instanceof Error ? e.message : "");
+    }
+  };
+
   const pay = async (plan: BillingPlan) => {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const order = await billingApi.checkout(plan.id);
+      const order = await billingApi.checkout(plan.id, couponCode.trim(), referralCode.trim());
       await loadRazorpayScript();
       if (!window.Razorpay) throw new Error("Could not load the payment form.");
       const rzp = new window.Razorpay({
@@ -120,6 +159,32 @@ export function BillingView() {
     }
   };
 
+  const subscribe = async (plan: BillingPlan) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const sub = await billingApi.subscribe(plan.id);
+      await loadRazorpayScript();
+      if (!window.Razorpay) throw new Error("Could not load the payment form.");
+      const rzp = new window.Razorpay({
+        key: sub.key_id,
+        subscription_id: sub.subscription_id,
+        name: "Career Guidance AI",
+        description: `${plan.name} plan (subscription)`,
+        handler: () => {
+          setNotice("Subscription started — activating your plan…");
+          load();
+        },
+      });
+      rzp.open();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not start the subscription.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (error && !me) return <ErrorNote error={error} retry={load} />;
   if (!me || !plans) return <Spinner label="Loading billing…" />;
 
@@ -146,6 +211,15 @@ export function BillingView() {
                 Trial active until {new Date(me.trial_ends_at).toLocaleDateString()}
               </p>
             )}
+            {me.subscription && (
+              <p className="mt-1 text-sm text-fg-2">
+                {t("p9_subscription_status", { status: me.subscription.status })}
+                {me.subscription.current_period_end &&
+                  ` · ${t("p9_subscription_until", {
+                    date: new Date(me.subscription.current_period_end).toLocaleDateString(),
+                  })}`}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             {me.effective_plan === "free" && !me.trial_used && trialDays > 0 && (
@@ -159,6 +233,49 @@ export function BillingView() {
           </div>
         </div>
       </Card>
+
+      {paymentsConfigured && (
+        <Card>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm text-fg-2" htmlFor="coupon-code">
+                {t("p9_coupon_label")}
+              </label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  id="coupon-code"
+                  className={inputCls}
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value);
+                    setCouponOk(false);
+                    setCouponMsg("");
+                  }}
+                  placeholder={t("p9_coupon_placeholder")}
+                />
+                <Button variant="outline" onClick={applyCoupon} disabled={busy || !couponCode.trim()}>
+                  {t("p9_coupon_apply")}
+                </Button>
+              </div>
+              {couponMsg && (
+                <p className={`mt-1 text-sm ${couponOk ? "text-ok" : "text-red-400"}`}>{couponMsg}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-sm text-fg-2" htmlFor="referral-code">
+                {t("p9_referral_label")}
+              </label>
+              <input
+                id="referral-code"
+                className={`${inputCls} mt-1`}
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value)}
+                placeholder={t("p9_referral_placeholder")}
+              />
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => (
@@ -187,9 +304,19 @@ export function BillingView() {
               ) : plan.id === "institute" ? (
                 <p className="text-sm text-fg-2">Contact us — institutes are enrolled by an admin.</p>
               ) : paymentsConfigured ? (
-                <Button onClick={() => pay(plan)} disabled={busy}>
-                  Upgrade to {plan.name}
-                </Button>
+                <div className="space-y-2">
+                  <Button onClick={() => pay(plan)} disabled={busy}>
+                    Upgrade to {plan.name}
+                  </Button>
+                  {subscriptionsEnabled && (
+                    <>
+                      <Button variant="outline" onClick={() => subscribe(plan)} disabled={busy}>
+                        {t("p9_subscribe")}
+                      </Button>
+                      <p className="text-xs text-fg-2">{t("p9_subscribe_note")}</p>
+                    </>
+                  )}
+                </div>
               ) : (
                 <p className="text-sm text-fg-2">Payments coming soon — try the free trial meanwhile.</p>
               )}
@@ -197,6 +324,18 @@ export function BillingView() {
           </Card>
         ))}
       </div>
+
+      {referral && (
+        <Card>
+          <h2 className="font-serif text-xl">{t("p9_my_referral_title")}</h2>
+          <p className="mt-1 text-sm text-fg-2">{t("p9_my_referral_sub")}</p>
+          <p className="mt-3 font-mono text-lg">{referral.code}</p>
+          <p className="mt-1 text-sm text-fg-2">
+            {t("p9_my_referral_count", { n: referral.referrals })} ·{" "}
+            {t("p9_my_referral_pending", { n: referral.pending_rewards })}
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

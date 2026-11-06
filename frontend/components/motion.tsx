@@ -21,6 +21,13 @@ import {
 import { X } from "lucide-react";
 import React, { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { getLowBandwidthSignal, subscribeLowBandwidth } from "@/lib/bandwidth";
+import { useSyncExternalStore } from "react";
+
+/** Low-bandwidth gate for the primitives below (Phase 8): reads the
+ * import-light signal in lib/bandwidth.ts — NOT the React context,
+ * whose API/auth imports would bloat every route using Motion. */
+const useLowBw = () => useSyncExternalStore(subscribeLowBandwidth, getLowBandwidthSignal, () => false);
 
 /* ------------------------------------------------------------------ */
 /* TextEffect: per-word / per-char reveal                              */
@@ -41,6 +48,9 @@ export function TextEffect({
   preset?: "fade-in-blur" | "slide" | "scale";
 }) {
   const reduce = useReducedMotion();
+  // Phase 8: low-bandwidth mode extends the reduced-motion gate to
+  // JS-driven animation (CSS alone cannot stop rAF springs).
+  const lowBw = useLowBw();
   const segments = per === "word" ? children.split(/(\s+)/) : Array.from(children);
   const item: Variants = {
     hidden:
@@ -52,7 +62,7 @@ export function TextEffect({
     visible: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
   };
   const M = motion.create(Tag as "p");
-  if (reduce) return <Tag className={className}>{children}</Tag>;
+  if (reduce || lowBw) return <Tag className={className}>{children}</Tag>;
   return (
     <M
       className={className}
@@ -90,6 +100,8 @@ export function AnimatedGroup({
   delay?: number;
   preset?: "blur-slide" | "scale" | "fade";
 }) {
+  const lowBw = useLowBw();
+  if (lowBw) return <div className={className}>{children}</div>;
   const item: Variants = {
     hidden: preset === "scale" ? { opacity: 0, scale: 0.92 } : preset === "fade" ? { opacity: 0 } : { opacity: 0, y: 18, filter: "blur(8px)" },
     visible: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
@@ -126,6 +138,8 @@ export function InView({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once, margin: "0px 0px -10% 0px" });
+  const lowBw = useLowBw();
+  if (lowBw) return <div className={className}>{children}</div>;
   return (
     <motion.div
       ref={ref}
@@ -154,10 +168,12 @@ export function AnimatedNumber({
   const mv = useMotionValue(0);
   const spring = useSpring(mv, { stiffness: 90, damping: 20, mass: 0.6 });
   const [text, setText] = useState(format(0));
+  const lowBw = useLowBw();
   useEffect(() => {
     mv.set(value);
   }, [value, mv]);
   useEffect(() => spring.on("change", (v) => setText(format(v))), [spring, format]);
+  if (lowBw) return <span className={cn("tabular-nums", className)}>{format(value)}</span>;
   return <span className={cn("tabular-nums", className)}>{text}</span>;
 }
 
@@ -166,10 +182,13 @@ export function AnimatedNumber({
 /* ------------------------------------------------------------------ */
 export function TextLoop({ items, interval = 1800, className }: { items: string[]; interval?: number; className?: string }) {
   const [i, setI] = useState(0);
+  const lowBw = useLowBw();
   useEffect(() => {
+    if (lowBw) return;
     const t = setInterval(() => setI((x) => (x + 1) % items.length), interval);
     return () => clearInterval(t);
-  }, [items.length, interval]);
+  }, [items.length, interval, lowBw]);
+  if (lowBw) return <span className={className}>{items[0]}</span>;
   return (
     <span className={cn("relative inline-block h-[1.5em] overflow-hidden align-bottom", className)}>
       <AnimatePresence mode="popLayout" initial={false}>
@@ -200,13 +219,14 @@ export function Magnetic({ children, strength = 0.35, className }: { children: R
   const x = useSpring(0, { stiffness: 200, damping: 15 });
   const y = useSpring(0, { stiffness: 200, damping: 15 });
   const reduce = useReducedMotion();
+  const lowBw = useLowBw();
   return (
     <motion.div
       ref={ref}
       className={cn("inline-block", className)}
       style={{ x, y }}
       onMouseMove={(e) => {
-        if (reduce || !ref.current) return;
+        if (reduce || lowBw || !ref.current) return;
         const r = ref.current.getBoundingClientRect();
         x.set((e.clientX - (r.left + r.width / 2)) * strength);
         y.set((e.clientY - (r.top + r.height / 2)) * strength);
@@ -229,13 +249,14 @@ export function Tilt({ children, className, max = 6 }: { children: React.ReactNo
   const rx = useSpring(0, { stiffness: 250, damping: 20 });
   const ry = useSpring(0, { stiffness: 250, damping: 20 });
   const reduce = useReducedMotion();
+  const lowBw = useLowBw();
   return (
     <motion.div
       ref={ref}
       className={className}
       style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d", perspective: 1000 }}
       onMouseMove={(e) => {
-        if (reduce || !ref.current) return;
+        if (reduce || lowBw || !ref.current) return;
         const r = ref.current.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
@@ -524,12 +545,37 @@ export function Modal({
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    // Phase 10 a11y: Escape closes, Tab is trapped inside the dialog,
+    // and focus returns to the opener when the dialog closes.
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !ref.current) return;
+      const items = Array.from(
+        ref.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     ref.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      previouslyFocused?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;

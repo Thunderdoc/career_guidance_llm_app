@@ -163,10 +163,17 @@ Respond ONLY with a JSON array of objects with fields: career_id, title, match_r
 (beginner|intermediate|advanced), matching_skills, missing_skills, learning_path, next_steps."""
 
 
-class GroundedOpenAIProvider(SuggestionProvider):
-    """RAG provider: taxonomy retrieval + LLM explanation, validated against the context."""
+class GroundedLLMProvider(SuggestionProvider):
+    """RAG provider: taxonomy retrieval + LLM explanation, validated against the context.
 
-    name = "OpenAI (grounded in O*NET)"
+    Phase 7: the LLM transport is any :class:`ChatCompleter` from the
+    provider factory (OpenAI / Gemini / Ollama). The grounding, the
+    strict parsing and the faithfulness filter in ``_merge`` are shared
+    by all of them — identical fallback-to-offline behaviour on failure
+    is provided by the callers in ``suggestions.py``.
+    """
+
+    name = "LLM (grounded in O*NET)"
     is_demo = False
 
     def __init__(
@@ -175,6 +182,7 @@ class GroundedOpenAIProvider(SuggestionProvider):
         matcher: Matcher | None = None,
         country: str = "in",
         language: str = "English",
+        completer=None,
     ) -> None:
         self._settings = settings
         self._matcher = matcher or get_matcher()
@@ -182,6 +190,13 @@ class GroundedOpenAIProvider(SuggestionProvider):
         self._language = language
         self._offline = TaxonomyProvider(self._matcher, country)
         self.interests: dict[str, float] | None = None
+        if completer is None:
+            from career_guidance.providers import ProviderFactory
+
+            completer = ProviderFactory.create_completer(settings)
+        self._completer = completer
+        if completer is not None:
+            self.name = f"{completer.display_name} (grounded in O*NET)"
 
     def suggest(self, profile_text: str) -> list[CareerSuggestion]:
         return self._offline.suggest(profile_text)
@@ -209,22 +224,23 @@ class GroundedOpenAIProvider(SuggestionProvider):
         return self._merge(payload, base)
 
     def _complete(self, system: str, user: str) -> str:
-        try:
-            from openai import OpenAI
-        except ImportError as error:  # pragma: no cover
-            raise ProviderError("The 'openai' package is not installed.") from error
-        try:
-            client = OpenAI(
-                api_key=self._settings.openai_api_key, timeout=self._settings.openai_timeout_seconds
-            )
-            response = client.chat.completions.create(
-                model=self._settings.openai_model,
-                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                temperature=0.4,
-            )
-            return response.choices[0].message.content or ""
-        except Exception as error:
-            raise ProviderError(f"OpenAI request failed: {error}") from error
+        if self._completer is None:
+            raise ProviderError("No LLM provider is configured.")
+        return self._completer.complete(system, user)
+
+
+class GroundedOpenAIProvider(GroundedLLMProvider):
+    """Backwards-compatible name: the grounded provider over OpenAI."""
+
+    name = "OpenAI (grounded in O*NET)"
+
+    def __init__(self, settings, matcher=None, country="in", language="English", completer=None):
+        if completer is None:
+            from career_guidance.providers import OpenAICompleter
+
+            completer = OpenAICompleter(settings)
+        super().__init__(settings, matcher, country=country, language=language, completer=completer)
+        self.name = "OpenAI (grounded in O*NET)"
 
     @staticmethod
     def _merge(payload: str, base: dict[str, CareerRecommendation]) -> list[CareerRecommendation]:
@@ -240,13 +256,18 @@ class GroundedOpenAIProvider(SuggestionProvider):
             if rec is None or cid in used:
                 continue
             used.add(cid)
-            allowed_have, allowed_gap = set(rec.matching_skills), set(rec.missing_skills)
-            have = [
-                s for s in map(str, item.get("matching_skills", [])) if s in allowed_have
-            ] or rec.matching_skills
-            gap = [
-                s for s in map(str, item.get("missing_skills", [])) if s in allowed_gap
-            ] or rec.missing_skills
+            # Phase 7: the faithfulness filter lives in one shared module
+            # (career_guidance.faithfulness) — same behaviour as before.
+            from career_guidance.faithfulness import filter_grounded_skills
+
+            have, gap, _violations = filter_grounded_skills(
+                [str(s) for s in item.get("matching_skills", [])],
+                [str(s) for s in item.get("missing_skills", [])],
+                set(rec.matching_skills),
+                set(rec.missing_skills),
+                rec.matching_skills,
+                rec.missing_skills,
+            )
             suit = str(item.get("suitability", rec.suitability)).lower()
             out.append(
                 CareerRecommendation(

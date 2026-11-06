@@ -163,12 +163,43 @@ def _cosine_positive(a: dict[str, float], b: dict[str, float]) -> float:
 
 
 class MatcherV2:
-    """Blends the base matcher with interests and job-zone fit."""
+    """Blends the base matcher with interests and job-zone fit.
 
-    def __init__(self, base: Matcher | None = None, weights: dict[str, float] | None = None):
+    Phase 7 semantic seam (the ONLY place the semantic blend applies):
+    when ``SEMANTIC_MATCHING_ENABLED`` is on, the final score becomes
+    ``(1 - w) * hybrid + w * semantic`` with ``w = SEMANTIC_BLEND_WEIGHT``
+    (default 0.25) and ``semantic`` from
+    :mod:`career_guidance.semantic` (TF-IDF by default; embeddings only
+    when a model is configured, failing soft to TF-IDF). Flag OFF (the
+    default) the ranking is byte-identical to the pre-Phase-7 baseline.
+    """
+
+    def __init__(
+        self,
+        base: Matcher | None = None,
+        weights: dict[str, float] | None = None,
+        semantic_scorer=None,
+        semantic_enabled: bool | None = None,
+        semantic_weight: float | None = None,
+    ):
         self.base = base or get_matcher()
         self.taxonomy = self.base.taxonomy
         self.weights = self._normalise(weights or DEFAULT_WEIGHTS)
+        if semantic_enabled is None or semantic_weight is None or semantic_scorer is None:
+            from career_guidance.config import load_settings
+
+            cfg = load_settings()
+            if semantic_enabled is None:
+                semantic_enabled = cfg.semantic_matching_enabled
+            if semantic_weight is None:
+                semantic_weight = cfg.semantic_blend_weight
+        self.semantic_enabled = bool(semantic_enabled)
+        self.semantic_weight = max(0.0, min(1.0, float(semantic_weight)))
+        self.semantic_scorer = semantic_scorer
+        if self.semantic_enabled and self.semantic_scorer is None:
+            from career_guidance.semantic import get_semantic_scorer
+
+            self.semantic_scorer = get_semantic_scorer(self.taxonomy, cfg)
 
     @staticmethod
     def _normalise(weights: dict[str, float]) -> dict[str, float]:
@@ -222,6 +253,16 @@ class MatcherV2:
             profile, top_k=len(self.taxonomy.occupations), interests=None, exclude_ids=exclude_ids
         )
 
+        # Phase 7: semantic similarities for the whole field, computed once.
+        semantic_by_id: dict[str, float] = {}
+        if self.semantic_enabled and self.semantic_scorer is not None and base_matches:
+            sims = self.semantic_scorer.scores(
+                profile.to_prompt_text(), [m.occupation for m in base_matches]
+            )
+            semantic_by_id = {
+                m.occupation.id: float(s) for m, s in zip(base_matches, sims, strict=True)
+            }
+
         ranked: list[RankedMatch] = []
         for match in base_matches:
             occ = match.occupation
@@ -237,6 +278,11 @@ class MatcherV2:
                 + active["interests"] * interest
                 + active["job_zone"] * fit
             )
+            if semantic_by_id:
+                # THE semantic seam: final = (1 - w) * hybrid + w * semantic.
+                from career_guidance.semantic import blend_score
+
+                score = blend_score(score, semantic_by_id.get(occ.id, 0.0), self.semantic_weight)
             if not user_terms and not user_interests and not profile.goals.strip():
                 score = 0.0
             ranked.append(
@@ -280,6 +326,17 @@ def why_sentences(ranked: RankedMatch) -> list[dict[str, object]]:
     return rows
 
 
-def get_matcher_v2(weights: dict[str, float] | None = None) -> MatcherV2:
+def get_matcher_v2(
+    weights: dict[str, float] | None = None,
+    semantic_scorer=None,
+    semantic_enabled: bool | None = None,
+    semantic_weight: float | None = None,
+) -> MatcherV2:
     """Build a matcher v2 (the base matcher's parsed catalog is cached)."""
-    return MatcherV2(get_matcher(), weights)
+    return MatcherV2(
+        get_matcher(),
+        weights,
+        semantic_scorer=semantic_scorer,
+        semantic_enabled=semantic_enabled,
+        semantic_weight=semantic_weight,
+    )

@@ -23,6 +23,11 @@ lint:
 
 eval:
 	python -m eval.run --min-hit 0.75
+	python -m eval.run_chat_eval
+
+# Phase 7 eval expansion only (faithfulness + chat grounding, offline).
+eval-chat:
+	python -m eval.run_chat_eval
 
 # Black-box round: speaks HTTP only, so it also runs against production.
 #   make blackbox                        (local uvicorn on :8000)

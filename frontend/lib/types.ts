@@ -22,6 +22,12 @@ export type Resource = {
   id?: number;
 };
 
+export type RealityComponent = { key: string; label: string; value: number | null; weight: number; status: string; explanation: string; kind: string; source: string };
+export type IndiaMarket = { family?: string | null; fresher_salary_inr: number[]; salary_3yr_inr: number[]; salary_7yr_inr: number[]; entry_demand_trend: string; demand?: number | null; top_cities: string[]; top_sectors: string[]; source: string; source_url: string; as_of: string; kind: string };
+export type Reality = { score: number | null; confidence: number; components: RealityComponent[]; missing_components: string[]; india: { crosswalk: { mapped: boolean; nco_code?: string | null; isco_code?: string | null; confidence?: string | null; method?: string }; market: IndiaMarket | null } };
+export type WhyNot = { career_id: string; title: string; match_percent: number | null; missing_skills_count: number; missing_skills: string[]; explanation: string; source: string };
+export type Alternative = { career_id: string; title: string; job_zone: number; shared_skills: string[]; delta_skills: string[]; source: string };
+
 export type Recommendation = {
   title: string;
   match_reason: string;
@@ -43,6 +49,7 @@ export type Recommendation = {
   provenance: Record<string, unknown>;
   why: string[];
   score_parts: { skills: number; interests: number; job_zone: number };
+  reality?: Reality | null;
 };
 
 export type RecommendResponse = {
@@ -57,6 +64,68 @@ export type RecommendResponse = {
   unmatched_skills: string[];
   weights: { skills: number; interests: number; job_zone: number };
   recommendations: Recommendation[];
+  why_not?: WhyNot[];
+  alternatives?: Alternative[];
+  provenance_sources?: string[];
+  source?: string;
+};
+
+/* Phase 8: shareable report links. The shared payload is an allowlist
+ * projection of a run — it has no profile, user or institute fields at
+ * all (see career_guidance/sharing.py SHARE_FIELDS). */
+export type SharedComponent = { key: string; label: string; value: number | null; explanation: string; kind: string; source: string };
+export type SharedSalaryLadder = {
+  fresher_salary_inr: number[];
+  salary_3yr_inr: number[];
+  salary_7yr_inr: number[];
+  currency: string;
+  kind: string;
+  source: string;
+  as_of: string;
+};
+export type SharedReality = {
+  score: number | null;
+  confidence: number;
+  components: SharedComponent[];
+  salary_ladder: SharedSalaryLadder | null;
+};
+export type SharedRecommendation = {
+  career_id: string;
+  title: string;
+  match_percent: number;
+  matching_skills: string[];
+  missing_skills: string[];
+  learning_path: string[];
+  reality: SharedReality | null;
+};
+export type SharedReport = {
+  run_id: number;
+  created_at: string;
+  scope: string;
+  fields: string[];
+  priority_skills: string[];
+  recommendations: SharedRecommendation[];
+  source: string;
+  expires_at: string;
+  shared: boolean;
+};
+export type ShareLink = {
+  id: number;
+  run_id: number;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  fields_scope: string;
+  status: "active" | "expired" | "revoked";
+};
+export type ShareCreated = ShareLink & { token: string; share_path: string; note: string };
+
+export type ChatResponse = {
+  run_id: number;
+  answer: string;
+  mode: "llm" | "offline" | "refusal";
+  refused: boolean;
+  refusal_key: string | null;
 };
 
 export type RecommendConstraints = {
@@ -90,6 +159,7 @@ export type HistoryRun = {
   goals: string;
   experience_level: string;
   recommendations: Recommendation[];
+  counsellor_review?: import("./api").CounsellorReview | null;
 };
 
 export type Question = { id: string; dim: string; text: string };

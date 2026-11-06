@@ -1,0 +1,351 @@
+version: 1
+as_of: '2026-11-06'
+note: All entries are estimates derived from data/market_seed.yaml. No entry is an
+  official statistic.
+entries:
+- family: data-and-analytics
+  fresher_salary_inr:
+  - 330000
+  - 550000
+  salary_3yr_inr:
+  - 880000
+  - 1210000
+  salary_7yr_inr:
+  - 1800000
+  - 2600000
+  entry_demand_trend: rising
+  demand: 5
+  top_cities:
+  - Bengaluru
+  - Hyderabad
+  - Pune
+  - Mumbai
+  - Delhi NCR
+  top_sectors:
+  - IT services
+  - BFSI
+  - SaaS products
+  - Consulting
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: software-engineering
+  fresher_salary_inr:
+  - 360000
+  - 600000
+  salary_3yr_inr:
+  - 960000
+  - 1320000
+  salary_7yr_inr:
+  - 1980000
+  - 2860000
+  entry_demand_trend: rising
+  demand: 5
+  top_cities:
+  - Bengaluru
+  - Hyderabad
+  - Pune
+  - Chennai
+  - Delhi NCR
+  top_sectors:
+  - IT services
+  - SaaS products
+  - Fintech
+  - E-commerce
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: it-support-and-security
+  fresher_salary_inr:
+  - 210000
+  - 350000
+  salary_3yr_inr:
+  - 560000
+  - 770000
+  salary_7yr_inr:
+  - 1170000
+  - 1690000
+  entry_demand_trend: rising
+  demand: 4
+  top_cities:
+  - Bengaluru
+  - Hyderabad
+  - Mumbai
+  - Pune
+  - Chennai
+  top_sectors:
+  - IT services
+  - BFSI
+  - Managed security services
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: engineering-technical
+  fresher_salary_inr:
+  - 240000
+  - 400000
+  salary_3yr_inr:
+  - 680000
+  - 935000
+  salary_7yr_inr:
+  - 1440000
+  - 2080000
+  entry_demand_trend: stable
+  demand: 4
+  top_cities:
+  - Pune
+  - Chennai
+  - Bengaluru
+  - Ahmedabad
+  - Delhi NCR
+  top_sectors:
+  - Automotive
+  - Manufacturing
+  - Construction
+  - Energy
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: healthcare
+  fresher_salary_inr:
+  - 210000
+  - 350000
+  salary_3yr_inr:
+  - 600000
+  - 825000
+  salary_7yr_inr:
+  - 1350000
+  - 1950000
+  entry_demand_trend: rising
+  demand: 5
+  top_cities:
+  - Mumbai
+  - Delhi NCR
+  - Bengaluru
+  - Chennai
+  - Hyderabad
+  top_sectors:
+  - Hospitals
+  - Diagnostics
+  - Pharma
+  - Health insurance
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: education
+  fresher_salary_inr:
+  - 180000
+  - 300000
+  salary_3yr_inr:
+  - 480000
+  - 660000
+  salary_7yr_inr:
+  - 1080000
+  - 1560000
+  entry_demand_trend: stable
+  demand: 3
+  top_cities:
+  - Delhi NCR
+  - Bengaluru
+  - Mumbai
+  - Pune
+  - Chennai
+  top_sectors:
+  - Schools
+  - EdTech
+  - Higher education
+  - Coaching
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: finance-accounting
+  fresher_salary_inr:
+  - 192000
+  - 320000
+  salary_3yr_inr:
+  - 560000
+  - 770000
+  salary_7yr_inr:
+  - 1350000
+  - 1950000
+  entry_demand_trend: stable
+  demand: 4
+  top_cities:
+  - Mumbai
+  - Delhi NCR
+  - Bengaluru
+  - Chennai
+  - Pune
+  top_sectors:
+  - BFSI
+  - Accounting firms
+  - Fintech
+  - Corporate finance
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: sales-and-customer
+  fresher_salary_inr:
+  - 168000
+  - 280000
+  salary_3yr_inr:
+  - 480000
+  - 660000
+  salary_7yr_inr:
+  - 1170000
+  - 1690000
+  entry_demand_trend: stable
+  demand: 4
+  top_cities:
+  - Mumbai
+  - Delhi NCR
+  - Bengaluru
+  - Pune
+  - Hyderabad
+  top_sectors:
+  - Consumer goods
+  - BFSI
+  - SaaS
+  - Retail
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: operations-logistics
+  fresher_salary_inr:
+  - 180000
+  - 300000
+  salary_3yr_inr:
+  - 520000
+  - 715000
+  salary_7yr_inr:
+  - 1170000
+  - 1690000
+  entry_demand_trend: stable
+  demand: 4
+  top_cities:
+  - Mumbai
+  - Delhi NCR
+  - Pune
+  - Bengaluru
+  - Chennai
+  top_sectors:
+  - E-commerce
+  - Manufacturing
+  - 3PL logistics
+  - Retail
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: creative-media
+  fresher_salary_inr:
+  - 180000
+  - 300000
+  salary_3yr_inr:
+  - 480000
+  - 660000
+  salary_7yr_inr:
+  - 1080000
+  - 1560000
+  entry_demand_trend: stable
+  demand: 3
+  top_cities:
+  - Mumbai
+  - Bengaluru
+  - Delhi NCR
+  - Hyderabad
+  - Pune
+  top_sectors:
+  - Media & entertainment
+  - Advertising
+  - SaaS
+  - D2C brands
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: skilled-trades
+  fresher_salary_inr:
+  - 144000
+  - 240000
+  salary_3yr_inr:
+  - 384000
+  - 528000
+  salary_7yr_inr:
+  - 810000
+  - 1170000
+  entry_demand_trend: stable
+  demand: 4
+  top_cities:
+  - Pune
+  - Chennai
+  - Delhi NCR
+  - Ahmedabad
+  - Bengaluru
+  top_sectors:
+  - Manufacturing
+  - Construction
+  - Facilities services
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band
+- family: social-and-public
+  fresher_salary_inr:
+  - 156000
+  - 260000
+  salary_3yr_inr:
+  - 416000
+  - 572000
+  salary_7yr_inr:
+  - 855000
+  - 1235000
+  entry_demand_trend: stable
+  demand: 3
+  top_cities:
+  - Delhi NCR
+  - Bengaluru
+  - Mumbai
+  - Chennai
+  - Kolkata
+  top_sectors:
+  - Government
+  - NGOs
+  - Healthcare
+  - Education
+  source: Derived from project market seed (curated estimates, not official statistics)
+  source_url: ''
+  as_of: '2026-11-06'
+  kind: estimate
+  derivation: fresher=[0.6x seed p25, seed p25]; 3yr=[0.8x seed p50, 1.1x seed p50];
+    7yr=[0.9x seed p75, 1.3x seed p75] from data/market_seed.yaml family band

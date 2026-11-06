@@ -12,8 +12,10 @@
   --color-accent-secondary: #e6a82c;
   --color-text-primary: #ffffff;
   --color-text-secondary: #9a9a9a;
-  /* AA-safe on every surface: 4.5:1 on bg-3, 5.2:1 on the panel (measured). */
-  --color-text-tertiary: #909090;
+  /* AA-safe on every surface (Phase 10 re-measured): #a8a8a8 is 8.1:1 on
+     bg, 6.0:1 on bg-3 and 4.8:1 on bg-4. The previous #909090 measured
+     4.50:1 on bg-3 (borderline) and 3.56:1 on bg-4 (fail). */
+  --color-text-tertiary: #a8a8a8;
   /* AA-safe red: 4.5:1 on bg-3, 5.2:1 on the panel (measured). */
   --color-destructive: #e86868;
   --color-success: #22c55e;
@@ -138,4 +140,19 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ---- Low-bandwidth mode (Phase 8) ----
+ * Set as data-low-bandwidth="true" on <html> by lib/bandwidth-context.
+ * Same kill-switch shape as prefers-reduced-motion above, plus the
+ * decorative layers (spotlight blobs, anything marked data-decorative)
+ * are removed entirely so they cost no paint or download at all.
+ * JS-driven Motion primitives gate on the same state in
+ * components/motion.tsx — CSS alone cannot stop rAF springs. */
+html[data-low-bandwidth="true"] *, html[data-low-bandwidth="true"] *::before, html[data-low-bandwidth="true"] *::after {
+  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+}
+html[data-low-bandwidth="true"] .spotlight,
+html[data-low-bandwidth="true"] [data-decorative="true"] {
+  display: none !important;
 }

@@ -6,11 +6,13 @@
  * globals.css so existing screens are untouched; new components must use
  * these. One accent, one neutral scale, semantic colours, 4-pt spacing.
  * Dark values are the default (the app ships dark); a light theme is
- * available under [data-theme="light"] and both are AA-checked pairs:
- *  - light: fg #1a1a1a on bg #ffffff (16.1:1), muted #4b5563 on #ffffff (7.5:1),
+ * available under [data-theme="light"] and both are AA-checked pairs
+ * (ratios re-measured from these values in Phase 10 — see
+ * docs/ACCESSIBILITY.md for the full table):
+ *  - light: fg #1a1a1a on bg #ffffff (17.4:1), muted #4b5563 on #ffffff (7.6:1),
  *    accent-ink #047857 on #ffffff (5.5:1)
- *  - dark:  fg #ffffff on bg #0f0f0f (17.9:1), muted #9a9a9a on #0f0f0f (6.4:1),
- *    accent #00d4aa on #0f0f0f (9.7:1)
+ *  - dark:  fg #ffffff on bg #0f0f0f (19.2:1), muted #9a9a9a on #0f0f0f (6.8:1),
+ *    accent #00d4aa on #0f0f0f (10.0:1)
  */
 :root {
   --cg-accent: #00d4aa;

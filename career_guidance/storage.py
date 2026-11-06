@@ -1,17 +1,18 @@
-"""SQLite persistence for recommendation history.
+"""Persistence for recommendation history.
 
-A single ``Database`` class encapsulates all storage access so the
-application can later swap SQLite for another database (e.g. Postgres)
-without changing the UI or core logic.
+A single ``Database`` class encapsulates all storage access. The engine
+is chosen by :mod:`career_guidance.db` (Phase 6): a filesystem path (or
+``DATABASE_PATH``) keeps the default SQLite behaviour; a ``postgres://``
+``DATABASE_URL`` selects Postgres through the same class — placeholder
+style and row factory differences live in that layer, not here.
 """
 
 import json
 import logging
-import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.models import CareerRecommendation
 
 logger = logging.getLogger("career_guidance.storage")
@@ -45,23 +46,44 @@ class StoredRun:
 
 
 class Database:
-    """SQLite-backed storage for recommendation runs."""
+    """Storage for recommendation runs (SQLite by default, Postgres option)."""
 
     def __init__(self, path: str) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL (career_guidance.db).
         self._path = path
-        parent = Path(path).parent
-        if str(parent) not in ("", "."):
-            parent.mkdir(parents=True, exist_ok=True)
+        self._config = db_layer.resolve_database_config(
+            database_url=path if db_layer.is_postgres_target(path) else None,
+            database_path=None if db_layer.is_postgres_target(path) else path,
+        )
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
-            cols = [r[1] for r in conn.execute("PRAGMA table_info(recommendation_runs)")]
-            if "user_id" not in cols:
+            if "user_id" not in self._column_names(conn, "recommendation_runs"):
                 conn.execute("ALTER TABLE recommendation_runs ADD COLUMN user_id TEXT")
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
+
+    def _column_names(self, conn, table: str) -> set[str]:
+        if self._config.is_postgres:
+            rows = conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+                (table,),
+            ).fetchall()
+            return {row["column_name"] for row in rows}
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+    def ping(self) -> bool:
+        """Readiness probe: True when a trivial query succeeds."""
+        try:
+            with self._connect() as conn:
+                conn.execute("SELECT 1").fetchone()
+            return True
+        except Exception:  # noqa: BLE001 - a probe reports, never raises
+            return False
 
     def save_run(
         self,
@@ -73,20 +95,24 @@ class Database:
     ) -> int:
         """Persist a recommendation run and return its row id."""
         created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        params = (
+            created_at,
+            provider,
+            int(is_demo),
+            json.dumps(profile),
+            json.dumps([asdict(rec) for rec in recommendations]),
+            user_id,
+        )
+        sql = (
+            "INSERT INTO recommendation_runs "
+            "(created_at, provider, is_demo, profile_json, recommendations_json, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        )
         with self._connect() as conn:
-            cursor = conn.execute(
-                "INSERT INTO recommendation_runs "
-                "(created_at, provider, is_demo, profile_json, recommendations_json, user_id) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    created_at,
-                    provider,
-                    int(is_demo),
-                    json.dumps(profile),
-                    json.dumps([asdict(rec) for rec in recommendations]),
-                    user_id,
-                ),
-            )
+            if self._config.is_postgres:  # psycopg has no lastrowid
+                row = conn.execute(sql + " RETURNING id", params).fetchone()
+                return int(row["id"] or 0)
+            cursor = conn.execute(sql, params)
             return int(cursor.lastrowid or 0)
 
     def list_runs(self, limit: int = 100) -> list[StoredRun]:

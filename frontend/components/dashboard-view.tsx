@@ -18,12 +18,18 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { auth } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useApi } from "@/lib/use-api";
 import { AnimatedNumber, ProgressRing, TextEffect } from "./motion";
 import { Badge, Button, Card, Empty, ErrorNote, Progress, SourceLabel, Spinner, Stat } from "./ui";
+
+// Phase 3: code-split so /dashboard first load stays ≤245 kB.
+const ThisWeekCard = dynamic(() => import("./this-week-card").then((m) => m.ThisWeekCard), {
+  ssr: false,
+});
 
 export function DashboardView() {
   const { t } = useI18n();
@@ -229,6 +235,8 @@ export function DashboardView() {
           </div>
         </Card>
       </div>
+
+      <ThisWeekCard plan90={data.plan90 ?? null} onChanged={reload} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

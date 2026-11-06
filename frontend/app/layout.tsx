@@ -3,11 +3,19 @@ import "./globals.css";
 import { I18nProvider } from "@/lib/i18n";
 import { PwaRegister } from "@/components/pwa-register";
 import { AuthProvider } from "@/lib/auth-context";
+import { BandwidthProvider } from "@/lib/bandwidth-context";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const SITE_DESCRIPTION =
+  "Skill-gap analysis, career ladders, pathway checks and learning roadmaps for 974 occupations, with curated market data for India. Rule-based, explainable and private.";
 
 export const metadata: Metadata = {
-  title: "Career Guidance AI — find your next career move",
-  description:
-    "Skill-gap analysis, career ladders, pathway checks and learning roadmaps for 974 occupations, with curated market data for India. Rule-based, explainable and private.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Career Guidance AI — find your next career move",
+    template: "%s · Career Guidance AI",
+  },
+  description: SITE_DESCRIPTION,
   applicationName: "Career Guidance AI",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -17,6 +25,21 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
+  openGraph: {
+    type: "website",
+    siteName: "Career Guidance AI",
+    title: "Career Guidance AI — find your next career move",
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "Career Guidance AI" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Career Guidance AI — find your next career move",
+    description: SITE_DESCRIPTION,
+    images: ["/icon-512.png"],
+  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = { themeColor: "#0f0f0f", width: "device-width", initialScale: 1 };
@@ -35,8 +58,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh antialiased">
         <I18nProvider>
           <AuthProvider>
-            <PwaRegister />
-            {children}
+            <BandwidthProvider>
+              <PwaRegister />
+              {children}
+            </BandwidthProvider>
           </AuthProvider>
         </I18nProvider>
       </body>

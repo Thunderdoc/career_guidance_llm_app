@@ -107,9 +107,16 @@ def main() -> int:
     check("careers list (anonymous)", client.json("GET", "/api/v1/careers?limit=3"), 401)
     check("career detail (anonymous)", client.json("GET", "/api/v1/careers/15-1199.08"), 401)
 
+    # Phase 1 (guest-first): /recommend is intentionally open to anonymous
+    # callers — it returns a limited, anonymous-flagged run. Everything that
+    # exposes saved user data stays private (401).
+    anon_status, anon_rec = client.json("POST", "/api/v1/recommend", {"skills": "sql"})
+    check("anonymous POST /api/v1/recommend (guest-first)", (anon_status, anon_rec))
+    if isinstance(anon_rec, dict) and anon_rec.get("anonymous") is not True:
+        failures.append("anonymous recommend run is not flagged anonymous")
+
     def private_routes_signature(label: str):
         for method, path, body in (
-            ("POST", "/api/v1/recommend", {"skills": "sql"}),
             ("POST", "/api/v1/assessment", {"answers": {"r1": 3}}),
             ("POST", "/api/v1/jobs/fit", {"skills": "sql"}),
             ("POST", "/api/v1/resume/extract", {"text": "x"}),
@@ -176,6 +183,14 @@ def main() -> int:
         for fmt, magic in formats:
             url = f"/api/v1/plan/{plan_id}.{fmt}"
             status, payload, _headers = client.request("GET", url)
+            if fmt == "pdf" and status == 402:
+                # By design: the roadmap PDF is the Pro feature. A free
+                # account gets 402; starting the one-time trial must unlock
+                # it (same contract as tests/test_journey_api.py).
+                t_status, _t = client.json("POST", "/api/v1/billing/trial/start", {})
+                if t_status != 200:
+                    return f"export pdf -> 402 but trial start -> {t_status}"
+                status, payload, _headers = client.request("GET", url)
             if status != 200:
                 return f"export {fmt} -> {status}"
             if magic and magic not in payload[:40]:

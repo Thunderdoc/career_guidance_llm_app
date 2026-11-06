@@ -109,6 +109,10 @@ class Auth:
         self.firebase = FirebaseVerifier(settings.firebase_project_id)
 
     # ---- sessions ----
+    def _secure_cookie(self, base: str) -> bool:
+        """Secure flag: HTTPS base URL, or always when APP_ENV=production."""
+        return base.startswith("https://") or self.settings.app_env == "production"
+
     def issue(self, response: Response, user: User, request: Request | None = None) -> None:
         base = self.settings.base_url(request) if request else self.settings.public_url
         response.set_cookie(
@@ -117,12 +121,18 @@ class Auth:
             max_age=SESSION_TTL,
             httponly=True,
             samesite="lax",
-            secure=base.startswith("https://"),
+            secure=self._secure_cookie(base),
             path="/",
         )
 
     def clear(self, response: Response) -> None:
-        response.delete_cookie(COOKIE, path="/")
+        response.delete_cookie(
+            COOKIE,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=self._secure_cookie(self.settings.public_url),
+        )
 
     def user_from(self, request: Request) -> User | None:
         raw = request.cookies.get(COOKIE)

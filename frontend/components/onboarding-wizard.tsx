@@ -40,6 +40,9 @@ export function OnboardingWizard() {
     hours_per_week: 6,
     language: "en",
     target: "",
+    // Phase 5: least-data age declaration (band + optional birth year).
+    age_band: "",
+    birth_year: "",
   });
 
   useEffect(() => {
@@ -47,6 +50,14 @@ export function OnboardingWizard() {
       .get()
       .then((r) => {
         setOptions(r.options);
+        const age = (r as { age?: { age_band?: string; birth_year?: number | null } }).age;
+        if (age?.age_band) {
+          setForm((f) => ({
+            ...f,
+            age_band: age.age_band ?? "",
+            birth_year: age.birth_year ? String(age.birth_year) : "",
+          }));
+        }
         if (r.profile) {
           setForm((f) => ({
             ...f,
@@ -105,6 +116,8 @@ export function OnboardingWizard() {
         language: form.language as "en",
         onboarded: true,
         set_target: form.target || undefined,
+        age_band: form.age_band || undefined,
+        birth_year: form.birth_year.trim() ? Number(form.birth_year.trim()) : undefined,
       } as never);
       if (form.target) {
         await import("@/lib/api").then((m) => m.plan.setTarget(form.target));
@@ -177,6 +190,34 @@ export function OnboardingWizard() {
                       </option>
                     ))}
                   </select>
+                </Field>
+                <Field label={t("p5_onb_age")} hint={t("p5_age_sub")}>
+                  <div className="flex flex-col gap-2">
+                    {(
+                      [
+                        ["adult", "p5_adult"],
+                        ["minor", "p5_minor"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={value} className="flex items-center gap-2 text-sm text-fg-2">
+                        <input
+                          type="radio"
+                          name="onb-age-band"
+                          checked={form.age_band === value}
+                          onChange={() => setForm({ ...form, age_band: value })}
+                        />
+                        {t(label)}
+                      </label>
+                    ))}
+                    <input
+                      className={inputCls}
+                      inputMode="numeric"
+                      placeholder={t("p5_birth_year")}
+                      value={form.birth_year}
+                      onChange={(e) => setForm({ ...form, birth_year: e.target.value })}
+                      aria-label={t("p5_birth_year")}
+                    />
+                  </div>
                 </Field>
               </>
             )}

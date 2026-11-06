@@ -1,34 +1,57 @@
-/* Career Guidance AI service worker.
+/* Career Guidance AI service worker (Phase 8, v4).
  *
- * Offline-first for the app *shell* only:
- *   • /_next/static/**  → cache-first (hashed, immutable)
- *   • icons + fonts     → cache-first
- *   • navigations       → network-first, falling back to the cached shell and
- *                         finally to /offline.html
- *   • /api/**           → never cached, never replayed: recommendations,
- *                         profiles and résumés are per-account data and must
- *                         always come from the server (or fail visibly).
+ * Caching rules, exactly as shipped:
+ *   • Install: precache the offline fallback, icons and manifest
+ *     (all-or-nothing), plus the app-shell entry pages `/` and `/explore`
+ *     (best-effort — a shell page failing to precache must not kill the
+ *     worker; the navigation handler below caches them at runtime too).
+ *   • /_next/static/**, icons, fonts and images → cache-first (hashed /
+ *     immutable assets), populated at runtime.
+ *   • Navigations → network-first; a successful response is stored in the
+ *     shell cache, and offline a navigation falls back to its cached copy,
+ *     finally to /sw-offline.html (a dependency-free static file — NOT the
+ *     /offline React route, whose exported offline.html would need the JS
+ *     bundle; the two files' wording is kept in sync by hand).
+ *   • /api/** → NEVER cached, never replayed: recommendations, profiles,
+ *     shared reports and résumés are per-account (or per-token) data and
+ *     must always come from the server (or fail visibly). Non-GET requests
+ *     and cross-origin requests are left completely alone.
+ *   • Updates: the worker does NOT skipWaiting on install. When a new
+ *     version is installed alongside an old controller it waits; the page
+ *     (components/pwa-register.tsx) shows an "update available" toast and
+ *     posts {type: "SKIP_WAITING"} only when the user accepts the reload.
+ *     A first install (no existing controller) activates immediately.
  */
 
-const VERSION = "cg-v3";
+const VERSION = "cg-v4";
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
-const OFFLINE_URL = "/offline.html";
-const PRECACHE = [
+const OFFLINE_URL = "/sw-offline.html";
+const PRECACHE_CRITICAL = [
   OFFLINE_URL,
   "/icon.svg",
   "/icon-192.png",
   "/icon-512.png",
   "/manifest.webmanifest",
 ];
+const PRECACHE_SHELL = ["/", "/explore"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting()),
+      .then((cache) => cache.addAll(PRECACHE_CRITICAL))
+      .then(() => caches.open(SHELL_CACHE))
+      .then((cache) =>
+        Promise.all(PRECACHE_SHELL.map((url) => cache.add(url).catch(() => undefined))),
+      ),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -49,7 +72,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Personal data — straight to the network, never cached.
+  // Personal / per-token data — straight to the network, never cached.
   if (url.pathname.startsWith("/api/")) return;
 
   if (url.pathname.startsWith("/_next/static/") || /\.(png|svg|webp|woff2?|ico)$/.test(url.pathname)) {

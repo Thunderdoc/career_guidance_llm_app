@@ -16,7 +16,7 @@ from typing import Literal
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -26,12 +26,19 @@ from backend.assessment import QUESTIONS, score_assessment
 from backend.auth import Auth, load_auth_settings
 from backend.auth import build_router as build_auth_router
 from backend.billing import build_router as build_billing_router
+from backend.chat import build_router as build_chat_router
+from backend.consent import build_router as build_consent_router
+from backend.institutes import build_router as build_institutes_router
 from backend.journey import build_router as build_journey_router
+from backend.public_api import build_router as build_public_api_router
 from backend.ratelimit import RateLimiter
+from backend.sharing import build_router as build_sharing_router
+from backend.verify import build_router as build_verify_router
 from career_guidance import __version__
 from career_guidance.analytics import summarize
 from career_guidance.config import configure_logging, load_settings
 from career_guidance.learning import resources_for
+from career_guidance.logging_setup import install_json_logging
 from career_guidance.matching import get_matcher
 from career_guidance.matching2 import DEFAULT_WEIGHTS
 from career_guidance.models import InvalidInputError
@@ -45,6 +52,7 @@ from career_guidance.users import User, UserStore
 load_dotenv()  # .env at repo root (ignored by git); real env vars take precedence
 settings = load_settings()
 logger = configure_logging(settings)
+install_json_logging(settings.log_level)  # Phase 6: JSON lines + request ids
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 app = FastAPI(
@@ -73,7 +81,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 _limiter = RateLimiter(max_calls=30, per_seconds=60)
-_db = Database(settings.database_path)
+_db = Database(settings.database_target)  # Phase 6: DATABASE_URL-aware
 _auth_settings = load_auth_settings()
 _users = UserStore(settings.database_path, _auth_settings.admin_emails)
 _auth = Auth(_auth_settings, _users)
@@ -82,11 +90,29 @@ _me_router = build_me_router(_users, _db, _current_user)
 _journey_router = build_journey_router(settings, _current_user, _db, _users)
 _admin_console_router = build_console_router(settings, _users, _db, _admin_user)
 _billing_router = build_billing_router(_current_user, _users, settings.database_path, _admin_user)
+_verify_router = build_verify_router(
+    settings, _current_user, _admin_user, _users, _db, _auth_settings.secret
+)
+_institutes_router = build_institutes_router(settings, _current_user, _users, _db)
+_consent_router = build_consent_router(settings, _current_user, _users, _auth_settings.public_url)
+# Phase 7 chat: optional session (guests may chat over their own
+# anonymous runs only — ownership is re-checked inside the router).
+_chat_router = build_chat_router(settings, lambda request: _auth.user_from(request), _db)
+# Phase 8 share links: optional session (owners + the guest session that
+# created an anonymous run manage links; the shared view itself is public).
+_sharing_router = build_sharing_router(settings, lambda request: _auth.user_from(request), _db)
+app.include_router(_sharing_router)
+app.include_router(_chat_router)
+app.include_router(_consent_router)
 app.include_router(_auth_router)
 app.include_router(_me_router)
 app.include_router(_journey_router)
 app.include_router(_admin_console_router)
 app.include_router(_billing_router)
+app.include_router(_verify_router)
+app.include_router(_institutes_router)
+# Phase 10: institute public API (API-key management + public reads).
+app.include_router(build_public_api_router(settings, _current_user, _users, _db))
 
 
 # The product is public-first with gated depth (Phase 1): ``/health``,
@@ -143,11 +169,85 @@ def _uid(user: User) -> str | None:
     return None if user.id == GUEST_ID else user.id
 
 
+def _minor_restricted(user: User) -> bool:
+    """Phase 5: True for a minor without granted parental consent.
+
+    Gates behavioural analytics (tool events) and gamification awards —
+    core guidance is never gated. Fails open for adults/guests only;
+    a minor whose consent state cannot be read stays restricted.
+    """
+    if user.id == GUEST_ID or not user.is_minor:
+        return False
+    try:
+        from career_guidance.consent import ConsentStore, is_unconsented_minor
+
+        return is_unconsented_minor(user, ConsentStore(settings.database_path))
+    except Exception:  # noqa: BLE001 - unreadable consent state = restricted
+        return True
+
+
 @app.middleware("http")
 async def _timing(request: Request, call_next):
+    """Phase 6 observability: request id, access log line, uniform 500s.
+
+    Assigns or propagates ``X-Request-ID``; logs method / redacted path /
+    status / duration only — never bodies, e-mails, tokens or profile
+    text. Unhandled exceptions become a consistent
+    ``{detail, request_id}`` 500 and fire the (no-op by default)
+    error-webhook hook.
+    """
+    from career_guidance.logging_setup import (
+        new_request_id,
+        notify_error_webhook,
+        redact_path,
+        set_request_id,
+    )
+
+    request_id = request.headers.get("x-request-id") or new_request_id()
+    set_request_id(request_id)
     start = time.perf_counter()
-    response = await call_next(request)
-    response.headers["X-Response-Time-ms"] = f"{(time.perf_counter() - start) * 1000:.0f}"
+    try:
+        response = await call_next(request)
+    except Exception as error:  # noqa: BLE001 - uniform 500 shape + hook
+        logger.exception("unhandled error on %s %s", request.method, redact_path(request.url.path))
+        notify_error_webhook(type(error).__name__, str(error), request_id)
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error.", "request_id": request_id},
+        )
+    duration_ms = round((time.perf_counter() - start) * 1000, 1)
+    response.headers["X-Response-Time-ms"] = f"{duration_ms:.0f}"
+    response.headers["X-Request-ID"] = request_id
+    # Phase 6 security headers (see docs/SECURITY.md). CSP ships
+    # report-only: the Next static export + Firebase auth need inline
+    # script allowances a strict policy would break today; the exact
+    # enforcing policy to graduate to is documented in SECURITY.md.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault(
+        "Content-Security-Policy-Report-Only",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://identitytoolkit.googleapis.com "
+        "https://securetoken.googleapis.com https://www.googleapis.com; "
+        "frame-src https://accounts.google.com https://*.firebaseapp.com; "
+        "object-src 'none'; base-uri 'self'",
+    )
+    logger.info(
+        "request",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": redact_path(request.url.path),
+            "status": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
     return response
 
 
@@ -158,7 +258,7 @@ def _warm() -> None:
     from career_guidance.migrations import LATEST_VERSION, migrate
     from career_guidance.settings_store import SettingsStore
 
-    applied = migrate(settings.database_path)
+    applied = migrate(settings.database_target)
     if applied:
         logger.info("Database migrated to v%s (applied %s)", LATEST_VERSION, applied)
     ContentStore(settings.database_path)  # creates admin content tables
@@ -324,14 +424,44 @@ def health() -> dict:
     }
 
 
+@app.get("/api/v1/ready")
+def ready() -> JSONResponse:
+    """Readiness (Phase 6): DB reachable + catalog loaded, else 503.
+
+    Distinct from /health (liveness): a 503 here means "do not route
+    traffic yet", with a per-component breakdown for operators.
+    """
+    checks = {
+        "database": "ok" if _db.ping() else "error",
+        "catalog": "ok" if load_taxonomy() else "error",
+    }
+    is_ready = all(value == "ok" for value in checks.values())
+    return JSONResponse(
+        status_code=200 if is_ready else 503,
+        content={
+            "status": "ready" if is_ready else "not_ready",
+            "version": __version__,
+            "checks": checks,
+        },
+    )
+
+
 @app.get("/api/v1/meta")
 def meta() -> dict:
-    return {
+    # Phase 10: public catalog payloads are cached (see career_guidance.cache).
+    from career_guidance.cache import PUBLIC_CACHE
+
+    cached = PUBLIC_CACHE.get("meta")
+    if cached is not None:
+        return cached
+    payload = {
         "experience_levels": list(EXPERIENCE_LEVELS),
         "ai_mode": bool(settings.openai_api_key),
         "occupations": len(load_taxonomy()),
         "version": __version__,
     }
+    PUBLIC_CACHE.set("meta", payload)
+    return payload
 
 
 @app.post("/api/v1/recommend")
@@ -378,6 +508,7 @@ def recommend(
             taxonomy=_content_store().catalog(),
             db_path=settings.database_path,
             market=_market_adapter(),
+            india_overrides=_settings_store().get("market.india_overrides", {}) or {},
         )
     except Exception:  # noqa: BLE001
         logger.exception("matcher v2 failed, falling back to the offline provider")
@@ -407,6 +538,12 @@ def recommend(
             ],
             "source": "Source: offline provider fallback (template explanations)",
         }
+        try:
+            from career_guidance.reality import enrich_result
+
+            result = enrich_result(result, _content_store().catalog(), profile)
+        except Exception:  # noqa: BLE001 - reality layer is additive only
+            logger.warning("reality enrichment failed on fallback path", exc_info=True)
 
     constraints_used = body.constraints.model_dump() if body.constraints else None
     run_id = None
@@ -429,12 +566,14 @@ def recommend(
             result["is_demo"],
             _uid(user),
         )
-        _settings_store().record_tool("recommend", user.id, f"run {run_id}")
+        # Phase 5: no behavioural analytics events for unconsented minors.
+        if not _minor_restricted(user):
+            _settings_store().record_tool("recommend", user.id, f"run {run_id}")
     except Exception:  # noqa: BLE001
         logger.exception("persist failed")
 
     try:
-        if not anonymous:
+        if not anonymous and not _minor_restricted(user):
             _gamification().award(user.id, "run", f"run:{run_id}")
     except Exception:  # noqa: BLE001 - gamification must never break a run
         logger.warning("gamification award failed", exc_info=True)
@@ -451,6 +590,9 @@ def recommend(
         "unmatched_skills": result.get("unmatched_skills", []),
         "weights": result["weights"],
         "recommendations": result["recommendations"],
+        "why_not": result.get("why_not", []),
+        "alternatives": result.get("alternatives", []),
+        "provenance_sources": result.get("provenance_sources", []),
         "source": result.get("source", ""),
     }
 
@@ -475,6 +617,12 @@ def skills_suggest(q: str = "", limit: int = 8) -> dict:
     q = q.strip().lower()
     if len(q) < 2:
         return {"suggestions": []}
+    from career_guidance.cache import PUBLIC_CACHE
+
+    key = f"skills:{q}:{limit}"
+    cached = PUBLIC_CACHE.get(key)
+    if cached is not None:
+        return cached
     from career_guidance.taxonomy import SKILL_SYNONYMS
 
     pool = list(SKILL_SYNONYMS)
@@ -485,28 +633,49 @@ def skills_suggest(q: str = "", limit: int = 8) -> dict:
         for c, syns in SKILL_SYNONYMS.items()
         if any(x.startswith(q) for x in syns) and c not in starts + contains
     ]
-    return {"suggestions": (starts + contains + syn)[:limit]}
+    payload = {"suggestions": (starts + contains + syn)[:limit]}
+    PUBLIC_CACHE.set(key, payload)
+    return payload
 
 
 @app.get("/api/v1/careers/search")
 def careers_search(q: str, limit: int = 10) -> dict:
+    from career_guidance.cache import PUBLIC_CACHE
+
+    # Taxonomy.search normalises (strip/lower) internally, so the
+    # normalised key cannot mix up distinct result sets.
+    key = f"search:{q.strip().lower()}:{limit}"
+    cached = PUBLIC_CACHE.get(key)
+    if cached is not None:
+        return cached
     tax = _content_store().catalog()
-    return {
+    payload = {
         "results": [
             {"id": o.id, "title": o.title, "job_zone": o.job_zone} for o in tax.search(q, limit)
         ]
     }
+    PUBLIC_CACHE.set(key, payload)
+    return payload
 
 
 @app.get("/api/v1/careers/{career_id}")
 def career_detail(
     career_id: str,  # noqa: B008
     country: str = "in",
-    _: User = Depends(_session),  # noqa: B008
+    user: User = Depends(_session),  # noqa: B008
 ) -> dict:
     """One career with tasks, education path, market bands and transitions."""
     from backend.journey import career_extras
+    from career_guidance.cache import PUBLIC_CACHE
 
+    # Phase 10 cache: the payload is identical for every non-admin caller
+    # (no per-user fields), keyed by (career, country). Platform admins
+    # bypass it — they may have just edited the catalog or market data.
+    key = f"career:{career_id}:{country}"
+    if not user.is_admin:
+        cached = PUBLIC_CACHE.get(key)
+        if cached is not None:
+            return cached
     taxonomy = _content_store().catalog()
     occupation = taxonomy.get(career_id)
     if not occupation:
@@ -526,6 +695,8 @@ def career_detail(
         "source": adapter.seed.label,
     }
     payload.update(career_extras(occupation, adapter, taxonomy))
+    if not user.is_admin:
+        PUBLIC_CACHE.set(key, payload)
     return payload
 
 
@@ -553,7 +724,8 @@ def job_fit(body: FitRequest, user: User = Depends(_session)) -> dict:  # noqa: 
         "skills_box_signal": round(100 * min(1.0, len(have) / 12), 1),
     }
     try:
-        _gamification().award(user.id, "jobfit", f"jd:{len(need)}")
+        if not _minor_restricted(user):
+            _gamification().award(user.id, "jobfit", f"jd:{len(need)}")
     except Exception:  # noqa: BLE001
         logger.warning("gamification award failed", exc_info=True)
     return {
@@ -571,6 +743,16 @@ def job_fit(body: FitRequest, user: User = Depends(_session)) -> dict:  # noqa: 
 def history(user: User = Depends(_session), limit: int = 50) -> dict:  # noqa: B008
     uid = _uid(user)
     runs = [r for r in _db.list_runs(limit=1000) if r.user_id == uid][:limit]
+    # Phase 4: a counsellor's human review of a run (labelled as such,
+    # never presented as AI output) rides along on the student's payload.
+    reviews = {}
+    try:
+        from career_guidance.institutes import InstituteStore
+
+        store = InstituteStore(settings.database_path)
+        reviews = {r.id: store.review_for_run(r.id) for r in runs}
+    except Exception:  # noqa: BLE001 - review display must not break history
+        reviews = {}
     return {
         "runs": [
             {
@@ -582,6 +764,7 @@ def history(user: User = Depends(_session), limit: int = 50) -> dict:  # noqa: B
                 "goals": str(r.profile.get("goals", "")),
                 "experience_level": r.profile.get("experience_level", ""),
                 "recommendations": [_rec_dict(x) for x in r.recommendations],
+                "counsellor_review": reviews.get(r.id),
             }
             for r in runs
         ]
@@ -662,10 +845,26 @@ if _STATIC.exists():
     def spa(path: str):
         candidate = _STATIC / path
         if path and candidate.is_file():
+            if path == "sw.js":
+                # Phase 8: browsers may heuristically cache a service
+                # worker script served without cache headers; no-cache
+                # keeps update checks honest (the worker still controls
+                # its own caches). Scope stays "/" (served from root).
+                return FileResponse(candidate, headers={"Cache-Control": "no-cache"})
             return FileResponse(candidate)
+        if path.startswith("shared/"):
+            # Phase 8: /shared/[token] uses the report placeholder pattern.
+            placeholder = _STATIC / "shared" / "_.html"
+            if placeholder.is_file():
+                return FileResponse(placeholder)
         if path.startswith("report/"):
             # Phase 1: /report/[runId] exports a single placeholder page.
             placeholder = _STATIC / "report" / "_.html"
+            if placeholder.is_file():
+                return FileResponse(placeholder)
+        if path.startswith("p/"):
+            # Phase 3: /p/[handle] uses the same placeholder pattern.
+            placeholder = _STATIC / "p" / "_.html"
             if placeholder.is_file():
                 return FileResponse(placeholder)
         html = _STATIC / f"{path}.html" if path else _STATIC / "index.html"

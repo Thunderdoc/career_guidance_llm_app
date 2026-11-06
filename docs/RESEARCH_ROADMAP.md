@@ -170,6 +170,26 @@ the API contract (`CareerRecommendation` JSON) is already defined by the datacla
 - **Privacy**: keep resume text in memory only (current behaviour); if accounts are added, add
   export/delete.
 
+## 5b. Status update — Phase 7, Intelligence v2 (2026-11-06)
+
+What from this roadmap has shipped, and what is still future work:
+
+| Roadmap item | Status |
+|---|---|
+| Tier 1 #3 Semantic matching | **Shipped as an opt-in blend** (`career_guidance/semantic.py`): TF-IDF scorer reusing the existing machinery + an embedding scorer that activates only when `SEMANTIC_EMBEDDING_MODEL` is set and fails soft to TF-IDF. Blend at one seam in MatcherV2 (`final = (1-w)·hybrid + w·semantic`, w=0.25). Measured on the golden eval: Hit@5 1.0 → 1.0, MRR 0.827 → 0.888 — but default-ON broke an existing full-suite sanity gate, so `SEMANTIC_MATCHING_ENABLED` ships **OFF** by default. Embeddings were NOT installed or measured; no quality claim is made for them. |
+| Tier 1 #4 Ground the LLM (RAG) | Shipped earlier (taxonomy retrieval + grounded provider); Phase 7 extracted the faithfulness filter into one shared module (`career_guidance/faithfulness.py`) used by the grounded merge, the chat and the eval — no per-provider copies. |
+| Tier 2 #11 Conversational follow-up | **Shipped, scoped** (`POST /api/v1/chat`): context only from the caller's stored report + taxonomy entries named in the message; deterministic off-topic refusal without an LLM; deterministic offline answerer when no LLM is configured; LLM answers must pass the faithfulness check or fall back to offline. |
+| Tier 3 #16 Pluggable LLM providers | **Shipped** (`ProviderFactory`): OpenAI / Gemini / Ollama selected by `LLM_PROVIDER`, shared timeout + one transient retry, identical schema validation + faithfulness + offline fallback for all three. |
+| Eval expansion (Tier 3 #15) | **Extended**: `eval/run_chat_eval.py` adds faithfulness cases (planted ungrounded skills, checked against the checker function directly) and chat grounding/refusal cases; wired into `make eval`. Golden numbers unchanged. |
+
+**Still future (not shipped, not claimed):** ESCO/CareerBERT-style shared
+embedding spaces and FAISS search; skill-frequency reweighting beyond the
+existing IDF; STEP-style trajectory/sequence models; RAGAS-style scored
+faithfulness in CI (current faithfulness eval is a deterministic
+planted-skill suite, not a learned metric); embedding quality measurement
+of any kind; live labour-market feeds beyond the existing seed/Adzuna
+adapter.
+
 ## 6. Conclusion
 
 The current app has a clean architecture and good UX, but its **intelligence layer is the

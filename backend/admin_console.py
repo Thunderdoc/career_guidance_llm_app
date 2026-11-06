@@ -173,6 +173,10 @@ class ResourceListBody(BaseModel):
     resources: list[dict]
 
 
+class IndiaMarketBody(BaseModel):
+    overrides: dict = Field(default_factory=dict)
+
+
 # --------------------------------------------------------------------------- #
 # Router
 # --------------------------------------------------------------------------- #
@@ -789,6 +793,31 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
         riasec.AssessmentStore(settings.database_path).delete_item(item_id)
         users.audit(actor.email, "assessment-item:delete", item_id)
         return {"ok": True}
+
+    # ------------------------------------------------ India market (Phase 2)
+    @router.get("/india-market")
+    def get_india_market(_: User = Depends(admin_user)) -> dict:  # noqa: B008
+        from career_guidance.india import load_india_market
+
+        return {
+            "entries": load_india_market(),
+            "overrides": settings_store.get("market.india_overrides", {}) or {},
+            "source": "Estimates derived from project market seed (not official statistics)",
+            "as_of": "2026-11-06",
+        }
+
+    @router.put("/india-market")
+    def set_india_market(body: IndiaMarketBody, actor: User = Depends(admin_user)) -> dict:  # noqa: B008
+        if not isinstance(body.overrides, dict):
+            raise HTTPException(422, "overrides must be an object keyed by family or career id.")
+        for key, value in body.overrides.items():
+            if not isinstance(value, dict):
+                raise HTTPException(422, f"Override for {key} must be an object.")
+        settings_store.set_many({"market.india_overrides": body.overrides}, actor=actor.email)
+        users.audit(
+            actor.email, "india-market:update", ",".join(sorted(body.overrides)) or "(cleared)"
+        )
+        return {"ok": True, "overrides": body.overrides}
 
     # ---------------------------------------------------- weights/settings
     @router.get("/weights")

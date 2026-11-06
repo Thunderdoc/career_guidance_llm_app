@@ -1,0 +1,98 @@
+# O*NET (SOC-based) -> NCO-2015 / ISCO-08 crosswalk.
+# NCO-2015 family (4-digit) codes follow the ISCO-08 unit-group structure for
+# the professional/technical groups below (verified pattern: e.g. NCO-2015
+# 2512 = Software Developers, per Directorate General of Employment, Govt of
+# India). Only defensible mappings are listed; everything else returns empty.
+# confidence: high = same occupation concept in both systems;
+#             medium = closest unit group, occupation is broader/narrower;
+#             low = indicative only.
+version: 1
+as_of: "2026-11-06"
+source: "Manual crosswalk by occupation concept: O*NET titles to NCO-2015 family codes / ISCO-08 unit groups"
+mappings:
+  - {onet_code: "15-1132.00", title: "Software Developers, Applications", nco_code: "2512", isco_code: "2512", confidence: high, method: "Same occupation concept; NCO-2015 family 2512 Software Developers"}
+  - {onet_code: "15-1133.00", title: "Software Developers, Systems Software", nco_code: "2512", isco_code: "2512", confidence: high, method: "Same occupation concept; NCO-2015 family 2512 Software Developers"}
+  - {onet_code: "15-1131.00", title: "Computer Programmers", nco_code: "2514", isco_code: "2514", confidence: high, method: "ISCO-08 2514 Applications programmers; NCO-2015 follows same group"}
+  - {onet_code: "15-1134.00", title: "Web Developers", nco_code: "2513", isco_code: "2513", confidence: high, method: "ISCO-08 2513 Web and multimedia developers"}
+  - {onet_code: "15-1121.00", title: "Computer Systems Analysts", nco_code: "2511", isco_code: "2511", confidence: high, method: "ISCO-08 2511 Systems analysts"}
+  - {onet_code: "15-1199.02", title: "Computer Systems Engineers/Architects", nco_code: "2511", isco_code: "2511", confidence: medium, method: "Closest unit group: systems analysts/architects sit in 2511"}
+  - {onet_code: "15-1199.09", title: "Information Technology Project Managers", nco_code: "2511", isco_code: "2511", confidence: low, method: "Indicative: IT project management has no dedicated unit group; closest is 2511"}
+  - {onet_code: "15-1141.00", title: "Database Administrators", nco_code: "2521", isco_code: "2521", confidence: high, method: "ISCO-08 2521 Database designers and administrators"}
+  - {onet_code: "15-1199.06", title: "Database Architects", nco_code: "2521", isco_code: "2521", confidence: medium, method: "Closest unit group: 2521 Database designers and administrators"}
+  - {onet_code: "15-1199.07", title: "Data Warehousing Specialists", nco_code: "2521", isco_code: "2521", confidence: medium, method: "Closest unit group: 2521 Database designers and administrators"}
+  - {onet_code: "15-1199.08", title: "Business Intelligence Analysts", nco_code: "2511", isco_code: "2511", confidence: medium, method: "Closest unit group: systems/business analysts in 2511"}
+  - {onet_code: "15-1142.00", title: "Network and Computer Systems Administrators", nco_code: "2522", isco_code: "2522", confidence: high, method: "ISCO-08 2522 Systems administrators"}
+  - {onet_code: "15-1143.00", title: "Computer Network Architects", nco_code: "2523", isco_code: "2523", confidence: high, method: "ISCO-08 2523 Computer network professionals"}
+  - {onet_code: "15-1151.00", title: "Computer User Support Specialists", nco_code: "3512", isco_code: "3512", confidence: high, method: "ISCO-08 3512 ICT user support technicians"}
+  - {onet_code: "15-1152.00", title: "Computer Network Support Specialists", nco_code: "3511", isco_code: "3511", confidence: medium, method: "Closest unit group: 3511 ICT operations technicians"}
+  - {onet_code: "15-2041.00", title: "Statisticians", nco_code: "2120", isco_code: "2120", confidence: high, method: "ISCO-08 2120 Mathematicians, actuaries and statisticians"}
+  - {onet_code: "15-2011.00", title: "Actuaries", nco_code: "2120", isco_code: "2120", confidence: high, method: "ISCO-08 2120 Mathematicians, actuaries and statisticians"}
+  - {onet_code: "15-2031.00", title: "Operations Research Analysts", nco_code: "2120", isco_code: "2120", confidence: medium, method: "Closest unit group: quantitative analysts grouped with statisticians in 2120"}
+  - {onet_code: "25-2021.00", title: "Elementary School Teachers, Except Special Education", nco_code: "2341", isco_code: "2341", confidence: high, method: "ISCO-08 2341 Primary school teachers"}
+  - {onet_code: "25-2031.00", title: "Secondary School Teachers, Except Special and Career/Technical Education", nco_code: "2330", isco_code: "2330", confidence: high, method: "ISCO-08 2330 Secondary education teachers"}
+  - {onet_code: "25-2011.00", title: "Preschool Teachers, Except Special Education", nco_code: "2342", isco_code: "2342", confidence: high, method: "ISCO-08 2342 Early childhood educators"}
+  - {onet_code: "25-2052.00", title: "Special Education Teachers, Kindergarten and Elementary School", nco_code: "2352", isco_code: "2352", confidence: high, method: "ISCO-08 2352 Special needs teachers; NCO-2015 family 2352 confirmed"}
+  - {onet_code: "25-1011.00", title: "Business Teachers, Postsecondary", nco_code: "2310", isco_code: "2310", confidence: medium, method: "ISCO-08 2310 University and higher education teachers (subject not split at unit-group level)"}
+  - {onet_code: "25-1042.00", title: "Biological Science Teachers, Postsecondary", nco_code: "2310", isco_code: "2310", confidence: medium, method: "ISCO-08 2310 University and higher education teachers"}
+  - {onet_code: "25-1081.00", title: "Education Teachers, Postsecondary", nco_code: "2310", isco_code: "2310", confidence: medium, method: "ISCO-08 2310 University and higher education teachers"}
+  - {onet_code: "29-1141.00", title: "Registered Nurses", nco_code: "2221", isco_code: "2221", confidence: high, method: "ISCO-08 2221 Nursing professionals"}
+  - {onet_code: "29-1171.00", title: "Nurse Practitioners", nco_code: "2221", isco_code: "2221", confidence: medium, method: "Closest unit group: 2221 Nursing professionals (advanced practice not split)"}
+  - {onet_code: "29-2061.00", title: "Licensed Practical and Licensed Vocational Nurses", nco_code: "3221", isco_code: "3221", confidence: high, method: "ISCO-08 3221 Nursing associate professionals"}
+  - {onet_code: "29-1021.00", title: "Dentists, General", nco_code: "2261", isco_code: "2261", confidence: high, method: "ISCO-08 2261 Dentists"}
+  - {onet_code: "29-1051.00", title: "Pharmacists", nco_code: "2262", isco_code: "2262", confidence: high, method: "ISCO-08 2262 Pharmacists"}
+  - {onet_code: "29-1062.00", title: "Family and General Practitioners", nco_code: "2211", isco_code: "2211", confidence: high, method: "ISCO-08 2211 Generalist medical practitioners"}
+  - {onet_code: "29-1067.00", title: "Surgeons", nco_code: "2212", isco_code: "2212", confidence: high, method: "ISCO-08 2212 Specialist medical practitioners"}
+  - {onet_code: "29-1071.00", title: "Physician Assistants", nco_code: "2240", isco_code: "2240", confidence: high, method: "ISCO-08 2240 Paramedical practitioners"}
+  - {onet_code: "29-1123.00", title: "Physical Therapists", nco_code: "2264", isco_code: "2264", confidence: high, method: "ISCO-08 2264 Physiotherapists"}
+  - {onet_code: "29-1122.00", title: "Occupational Therapists", nco_code: "2269", isco_code: "2269", confidence: medium, method: "Closest unit group: 2269 Health professionals nec in ISCO-08 (OT not separately split)"}
+  - {onet_code: "29-2041.00", title: "Emergency Medical Technicians and Paramedics", nco_code: "3258", isco_code: "3258", confidence: high, method: "ISCO-08 3258 Ambulance workers"}
+  - {onet_code: "31-9092.00", title: "Medical Assistants", nco_code: "3256", isco_code: "3256", confidence: high, method: "ISCO-08 3256 Medical assistants"}
+  - {onet_code: "31-9091.00", title: "Dental Assistants", nco_code: "3251", isco_code: "3251", confidence: high, method: "ISCO-08 3251 Dental assistants and therapists"}
+  - {onet_code: "13-2011.01", title: "Accountants", nco_code: "2411", isco_code: "2411", confidence: high, method: "ISCO-08 2411 Accountants"}
+  - {onet_code: "13-2011.02", title: "Auditors", nco_code: "2411", isco_code: "2411", confidence: high, method: "ISCO-08 2411 Accountants (auditors grouped with accountants)"}
+  - {onet_code: "13-2051.00", title: "Financial Analysts", nco_code: "2413", isco_code: "2413", confidence: high, method: "ISCO-08 2413 Financial analysts"}
+  - {onet_code: "13-2052.00", title: "Personal Financial Advisors", nco_code: "2412", isco_code: "2412", confidence: high, method: "ISCO-08 2412 Financial and investment advisers"}
+  - {onet_code: "13-2041.00", title: "Credit Analysts", nco_code: "2413", isco_code: "2413", confidence: medium, method: "Closest unit group: 2413 Financial analysts"}
+  - {onet_code: "43-3031.00", title: "Bookkeeping, Accounting, and Auditing Clerks", nco_code: "4311", isco_code: "4311", confidence: high, method: "ISCO-08 4311 Accounting and bookkeeping clerks"}
+  - {onet_code: "17-2051.00", title: "Civil Engineers", nco_code: "2142", isco_code: "2142", confidence: high, method: "ISCO-08 2142 Civil engineers"}
+  - {onet_code: "17-2141.00", title: "Mechanical Engineers", nco_code: "2144", isco_code: "2144", confidence: high, method: "ISCO-08 2144 Mechanical engineers"}
+  - {onet_code: "17-2071.00", title: "Electrical Engineers", nco_code: "2151", isco_code: "2151", confidence: high, method: "ISCO-08 2151 Electrical engineers"}
+  - {onet_code: "17-2072.00", title: "Electronics Engineers, Except Computer", nco_code: "2152", isco_code: "2152", confidence: high, method: "ISCO-08 2152 Electronics engineers"}
+  - {onet_code: "17-2112.00", title: "Industrial Engineers", nco_code: "2141", isco_code: "2141", confidence: high, method: "ISCO-08 2141 Industrial and production engineers"}
+  - {onet_code: "17-2041.00", title: "Chemical Engineers", nco_code: "2145", isco_code: "2145", confidence: high, method: "ISCO-08 2145 Chemical engineers"}
+  - {onet_code: "17-2031.00", title: "Biomedical Engineers", nco_code: "2149", isco_code: "2149", confidence: medium, method: "Closest unit group: 2149 Engineering professionals nec"}
+  - {onet_code: "17-1011.00", title: "Architects, Except Landscape and Naval", nco_code: "2161", isco_code: "2161", confidence: high, method: "ISCO-08 2161 Building architects"}
+  - {onet_code: "17-3027.00", title: "Mechanical Engineering Technicians", nco_code: "3115", isco_code: "3115", confidence: high, method: "ISCO-08 3115 Mechanical engineering technicians"}
+  - {onet_code: "41-4012.00", title: "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products", nco_code: "3322", isco_code: "3322", confidence: high, method: "ISCO-08 3322 Commercial sales representatives"}
+  - {onet_code: "41-2031.00", title: "Retail Salespersons", nco_code: "5223", isco_code: "5223", confidence: high, method: "ISCO-08 5223 Shop sales assistants"}
+  - {onet_code: "11-2022.00", title: "Sales Managers", nco_code: "1221", isco_code: "1221", confidence: high, method: "ISCO-08 1221 Sales and marketing managers"}
+  - {onet_code: "11-2021.00", title: "Marketing Managers", nco_code: "1221", isco_code: "1221", confidence: medium, method: "ISCO-08 1221 Sales and marketing managers (combined group)"}
+  - {onet_code: "13-1161.00", title: "Market Research Analysts and Marketing Specialists", nco_code: "2431", isco_code: "2431", confidence: medium, method: "Closest unit group: 2431 Advertising and marketing professionals"}
+  - {onet_code: "43-4051.00", title: "Customer Service Representatives", nco_code: "4222", isco_code: "4222", confidence: high, method: "ISCO-08 4222 Contact centre information clerks"}
+  - {onet_code: "27-1024.00", title: "Graphic Designers", nco_code: "2166", isco_code: "2166", confidence: high, method: "ISCO-08 2166 Graphic and multimedia designers"}
+  - {onet_code: "27-1014.00", title: "Multimedia Artists and Animators", nco_code: "2166", isco_code: "2166", confidence: medium, method: "Closest unit group: 2166 Graphic and multimedia designers"}
+  - {onet_code: "27-1021.00", title: "Commercial and Industrial Designers", nco_code: "2163", isco_code: "2163", confidence: high, method: "ISCO-08 2163 Product and garment designers"}
+  - {onet_code: "27-1025.00", title: "Interior Designers", nco_code: "2161", isco_code: "2161", confidence: low, method: "Indicative: interior design sits between 2161 and 3432 (interior designers and decorators); 2161 used at professional level"}
+  - {onet_code: "27-3042.00", title: "Technical Writers", nco_code: "2641", isco_code: "2641", confidence: medium, method: "Closest unit group: 2641 Authors and related writers"}
+  - {onet_code: "27-3041.00", title: "Editors", nco_code: "2641", isco_code: "2641", confidence: medium, method: "Closest unit group: 2641 Authors and related writers"}
+  - {onet_code: "23-1011.00", title: "Lawyers", nco_code: "2611", isco_code: "2611", confidence: high, method: "ISCO-08 2611 Lawyers"}
+  - {onet_code: "21-1012.00", title: "Educational, Guidance, School, and Vocational Counselors", nco_code: "2359", isco_code: "2359", confidence: medium, method: "Closest unit group: 2359 Teaching professionals nec (guidance counsellors)"}
+  - {onet_code: "21-1021.00", title: "Child, Family, and School Social Workers", nco_code: "2635", isco_code: "2635", confidence: high, method: "ISCO-08 2635 Social work and counselling professionals"}
+  - {onet_code: "21-1014.00", title: "Mental Health Counselors", nco_code: "2634", isco_code: "2634", confidence: medium, method: "Closest unit group: 2634 Psychologists / counselling professionals"}
+  - {onet_code: "13-1071.00", title: "Human Resources Specialists", nco_code: "2423", isco_code: "2423", confidence: high, method: "ISCO-08 2423 Personnel and careers professionals"}
+  - {onet_code: "11-3121.00", title: "Human Resources Managers", nco_code: "1212", isco_code: "1212", confidence: high, method: "ISCO-08 1212 Human resource managers"}
+  - {onet_code: "13-1081.00", title: "Logisticians", nco_code: "3339", isco_code: "3339", confidence: low, method: "Indicative: logistics has no dedicated ISCO unit group; closest business services agents nec 3339"}
+  - {onet_code: "13-1111.00", title: "Management Analysts", nco_code: "2421", isco_code: "2421", confidence: high, method: "ISCO-08 2421 Management and organisation analysts"}
+  - {onet_code: "47-2111.00", title: "Electricians", nco_code: "7411", isco_code: "7411", confidence: high, method: "ISCO-08 7411 Building and related electricians"}
+  - {onet_code: "47-2152.02", title: "Plumbers", nco_code: "7126", isco_code: "7126", confidence: high, method: "ISCO-08 7126 Plumbers and pipe fitters"}
+  - {onet_code: "51-4121.06", title: "Welders, Cutters, and Welder Fitters", nco_code: "7212", isco_code: "7212", confidence: high, method: "ISCO-08 7212 Welders and flame cutters"}
+  - {onet_code: "49-9021.01", title: "Heating and Air Conditioning Mechanics and Installers", nco_code: "7127", isco_code: "7127", confidence: high, method: "ISCO-08 7127 Air conditioning and refrigeration mechanics"}
+  - {onet_code: "35-1011.00", title: "Chefs and Head Cooks", nco_code: "3434", isco_code: "3434", confidence: high, method: "ISCO-08 3434 Chefs"}
+  - {onet_code: "35-2014.00", title: "Cooks, Restaurant", nco_code: "5120", isco_code: "5120", confidence: high, method: "ISCO-08 5120 Cooks"}
+  - {onet_code: "33-3051.01", title: "Police Patrol Officers", nco_code: "5412", isco_code: "5412", confidence: high, method: "ISCO-08 5412 Police officers"}
+  - {onet_code: "33-9032.00", title: "Security Guards", nco_code: "5414", isco_code: "5414", confidence: high, method: "ISCO-08 5414 Security guards"}
+  - {onet_code: "39-9011.00", title: "Childcare Workers", nco_code: "5311", isco_code: "5311", confidence: high, method: "ISCO-08 5311 Child care workers"}
+  - {onet_code: "53-3032.00", title: "Heavy and Tractor-Trailer Truck Drivers", nco_code: "8332", isco_code: "8332", confidence: high, method: "ISCO-08 8332 Heavy truck and lorry drivers"}
+  - {onet_code: "43-6014.00", title: "Secretaries and Administrative Assistants, Except Legal, Medical, and Executive", nco_code: "4120", isco_code: "4120", confidence: high, method: "ISCO-08 4120 Secretaries (general)"}
+  - {onet_code: "19-2041.00", title: "Environmental Scientists and Specialists, Including Health", nco_code: "2133", isco_code: "2133", confidence: high, method: "ISCO-08 2133 Environmental protection professionals"}
+  - {onet_code: "19-1042.00", title: "Medical Scientists, Except Epidemiologists", nco_code: "2131", isco_code: "2131", confidence: medium, method: "Closest unit group: 2131 Biologists, botanists, zoologists and related / life-science professionals"}

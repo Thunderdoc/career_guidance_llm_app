@@ -1,0 +1,6 @@
+run_id,counsellor_top_pick,system_top_pick,system_top5,rating,notes
+SAMPLE-1,Data Analyst,Data Analyst,Data Analyst|Business Analyst|Data Scientist|Market Research Analyst|Software Developer,agree,SAMPLE ROW - fake data for trying the script
+SAMPLE-2,Software Developer,Web Developer,Web Developer|Software Developer|Systems Analyst|QA Engineer|DevOps Engineer,partial,SAMPLE ROW - fake data for trying the script
+SAMPLE-3,Teacher,Content Writer,Content Writer|Marketing Specialist|Teacher|Instructional Designer|Editor,partial,SAMPLE ROW - fake data for trying the script
+SAMPLE-4,Graphic Designer,Graphic Designer,Graphic Designer|UX Designer|Illustrator|Animator|Art Director,agree,SAMPLE ROW - fake data for trying the script
+SAMPLE-5,Nurse,Pharmacist,Pharmacist|Medical Technician|Nurse|Physician Assistant|Dietitian,disagree,SAMPLE ROW - fake data for trying the script
