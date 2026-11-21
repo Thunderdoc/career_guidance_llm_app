@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   Activity,
   BookOpen,
+  Building2,
   Loader2,
   MessageSquare,
   RefreshCw,
@@ -23,9 +24,11 @@ import { admin, type AdminOverview, type AdminUser, type Feedback, type Resource
 import { useAuth } from "@/lib/auth-context";
 import { RequireAuth } from "./require-auth";
 import { cn } from "@/lib/cn";
+import { kvFlags } from "@/lib/flags";
 import { AnimatedNumber, TextEffect } from "./motion";
+import { KvAdminView } from "./kv-admin-view";
 
-type Tab = "overview" | "users" | "runs" | "feedback" | "content" | "audit";
+type Tab = "overview" | "users" | "runs" | "feedback" | "content" | "audit" | "kaamvaani";
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <Activity size={15} /> },
   { id: "users", label: "Users", icon: <Users size={15} /> },
@@ -34,6 +37,12 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "content", label: "Content", icon: <BookOpen size={15} /> },
   { id: "audit", label: "Audit", icon: <Shield size={15} /> },
 ];
+// Kaam-Vaani review queue (Stage 5) — only when the employer flag is on.
+const KV_TAB: { id: Tab; label: string; icon: React.ReactNode } = {
+  id: "kaamvaani",
+  label: "Kaam-Vaani",
+  icon: <Building2 size={15} />,
+};
 
 export function AdminView() {
   return (
@@ -46,6 +55,7 @@ export function AdminView() {
 function AdminInner() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
+  const tabs = kvFlags.employers ? [...TABS, KV_TAB] : TABS;
   if (!user) return null;
   return (
     <div className="flex flex-col gap-6">
@@ -56,7 +66,7 @@ function AdminInner() {
         <p className="mt-1 text-sm text-fg-2">Signed in as {user.email}</p>
       </header>
       <nav className="flex flex-wrap gap-1 rounded-full bg-bg-3 p-1 ring-1 ring-white/5" aria-label="Admin sections">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -77,6 +87,7 @@ function AdminInner() {
           {tab === "feedback" && <FeedbackTab />}
           {tab === "content" && <ContentTab />}
           {tab === "audit" && <AuditTab />}
+          {tab === "kaamvaani" && <KvAdminView />}
         </motion.div>
       </AnimatePresence>
     </div>

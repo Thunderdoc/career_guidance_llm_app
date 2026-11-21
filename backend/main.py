@@ -30,6 +30,15 @@ from backend.chat import build_router as build_chat_router
 from backend.consent import build_router as build_consent_router
 from backend.institutes import build_router as build_institutes_router
 from backend.journey import build_router as build_journey_router
+from backend.kv_consent import build_router as build_kv_consent_router
+from backend.kv_employers import build_router as build_kv_employers_router
+from backend.kv_matching import build_router as build_kv_matching_router
+from backend.kv_pilot import build_router as build_kv_pilot_router
+from backend.kv_rag import build_router as build_kv_rag_router
+from backend.kv_rights import build_router as build_kv_rights_router
+from backend.kv_traces import build_router as build_kv_traces_router
+from backend.kv_video import build_router as build_kv_video_router
+from backend.kv_voice import build_router as build_kv_voice_router
 from backend.public_api import build_router as build_public_api_router
 from backend.ratelimit import RateLimiter
 from backend.sharing import build_router as build_sharing_router
@@ -85,8 +94,10 @@ _db = Database(settings.database_target)  # Phase 6: DATABASE_URL-aware
 _auth_settings = load_auth_settings()
 _users = UserStore(settings.database_path, _auth_settings.admin_emails)
 _auth = Auth(_auth_settings, _users)
-_auth_router, _current_user, _admin_user = build_auth_router(_auth)
-_me_router = build_me_router(_users, _db, _current_user)
+_auth_router, _current_user, _admin_user, _employer_user, _coordinator_user = build_auth_router(
+    _auth
+)
+_me_router = build_me_router(_users, _db, _current_user, settings.database_target)
 _journey_router = build_journey_router(settings, _current_user, _db, _users)
 _admin_console_router = build_console_router(settings, _users, _db, _admin_user)
 _billing_router = build_billing_router(_current_user, _users, settings.database_path, _admin_user)
@@ -113,6 +124,47 @@ app.include_router(_verify_router)
 app.include_router(_institutes_router)
 # Phase 10: institute public API (API-key management + public reads).
 app.include_router(build_public_api_router(settings, _current_user, _users, _db))
+# Kaam-Vaani Stage 1: each kv router mounts ONLY when its flag is on —
+# flag off means the route 404s as if it never existed (see
+# career_guidance/kaamvaani/flags.py). The Step 9.2 pilot console builds
+# its own pilot_user dep (admin OR coordinator) from _current_user —
+# the standalone _coordinator_user dep stays available for future use.
+if settings.kv_voice:
+    app.include_router(build_kv_voice_router(settings))
+    # Kaam-Vaani Stage 4: matching shares the voice flag (it is part of
+    # the voice flow — matches for a confirmed voice profile).
+    app.include_router(build_kv_matching_router(settings))
+if settings.kv_rag:
+    app.include_router(build_kv_rag_router(settings))
+    # Kaam-Vaani Step 9.1: rights/scam assistant — a topic-restricted
+    # view of the same RAG, sharing the KV_RAG flag.
+    app.include_router(build_kv_rights_router(settings))
+if settings.kv_rag or settings.kv_voice:
+    # Kaam-Vaani Step 8.9: agent trace log, admin-only. Included
+    # when any trace producer (RAG / voice / matching) is on.
+    app.include_router(build_kv_traces_router(settings, _admin_user))
+if settings.kv_employers:
+    # Kaam-Vaani Stage 5: employer portal (registration, listings,
+    # verification, scam checker, admin review queue). The auth object
+    # supplies the Firebase verifier (phone verification) and the user
+    # store (role changes + audit log).
+    app.include_router(
+        build_kv_employers_router(settings, _current_user, _admin_user, _employer_user, _auth)
+    )
+if settings.kv_consent:
+    # Kaam-Vaani Stage 6: consent system (worker profiles, per-employer
+    # time-limited revocable consent, append-only audit), employer
+    # matching over verified + consented candidates, hire outcomes.
+    app.include_router(build_kv_consent_router(settings, _current_user, _employer_user, _auth))
+if settings.kv_pilot:
+    # Kaam-Vaani Step 9.2: pilot/institute console (bulk worker
+    # onboarding, coordinator employer verification, metrics + CSV).
+    # Coordinators + admins only; the pilot_user dep enforces it.
+    app.include_router(build_kv_pilot_router(settings, _current_user, _auth))
+if settings.kv_video_check:
+    # Kaam-Vaani Step 9.3: video skill check (EXPERIMENTAL) — clip
+    # validity only, never stored, indicative not a certificate.
+    app.include_router(build_kv_video_router(settings, _current_user, _auth))
 
 
 # The product is public-first with gated depth (Phase 1): ``/health``,
@@ -225,7 +277,13 @@ async def _timing(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    # Step 9.4: microphone is (self), not () — the Kaam-Vaani voice
+    # flow (Web Speech Recognition) needs the mic on the app's own
+    # origin; the Phase 6 `microphone=()` blocked it on the
+    # Render-served origin. Camera and geolocation stay blocked.
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(self), geolocation=()"
+    )
     response.headers.setdefault(
         "Content-Security-Policy-Report-Only",
         "default-src 'self'; "
@@ -843,6 +901,12 @@ if _STATIC.exists():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
+        if path.startswith("api/"):
+            # Unmatched /api/* paths must 404 as JSON, never fall through
+            # to the SPA shell — otherwise a disabled feature flag (or a
+            # typo'd API path) answers 200 HTML instead of 404
+            # (Kaam-Vaani Stage 1: flag-off kv routes must 404).
+            raise HTTPException(404, "Not found.")
         candidate = _STATIC / path
         if path and candidate.is_file():
             if path == "sw.js":

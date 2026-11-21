@@ -38,6 +38,15 @@ def test_expansions_cover_taxonomy_terms():
     assert "spreadsheet software" in excel
 
 
+def test_aliases_for_returns_per_canonical_aliases():
+    n = load_normalizer()
+    aliases = n.aliases_for("attention to detail")
+    assert "data entry" in aliases
+    assert "detail oriented" in aliases
+    assert n.aliases_for("no-such-skill") == []
+    assert n.aliases_for("") == []
+
+
 def test_resolve_splits_matched_and_unmatched():
     n = load_normalizer()
     result = n.resolve("python, quantum origami, tally")

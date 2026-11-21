@@ -1,6 +1,11 @@
 streamlit>=1.36,<2.0
 openai>=1.30,<2.0
-pypdf>=4.0,<7.0
+pypdf>=6.21.4,<7.0  # >=6.21.4: fixes 3 crafted-PDF DoS CVEs (Step 9.4 audit, 2026-11-21)
+# Transitive security pins (Step 9.4 audit, 2026-11-21) — these are
+# not direct imports; they are pinned so a fresh install cannot
+# resolve to the vulnerable versions.
+dnspython>=2.9.2,<3.0  # fixes CVE-2026-128089 (zone-file DoS)
+opentelemetry-api>=1.45.2,<2.0  # fixes CVE-2026-126360 (traceparent ReDoS)
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 pydantic>=2.7,<3.0

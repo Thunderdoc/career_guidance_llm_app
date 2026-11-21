@@ -130,6 +130,53 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 These come from *Firebase console → Project settings → Your apps → SDK setup*
 and are public by design.
 
+### Kaam-Vaani flags (GAVS prototype, Stages 1–6)
+
+Kaam-Vaani routers live under `/api/v1/kv/*`, each behind an env feature
+flag. Backend flags (`KV_VOICE`, `KV_RAG`, `KV_EMPLOYERS`, `KV_CONSENT`,
+`KV_VIDEO_CHECK`, `KV_PILOT`): default **ON unless `APP_ENV=production`**;
+set explicitly to stage a feature. Flag off = the route 404s as JSON, as
+if it never existed. The frontend mirrors them in `frontend/lib/flags.ts`
+(`NEXT_PUBLIC_KV_*`, same defaults) — but those are baked into the static
+export at **build** time, so a frontend flag change needs a rebuild while
+a backend flag change needs only a restart. Keep the two sides in sync: a
+UI surface must never render when its backend route is off.
+
+Voice providers are selected by `KV_STT_PROVIDER` / `KV_TTS_PROVIDER`
+(`browser` = the device's Web Speech API, free, no key — the default).
+The voice router (`/api/v1/kv/voice/*`, Stage 3) offers
+`GET /status` (effective providers + extraction mode),
+`POST /extract` (transcript or per-question answers → structured
+profile) and `POST /confirm` (validates the confirmation
+state-machine transition). RAG embeddings reuse
+`SEMANTIC_EMBEDDING_MODEL` (Stage 2). The employer router
+(`/api/v1/kv/employers/*` + `/api/v1/kv/listings/*` + `/api/v1/kv/admin/*`,
+Stage 5) offers employer registration/profile, Firebase phone
+verification (phone sign-in must be enabled in the Firebase
+console — owner step), listing CRUD with a deterministic scam
+check on every create/edit, public verified-only listings, a
+worker report flow, and an audited admin review queue
+(approve/reject employers + listings, endorsement badge,
+uphold/dismiss reports). Seed sample data with
+`scripts/seed_kv_listings.py` (7 employers, 40 legit + 5 fake
+listings, all labelled sample data). The consent router
+(`/api/v1/kv/consent/*` + `/api/v1/kv/worker-profile` +
+`/api/v1/kv/employers/matching/*` + `/api/v1/kv/hire-outcomes/*`,
+Stage 6, behind `KV_CONSENT`) offers a worker profile, per-
+employer time-limited revocable consent with a plain-language
+explanation, an append-only audit log of every grant/revoke/
+expiry/access, ranked consented candidates with fit reasons
+(verified employers and verified listings only; the server
+filters fields, never the UI), shortlist + contact requests,
+and hire-outcome reporting with day-30/90 retention follow-ups.
+Seed sample workers with `scripts/seed_kv_workers.py` (10
+workers, 13 consents, 3 shortlists, 2 contact requests, 2
+outcomes — requires the listings seed first); verify the whole
+flow live with `scripts/verify_kv_stage6.py` against a running
+backend. See `ARCHITECTURE.md` §3 and
+`docs/KAAM_VAANI_PLAN.md` for the full design and staged plan;
+`docs/RUNBOOK.md` for flag rollback.
+
 ## Authentication & admin
 
 **The app is public-first with gated depth** (Phase 1): the landing page,
@@ -202,6 +249,7 @@ Interactive docs at **`/api/docs`**. All routes are under `/api/v1`.
 | GET/PUT | `/admin/india-market` | Phase 2 India market overrides editor (admin only, audit-logged); Reality Score data layer in `career_guidance/india.py` + `reality.py` |
 | POST/GET/DELETE | `/runs/{run_id}/share` · `/runs/{run_id}/shares` · `/runs/{run_id}/share/{token_id}` | Phase 8 share links (owner only; guest session for anonymous runs): create (expiry 1–30 days, default 7), list, revoke. Token stored as SHA-256 hash only, raw token shown once |
 | GET | `/shared/{token}` | Phase 8 public shared-report view — rate-limited, built from a field allowlist (titles, match %, skills, Reality Score, labelled-estimate salary ladder, learning path); never owner identity/constraints/profile text. 404 unknown, 410 expired/revoked |
+| GET/POST/PUT/DELETE | `/kv/employers/*` · `/kv/listings*` · `/kv/admin/*` | Kaam-Vaani Stage 5 employer portal (behind `KV_EMPLOYERS`): registration/profile, phone verification via Firebase ID token, listing CRUD with scam check, public verified-only listings, worker reports, audited admin review queue + endorsement |
 
 The recommendation contract (`run_id`, `provider`, `is_demo`, `priority_skills`,
 `recommendations[]` with `match_score`, `matching/missing_skills`,

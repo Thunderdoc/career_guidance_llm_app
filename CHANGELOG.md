@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Kaam-Vaani (GAVS Tech4Bharat) — Stage 2: RAG ingestion,
+  retrieval, evaluation harness** — eval harness first:
+  `eval/kv_golden.json` (113 realistic voice-style cases: 55
+  profile, 43 retrieval, 15 refusal; EN/HI/TA incl. noisy,
+  code-mixed, vague) + `eval/run_kv.py` (profile accuracy,
+  recall@5, MRR, faithfulness via citation check, refusal
+  correctness, latency p50/p95; CLI matches the Stage 1 CI/Makefile
+  gate); ingestion pipeline `scripts/ingest/*` (fetch → clean →
+  chunk → versioned snapshot; O*NET 974 occupations + 9 official
+  web sources + 8 Wikipedia fallbacks → snapshot v1, 1,040
+  chunks); BM25 + TF-IDF hybrid retriever with title bonus,
+  subordinate penalty, metadata filters and query rewriting
+  (`career_guidance/kaamvaani/rag.py`); deterministic profile
+  extractor (`career_guidance/kaamvaani/extract.py`, server-side
+  mirror of the frontend voice flow); shared voice vocabulary
+  (`data/voice_aliases.yaml`, `data/kv_cities.yaml` — 155 cities,
+  pinned to the frontend list by a test); six new trade canonicals
+  (carpentry, masonry, painting, hairdressing, security services,
+  construction); migration v12 (`kv_rag_chunks` table + indexes;
+  the Stage 5 employers table moves to v13); `backend/kv_rag.py`
+  router (`/api/v1/kv/rag/status|search|ask`, mounted behind
+  `settings.kv_rag`); `eval/kv_report.json` added to the CI
+  artifact upload; `EVAL_REPORT.md` (honest actuals — final eval
+  PASS: profile 1.000, recall@5 0.954, MRR 0.926, faithfulness
+  0.907, refusal 0.933, p50 3 ms / p95 49 ms) + `docs/SOURCES.md`
+  §5 (per-source fetchability). Known misses kept in the gold set:
+  non-English questions (English-only KB), farm/fraud ranking,
+  e-Shram "card" homonym. Dense-embedding comparison NOT measured
+  (`sentence-transformers` not installed). Migration-version test
+  lists converted to `LATEST_VERSION`-based assertions.
+- **Kaam-Vaani (GAVS Tech4Bharat) — Stage 1: infra, flags, roles** —
+  feature-flag system (backend `KV_*` env flags on `Settings`, ON in
+  dev / OFF in production, explicit env wins; frontend
+  `frontend/lib/flags.ts` with `NEXT_PUBLIC_KV_*`); first Kaam-Vaani
+  route `GET /api/v1/kv/voice/status` (public; reports the live voice
+  providers — browser Web Speech, deterministic extraction — and
+  404s when `KV_VOICE` is off); `employer` + `coordinator` roles
+  (server-side validation, new role deps, admin role endpoint
+  accepts them); migration v11 (phone columns for OTP scaffolding +
+  role index); OTP scaffolding = storage + docs only (Firebase Phone
+  Auth verifies; the backend records the result); guarded
+  Kaam-Vaani eval gate in CI + Makefile (no-op until `eval/run_kv.py`
+  exists in Stage 2); `docs/RUNBOOK.md` started; README Kaam-Vaani
+  setup section. The landing "Try voice" CTA and the `/voice` page
+  are gated by the voice flag.
+- **Kaam-Vaani (GAVS Tech4Bharat) — Stage 0** — repo inspected, real
+  DB (SQLite default, Postgres via `DATABASE_URL`) and auth (Firebase
+  ID tokens + Google OAuth + magic link + signed session cookie)
+  confirmed; `ARCHITECTURE.md`, `docs/KAAM_VAANI_PLAN.md`,
+  `ASSUMPTIONS.md` and `LIMITATIONS.md` written. Work happens on
+  feature branch `kaam-vaani`; no push/deploy without owner approval.
+- **Voice-first onboarding (`/voice`) — Kaam-Vaani Stage 3 groundwork** —
+  speak (or type) what you can do, where you are, and what you need to
+  earn; the app extracts a profile (skills from the 120-canonical
+  vocabulary, education, city, income need), shows it for review and
+  edit, then runs it through the existing anonymous `/recommend`
+  endpoint. Top-5 matches render on screen; each can be read aloud and
+  a "Listen to my matches" button speaks a short summary. Voice is
+  free and keyless (browser Web Speech API, EN/HI/TA; listen buttons
+  only where the device actually has a voice for the language). No
+  audio is recorded or uploaded; only the reviewed text is sent. New:
+  `frontend/app/voice/page.tsx`, `frontend/components/voice-view.tsx`,
+  `frontend/lib/speech.ts`, `frontend/lib/voice-profile.ts`,
+  `frontend/lib/voice-vocabulary.ts` (generated from
+  `data/skill_synonyms.yaml` by `scripts/gen_voice_vocab.py`), plus a
+  "Try voice" CTA on the landing hero and 45 `voice_*` i18n keys
+  (EN/HI/TA). No backend changes.
+
+### Fixed
+
+- **SPA catch-all no longer swallows `/api/*` paths** — with a built
+  `frontend/out` present, an unmatched API path used to answer 200
+  with `index.html`, which would also have masked a flag-off
+  Kaam-Vaani route as "up". Unmatched `/api/*` paths now 404 as
+  JSON; pinned by a regression test.
+
 ## [1.5.0] - 2026-11-06
 
 Final release of the Master Build upgrade (Phases 1–10, local

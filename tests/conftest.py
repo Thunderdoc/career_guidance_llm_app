@@ -13,6 +13,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture(autouse=True)
+def _reset_kv_rate_limiters():
+    """Reset every registered Kaam-Vaani rate limiter before each
+    test (Step 9.4). The limiters are module-level and the whole
+    suite calls the same endpoints from one TestClient IP — without
+    the reset, tests would trip each other's limits. A test that
+    proves a 429 still works: it makes all its calls within one
+    test, after this reset."""
+    from backend.kv_ratelimit import reset_all_kv_limiters
+
+    reset_all_kv_limiters()
+
+
 @pytest.fixture()
 def app_module(tmp_path, monkeypatch):
     """A freshly imported backend with an isolated SQLite database."""

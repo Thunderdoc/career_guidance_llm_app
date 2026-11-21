@@ -1,0 +1,323 @@
+{
+  "consents": [
+    {
+      "duration_days": 30,
+      "employer": "murugan",
+      "fields": null,
+      "listing": "Electrician helper",
+      "worker": "ramesh"
+    },
+    {
+      "duration_days": 90,
+      "employer": "lakshmi",
+      "fields": [
+        "skills",
+        "city",
+        "education"
+      ],
+      "worker": "priya"
+    },
+    {
+      "duration_days": 30,
+      "employer": "kumar",
+      "fields": [
+        "skills",
+        "city"
+      ],
+      "worker": "suresh"
+    },
+    {
+      "duration_days": 7,
+      "employer": "murugan",
+      "fields": null,
+      "listing": "Billing and data entry assistant",
+      "worker": "lakshmi"
+    },
+    {
+      "duration_days": 30,
+      "employer": "kumar",
+      "fields": null,
+      "worker": "karthik"
+    },
+    {
+      "duration_days": 30,
+      "employer": "annai",
+      "fields": null,
+      "worker": "divya"
+    },
+    {
+      "duration_days": 30,
+      "employer": "murugan",
+      "fields": [
+        "skills",
+        "city",
+        "income"
+      ],
+      "listing": "Solar panel installer helper",
+      "worker": "arjun"
+    },
+    {
+      "duration_days": 90,
+      "employer": "meenakshi",
+      "fields": [
+        "skills",
+        "city"
+      ],
+      "worker": "meena"
+    },
+    {
+      "duration_days": 30,
+      "employer": "murugan",
+      "fields": [
+        "skills",
+        "city"
+      ],
+      "worker": "vignesh"
+    },
+    {
+      "duration_days": 30,
+      "employer": "lakshmi",
+      "fields": null,
+      "worker": "anitha"
+    },
+    {
+      "duration_days": 30,
+      "employer": "kumar",
+      "fields": [
+        "skills"
+      ],
+      "worker": "ramesh"
+    },
+    {
+      "duration_days": 7,
+      "employer": "meenakshi",
+      "fields": [
+        "skills",
+        "city"
+      ],
+      "then": "revoke",
+      "worker": "priya"
+    },
+    {
+      "duration_days": 7,
+      "employer": "annai",
+      "fields": [
+        "skills",
+        "city"
+      ],
+      "then": "expire",
+      "worker": "anitha"
+    }
+  ],
+  "contact_requests": [
+    {
+      "employer": "murugan",
+      "listing": "Electrician helper",
+      "message": "Can you come for a trial on Monday?",
+      "worker": "ramesh"
+    },
+    {
+      "employer": "annai",
+      "listing": null,
+      "message": "We would like to meet you about the care assistant role.",
+      "worker": "divya"
+    }
+  ],
+  "note": "Fictional sample workers for the Kaam-Vaani Stage 6 demo. Every person here is invented; sample users live under the .sample TLD, which cannot receive mail. Nothing here is a real worker, and no consent here is a real person's consent.",
+  "outcomes": [
+    {
+      "employer": "murugan",
+      "followup": {
+        "day": 30,
+        "status": "still_employed"
+      },
+      "listing": "Electrician helper",
+      "note": "Joined on Monday.",
+      "outcome": "hired",
+      "worker": "ramesh"
+    },
+    {
+      "employer": "lakshmi",
+      "listing": null,
+      "note": "Interview done, waiting for the result.",
+      "outcome": "interviewed",
+      "worker": "priya"
+    }
+  ],
+  "shortlists": [
+    {
+      "employer": "murugan",
+      "listing": "Electrician helper",
+      "worker": "ramesh"
+    },
+    {
+      "employer": "lakshmi",
+      "listing": null,
+      "worker": "priya"
+    },
+    {
+      "employer": "annai",
+      "listing": null,
+      "worker": "divya"
+    }
+  ],
+  "workers": [
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "12th pass",
+      "email": "ramesh.k@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 12000,
+      "interests": "machines",
+      "key": "ramesh",
+      "language": "ta",
+      "name": "Ramesh K",
+      "skills": [
+        "electrical technician",
+        "wiring"
+      ]
+    },
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "10th pass",
+      "email": "priya.s@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 10000,
+      "interests": "clothes",
+      "key": "priya",
+      "language": "ta",
+      "name": "Priya S",
+      "skills": [
+        "tailoring",
+        "stitching"
+      ]
+    },
+    {
+      "city": "Chennai",
+      "district": "Chennai",
+      "education": "10th pass",
+      "email": "suresh.m@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 15000,
+      "interests": "",
+      "key": "suresh",
+      "language": "ta",
+      "name": "Suresh M",
+      "skills": [
+        "driving"
+      ]
+    },
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "Graduate",
+      "email": "lakshmi.v@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 11000,
+      "interests": "computers",
+      "key": "lakshmi",
+      "language": "en",
+      "name": "Lakshmi V",
+      "skills": [
+        "data entry",
+        "typing"
+      ]
+    },
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "ITI",
+      "email": "karthik.r@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 13000,
+      "interests": "bikes",
+      "key": "karthik",
+      "language": "ta",
+      "name": "Karthik R",
+      "skills": [
+        "two-wheeler mechanic",
+        "vehicle repair"
+      ]
+    },
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "12th pass",
+      "email": "divya.p@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 12000,
+      "interests": "helping people",
+      "key": "divya",
+      "language": "ta",
+      "name": "Divya P",
+      "skills": [
+        "nursing assistant",
+        "patient care"
+      ]
+    },
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "ITI",
+      "email": "arjun.t@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 14000,
+      "interests": "solar power",
+      "key": "arjun",
+      "language": "ta",
+      "name": "Arjun T",
+      "skills": [
+        "solar panel installation",
+        "electrical work"
+      ]
+    },
+    {
+      "city": "Madurai",
+      "district": "Madurai",
+      "education": "8th pass",
+      "email": "meena.d@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 9000,
+      "interests": "food",
+      "key": "meena",
+      "language": "ta",
+      "name": "Meena D",
+      "skills": [
+        "cooking"
+      ]
+    },
+    {
+      "city": "Tiruchirappalli",
+      "district": "Tiruchirappalli",
+      "education": "10th pass",
+      "email": "vignesh.n@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 12000,
+      "interests": "",
+      "key": "vignesh",
+      "language": "ta",
+      "name": "Vignesh N",
+      "skills": [
+        "plumbing"
+      ]
+    },
+    {
+      "city": "Dindigul",
+      "district": "Dindigul",
+      "education": "12th pass",
+      "email": "anitha.b@kaam-vaani.sample",
+      "goal_type": "job",
+      "income_monthly": 10000,
+      "interests": "accounts",
+      "key": "anitha",
+      "language": "ta",
+      "name": "Anitha B",
+      "skills": [
+        "billing",
+        "data entry"
+      ]
+    }
+  ]
+}

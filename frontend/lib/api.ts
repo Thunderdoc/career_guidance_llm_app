@@ -27,6 +27,12 @@ import type {
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
+/** Absolute API URL for plain links (CSV downloads), using the same
+ * base as `request()`. */
+export function apiUrl(path: string): string {
+  return `${BASE}${path}`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Transport: cold-start aware fetch with automatic retry                      */
 /* -------------------------------------------------------------------------- */
@@ -181,6 +187,528 @@ export function downloadFile(name: string, body: string | Blob, type = "text/pla
 /* Core API                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Backend VoiceProfile (snake_case) as /api/v1/kv/voice/* returns it. */
+export type KvVoiceProfile = {
+  skills: string[];
+  interests: string;
+  education: string;
+  city: string;
+  income_text: string;
+  income_monthly: number | null;
+  goal_type: string;
+  raw_text: string;
+};
+
+/** Backend VoiceSession (snake_case) — the client holds it in sessionStorage. */
+export type KvVoiceSession = {
+  state: string;
+  language: string;
+  question_index: number;
+  answers: Record<string, string>;
+  answer_source: Record<string, string>;
+  profile: KvVoiceProfile | null;
+  confirmed: boolean;
+  remember: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/** One structured why-it-fits reason from the matching endpoint — the
+ * frontend composes the sentence in the user's language (EN/HI/TA). */
+export type KvMatchReason = {
+  kind: "skill" | "title" | "income" | "zone";
+  skills?: string[];
+};
+
+/** One Kaam-Vaani match (Stage 4): score with components, matched /
+ * missing core competencies, structured why-it-fits reasons. */
+export type KvMatch = {
+  career_id: string;
+  title: string;
+  description: string;
+  job_zone: number;
+  score: number;
+  match_percent: number;
+  components: { skill: number; title: number; base: number; zone: number; income: number };
+  contributions: { skill: number; title: number; base: number; zone: number; income: number };
+  matched_skills: string[];
+  missing_skills: string[];
+  reasons: KvMatchReason[];
+  income_fit: number;
+  zone_fit: number;
+};
+
+export type KvMatchesResponse = {
+  session: KvVoiceSession;
+  matches: KvMatch[];
+  target_zone: number;
+  excluded_zone: number;
+};
+
+/** One free learning resource — every item carries its source. */
+export type KvLearningItem = {
+  skill: string;
+  title: string;
+  url: string;
+  provider: string;
+  free: boolean;
+  source: string;
+};
+
+/** One RAG course citation (Stage 2 knowledge base). */
+export type KvCitation = {
+  source_id: string;
+  title: string;
+  url: string;
+  date: string;
+  snippet: string;
+};
+
+export type KvGapLearningResponse = {
+  session: KvVoiceSession;
+  next_state: string;
+  career_id: string;
+  title: string;
+  match_percent: number;
+  gap: {
+    career_id: string;
+    title: string;
+    readiness: number;
+    readiness_weighted: number;
+    counts: { strong: number; weak: number; missing: number };
+    skills: { skill: string; importance: number; importance_10: number; rating: number; status: string }[];
+    radar: { skill: string; rating: number; importance: number; status: string }[];
+    thresholds: { strong: number; weak: number };
+    source: string;
+  };
+  learning_path: KvLearningItem[];
+  skill_plan: {
+    steps: { title: string; url: string; provider: string; free: boolean; skills: string[]; source: string }[];
+    totals: {
+      courses: number;
+      paid_courses: number;
+      free_courses: number;
+      skills_covered: number;
+      skills_total: number;
+      skills_already_held: number;
+      skills_uncovered: number;
+    };
+    covered_by_held: { skill: string; via: string }[];
+    uncovered: { skill: string; reason: string }[];
+    ordering: string;
+  };
+  citations: KvCitation[];
+};
+
+/** Kaam-Vaani employer portal (Stage 5) — backend snake_case, as returned. */
+export type KvEmployerStatus = "pending" | "verified" | "rejected" | "flagged";
+export type KvListingStatus = "pending" | "verified" | "rejected" | "flagged";
+
+export type KvEmployer = {
+  id: number;
+  user_id: string;
+  business_name: string;
+  contact_name: string;
+  phone_e164: string;
+  email: string;
+  city: string;
+  district: string;
+  state: string;
+  business_type: string;
+  description: string;
+  status: KvEmployerStatus;
+  endorsed_by: string;
+  endorsed_by_type: string;
+  endorsement_note: string;
+  endorsed: boolean;
+  created_at: string;
+  updated_at: string;
+  reviewed_by: string;
+  reviewed_at: string;
+  review_note: string;
+  phone_verified?: boolean;
+  phone_e164_user?: string;
+};
+
+export type KvScamFlag = {
+  id: string;
+  severity: "high" | "medium" | "low";
+  weight: number;
+  message: string;
+};
+
+export type KvScamCheck = {
+  score: number;
+  flags: KvScamFlag[];
+  rules_score: number;
+  llm_score: number | null;
+  llm_status: "configured" | "not_configured" | "failed";
+  llm_reasons: string[];
+  pay: {
+    status: string;
+    reason: string;
+    checked_against: {
+      employment: string;
+      employment_title: string;
+      floor_monthly?: number;
+      ceiling_monthly?: number;
+      order: string;
+      effective_from: string;
+      scope: string;
+    } | null;
+  };
+  driven_by: "rules" | "llm";
+  recommended_status: KvListingStatus;
+};
+
+export type KvListing = {
+  id: number;
+  employer_id: number;
+  title: string;
+  role_category: string;
+  description: string;
+  city: string;
+  district: string;
+  state: string;
+  pay_monthly_min: number | null;
+  pay_monthly_max: number | null;
+  pay_text: string;
+  work_type: string;
+  shift: string;
+  openings: number;
+  requirements: string;
+  contact_info: string;
+  status: KvListingStatus;
+  risk_score: number;
+  risk_flags: KvScamFlag[];
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+  reviewed_by: string;
+  reviewed_at: string;
+  review_note: string;
+};
+
+export type KvPublicListing = Omit<
+  KvListing,
+  "status" | "risk_score" | "risk_flags" | "updated_at" | "reviewed_by" | "reviewed_at" | "review_note"
+> & {
+  employer_name: string;
+  employer_endorsed: boolean;
+  employer_endorsed_by: string;
+};
+
+export type KvListingReport = {
+  id: number;
+  listing_id: number;
+  reporter_user_id: string;
+  reason: string;
+  details: string;
+  status: "open" | "upheld" | "dismissed";
+  created_at: string;
+  reviewed_by: string;
+  reviewed_at: string;
+  review_note: string;
+};
+
+export type KvReviewQueue = {
+  counts: {
+    employers_pending: number;
+    employers_flagged: number;
+    listings_pending: number;
+    listings_flagged: number;
+    reports_open: number;
+  };
+  employers: KvEmployer[];
+  listings: KvListing[];
+  reports: KvListingReport[];
+};
+
+export type KvEmployersStatus = {
+  enabled: boolean;
+  phone_otp: { firebase_configured: boolean; available: boolean; note: string };
+  llm_risk_score: { configured: boolean; provider: string | null };
+  pay_plausibility: {
+    status: string;
+    reason: string;
+    employments?: number;
+    order?: string;
+    effective_from?: string;
+  };
+};
+
+/* Kaam-Vaani rights/scam assistant (Step 9.1): grounded answers over
+ * the rights topics, plus verified-helpline escalation on scam
+ * questions. The escalation numbers come only from the backend's
+ * verified helplines file — the UI never hardcodes a number. */
+export type KvRightsEscalation = {
+  number: string;
+  name: string;
+  purpose: string;
+  source_url: string;
+  portal: string;
+  toll_free: boolean;
+};
+
+export type KvRightsAnswer = {
+  refused: boolean;
+  reason: string | null;
+  answer: string;
+  citations: { source_id: string; source_url: string; source_title: string; source_date: string }[];
+  escalation: KvRightsEscalation[];
+  topics: string[];
+  scam_intent: boolean;
+  trace_id?: string;
+};
+
+export type KvRightsStatus = {
+  enabled: boolean;
+  topics: Record<string, number>;
+  chunks: number;
+  helplines: { number: string; name: string }[];
+  snapshot_versions: string[];
+};
+
+/* Kaam-Vaani pilot console (Step 9.2): metrics, roster, bulk onboarding,
+ * coordinator review queue. Coordinators + admins only. */
+export type KvPilotMetrics = {
+  profiles: { total: number; sample: number };
+  consents: Record<string, number>;
+  shortlists: { total: number };
+  contact_requests: { total: number };
+  outcomes: Record<string, number>;
+  retention: {
+    hired: number;
+    day30: { reported: number; still_employed: number; left: number; unknown: number; rate: number | null };
+    day90: { reported: number; still_employed: number; left: number; unknown: number; rate: number | null };
+  };
+  employers: Record<string, number>;
+  listings: Record<string, number>;
+  scam_reports: Record<string, number>;
+  review_queue: Record<string, number>;
+};
+
+export type KvPilotWorker = {
+  user_id: string;
+  worker_name: string;
+  worker_email: string;
+  skills: string[];
+  education: string;
+  city: string;
+  district: string;
+  income_monthly: number | null;
+  goal_type: string;
+  language: string;
+  is_sample: boolean;
+  created_at: string;
+};
+
+export type KvPilotBulkResult = {
+  row: number;
+  user_id: string | null;
+  status: "created" | "updated" | "failed";
+  error: string | null;
+};
+
+export type KvPilotBulkResponse = {
+  created: number;
+  updated: number;
+  failed: number;
+  results: KvPilotBulkResult[];
+};
+
+export type KvPilotReviewQueue = {
+  counts: Record<string, number>;
+  employers: { id: number; business_name: string; contact_name: string; city: string; status: string }[];
+  listings: { id: number; employer_id: number; title: string; city: string; status: string; risk_score: number }[];
+  reports: { id: number; listing_id: number; reason: string; status: string }[];
+};
+
+/* Kaam-Vaani video skill check (Step 9.3, EXPERIMENTAL): clip validity
+ * only — never a skill score, never a certificate. */
+export type KvVideoCheckResult = {
+  verdict: "usable" | "unusable";
+  label: string;
+  confidence: string;
+  duration_seconds: number;
+  resolution: string;
+  frames_sampled: number;
+  checks: { name: string; passed: boolean; value: number; detail: string }[];
+  reasons: string[];
+  limits: string;
+};
+
+export type KvListingInput = {
+  title: string;
+  role_category?: string;
+  description?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  pay_monthly_min?: number | null;
+  pay_monthly_max?: number | null;
+  pay_text?: string;
+  work_type?: string;
+  shift?: string;
+  openings?: number;
+  requirements?: string;
+  contact_info?: string;
+};
+
+/* Kaam-Vaani consent + employer matching + hire outcomes (Stage 6).
+ * The server returns snake_case; the views use these shapes as-is.
+ * A candidate's `profile` carries ONLY the fields the worker consented
+ * to share with that employer — the server filters, never the UI. */
+export type KvConsentFieldName =
+  | "skills"
+  | "education"
+  | "city"
+  | "income"
+  | "goal"
+  | "interests"
+  | "contact";
+
+export type KvWorkerProfile = {
+  user_id: string;
+  skills: string[];
+  education: string;
+  city: string;
+  district: string;
+  income_monthly: number | null;
+  income_text: string;
+  goal_type: string;
+  interests: string;
+  language: string;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type KvConsent = {
+  id: number;
+  worker_user_id: string;
+  employer_id: number;
+  employer_name: string;
+  listing_id: number | null;
+  listing_title: string;
+  fields: KvConsentFieldName[];
+  status: "granted" | "revoked" | "expired";
+  duration_days: number;
+  granted_at: string;
+  expires_at: string;
+  revoked_at: string;
+  active: boolean;
+};
+
+export type KvConsentStatus = {
+  enabled: boolean;
+  fields: { name: KvConsentFieldName; explanation: string }[];
+  durations_days: number[];
+  default_duration_days: number;
+  outcomes: string[];
+  followup_days: number[];
+  followup_statuses: string[];
+};
+
+export type KvConsentAuditEvent = {
+  id: number;
+  consent_id: number | null;
+  worker_user_id: string;
+  employer_id: number;
+  action: "granted" | "revoked" | "expired" | "accessed";
+  actor: string;
+  detail: Record<string, unknown>;
+  created_at: string;
+};
+
+export type KvCandidateProfile = {
+  fields_shared: KvConsentFieldName[];
+  skills?: string[];
+  education?: string;
+  city?: string;
+  district?: string;
+  income_monthly?: number | null;
+  income_text?: string;
+  goal_type?: string;
+  interests?: string;
+  contact?: { email: string; phone_e164: string };
+};
+
+export type KvCandidateReason = {
+  kind: "skill" | "title" | "city" | "district" | "income" | "no_requirements";
+  skills?: string[];
+  city?: string;
+  district?: string;
+};
+
+export type KvCandidate = {
+  worker_user_id: string;
+  worker_name: string;
+  score: number;
+  match_percent: number;
+  components: { skill: number; title: number; city: number; income: number };
+  matched_skills: string[];
+  missing_skills: string[];
+  reasons: KvCandidateReason[];
+  profile: KvCandidateProfile;
+  consent_id: number;
+  consent_expires_at: string;
+  shortlisted: boolean;
+  is_sample: boolean;
+};
+
+export type KvShortlistEntry = {
+  id: number;
+  employer_id: number;
+  listing_id: number;
+  worker_user_id: string;
+  worker_name: string;
+  created_at: string;
+  consent_status: "granted" | "revoked" | "expired" | "none";
+  consent_expires_at: string;
+  profile: KvCandidateProfile | null;
+};
+
+export type KvContactRequest = {
+  id: number;
+  employer_id: number;
+  employer_name: string;
+  listing_id: number;
+  listing_title: string;
+  worker_user_id: string;
+  worker_name: string;
+  message: string;
+  created_at: string;
+};
+
+export type KvHireOutcome = {
+  id: number;
+  employer_id: number;
+  listing_id: number;
+  listing_title: string;
+  worker_user_id: string;
+  worker_name: string;
+  outcome: "hired" | "interviewed" | "not_hired";
+  reported_by_user_id: string;
+  reporter_role: string;
+  note: string;
+  created_at: string;
+  day30_status: string;
+  day30_reported_at: string;
+  day90_status: string;
+  day90_reported_at: string;
+};
+
+export type KvOutcomeSummary = {
+  outcomes: KvHireOutcome[];
+  counts: { hired: number; interviewed: number; not_hired: number; total: number };
+  retention: {
+    hired: number;
+    day30: { reported: number; still_employed: number; rate: number | null };
+    day90: { reported: number; still_employed: number; rate: number | null };
+  };
+};
+
 export const api = {
   health: () =>
     request<{ status: string; ai_mode: boolean; occupations: number; version: string; public_app: boolean }>(
@@ -190,6 +718,302 @@ export const api = {
     request<{ experience_levels: string[]; ai_mode: boolean; occupations: number; version: string }>("/api/v1/meta"),
   recommend: (body: ProfileInput) =>
     request<RecommendResponse>("/api/v1/recommend", { method: "POST", body: JSON.stringify(body) }),
+  /* Kaam-Vaani voice (Stage 3): profile extraction + confirmation. The
+   * server returns snake_case (the backend VoiceProfile contract); the
+   * voice view maps it to the local camelCase VoiceProfile. */
+  kvVoiceStatus: () =>
+    request<{
+      enabled: boolean;
+      stt: string;
+      tts: string;
+      gateway: {
+        stt: { configured: string; effective: string; provider: string; client_side: boolean; available: boolean };
+        tts: { configured: string; effective: string; provider: string; client_side: boolean; available: boolean };
+      };
+      extraction: string;
+      llm_provider: string | null;
+      languages: string[];
+      questions: string[];
+    }>("/api/v1/kv/voice/status"),
+  kvVoiceExtract: (body: { text?: string; answers?: Record<string, string>; language: string }) =>
+    request<{ profile: KvVoiceProfile; method: string; language: string }>("/api/v1/kv/voice/extract", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvVoiceConfirm: (body: { session: KvVoiceSession; profile: KvVoiceProfile; confirmed: boolean }) =>
+    request<{ session: KvVoiceSession; next_state: string }>("/api/v1/kv/voice/confirm", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /* Kaam-Vaani matching (Stage 4): Top-5 matches for a confirmed
+   * profile + gap/learning path per match, with the server-validated
+   * matches → gap_learning transition. Same KV_VOICE flag as the voice
+   * router. */
+  kvMatches: (body: { session: KvVoiceSession; profile: KvVoiceProfile; top_k?: number }) =>
+    request<KvMatchesResponse>("/api/v1/kv/matches", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvGapLearning: (body: { session: KvVoiceSession; profile: KvVoiceProfile; occupation_id: string }) =>
+    request<KvGapLearningResponse>("/api/v1/kv/gap-learning", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /* Kaam-Vaani rights/scam assistant (Step 9.1): grounded answers
+   * over the rights topics + verified-helpline escalation. Behind
+   * KV_RAG (same flag as the main RAG). */
+  kvRightsStatus: () => request<KvRightsStatus>("/api/v1/kv/rights/status"),
+  kvRightsAsk: (body: { question: string }) =>
+    request<KvRightsAnswer>("/api/v1/kv/rights/ask", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /* Kaam-Vaani pilot console (Step 9.2). Behind KV_PILOT; coordinators
+   * + admins only. CSV downloads are plain links (same-origin). */
+  kvPilotMetrics: () => request<KvPilotMetrics>("/api/v1/kv/pilot/metrics"),
+  kvPilotWorkers: (limit = 100, offset = 0) =>
+    request<{ workers: KvPilotWorker[]; counts: { total: number; sample: number } }>(
+      `/api/v1/kv/pilot/workers?limit=${limit}&offset=${offset}`,
+    ),
+  kvPilotBulkWorkers: (rows: Record<string, unknown>[]) =>
+    request<KvPilotBulkResponse>("/api/v1/kv/pilot/workers/bulk", {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    }),
+  kvPilotReviewQueue: () => request<KvPilotReviewQueue>("/api/v1/kv/pilot/review-queue"),
+  kvPilotReviewEmployer: (id: number, body: { approve: boolean; note?: string }) =>
+    request<{ employer: { id: number; status: string } }>(`/api/v1/kv/pilot/employers/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvPilotReviewListing: (id: number, body: { approve: boolean; note?: string }) =>
+    request<{ listing: { id: number; status: string } }>(`/api/v1/kv/pilot/listings/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvPilotReviewReport: (id: number, body: { action: "uphold" | "dismiss"; note?: string }) =>
+    request<{ report: { id: number; status: string } }>(`/api/v1/kv/pilot/reports/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /* Kaam-Vaani video skill check (Step 9.3, EXPERIMENTAL). Behind
+   * KV_VIDEO_CHECK; signed-in users only. The clip is deleted right
+   * after analysis — it is never stored. */
+  kvVideoCheck: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<KvVideoCheckResult>("/api/v1/kv/video/check", {
+      method: "POST",
+      body: form,
+      headers: {}, // let the browser set the multipart boundary
+    });
+  },
+  /* Kaam-Vaani employer portal (Stage 5): registration, listings,
+   * verification, scam checker, admin review queue. Behind KV_EMPLOYERS. */
+  kvEmployersStatus: () => request<KvEmployersStatus>("/api/v1/kv/employers/status"),
+  kvEmployerRegister: (body: {
+    business_name: string;
+    contact_name?: string;
+    phone_e164?: string;
+    email?: string;
+    city?: string;
+    district?: string;
+    state?: string;
+    business_type?: string;
+    description?: string;
+  }) =>
+    request<{ employer: KvEmployer }>("/api/v1/kv/employers/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvEmployerMine: () => request<{ employer: KvEmployer }>("/api/v1/kv/employers/mine"),
+  kvEmployerUpdate: (body: Partial<KvEmployer>) =>
+    request<{ employer: KvEmployer }>("/api/v1/kv/employers/mine", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  kvEmployerVerifyPhone: (id_token: string) =>
+    request<{ phone_e164: string; phone_verified: boolean }>("/api/v1/kv/employers/mine/verify-phone", {
+      method: "POST",
+      body: JSON.stringify({ id_token }),
+    }),
+  kvListingCheck: (body: KvListingInput) =>
+    request<{ check: KvScamCheck }>("/api/v1/kv/employers/listings/check", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvListingCreate: (body: KvListingInput) =>
+    request<{ listing: KvListing; check: KvScamCheck }>("/api/v1/kv/employers/listings", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvMyListings: (status?: string) =>
+    request<{ listings: KvListing[] }>(
+      `/api/v1/kv/employers/listings${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    ),
+  kvMyListing: (id: number) => request<{ listing: KvListing }>(`/api/v1/kv/employers/listings/${id}`),
+  kvListingUpdate: (id: number, body: Partial<KvListingInput>) =>
+    request<{ listing: KvListing; check: KvScamCheck }>(`/api/v1/kv/employers/listings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  kvListingDelete: (id: number) =>
+    request<{ deleted: number }>(`/api/v1/kv/employers/listings/${id}`, { method: "DELETE" }),
+  kvPublicListings: (params?: {
+    city?: string;
+    role_category?: string;
+    limit?: number;
+    near_city?: string;
+    radius_km?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.city) q.set("city", params.city);
+    if (params?.role_category) q.set("role_category", params.role_category);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.near_city) q.set("near_city", params.near_city);
+    if (params?.radius_km) q.set("radius_km", String(params.radius_km));
+    const suffix = q.toString() ? `?${q.toString()}` : "";
+    return request<{
+      listings: KvPublicListing[];
+      count: number;
+      sample_data: boolean;
+      near_city?: string;
+      radius_km?: number;
+    }>(`/api/v1/kv/listings${suffix}`);
+  },
+  kvPublicListing: (id: number) =>
+    request<{ listing: KvPublicListing }>(`/api/v1/kv/listings/${id}`),
+  kvReportListing: (id: number, body: { reason: string; details?: string }) =>
+    request<{ report: KvListingReport; auto_flagged: boolean }>(`/api/v1/kv/listings/${id}/report`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvReviewQueue: () => request<KvReviewQueue>("/api/v1/kv/admin/review-queue"),
+  kvReviewEmployer: (id: number, body: { approve: boolean; note?: string }) =>
+    request<{ employer: KvEmployer }>(`/api/v1/kv/admin/employers/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvReviewListing: (id: number, body: { approve: boolean; note?: string }) =>
+    request<{ listing: KvListing }>(`/api/v1/kv/admin/listings/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvEndorseEmployer: (id: number, body: { endorsed_by: string; endorsed_by_type?: string; note?: string }) =>
+    request<{ employer: KvEmployer }>(`/api/v1/kv/admin/employers/${id}/endorse`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvAdminReports: (status?: string) =>
+    request<{ reports: KvListingReport[] }>(
+      `/api/v1/kv/admin/reports${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    ),
+  kvReviewReport: (id: number, body: { action: "uphold" | "dismiss"; note?: string }) =>
+    request<{ report: KvListingReport; listing: KvListing | null }>(
+      `/api/v1/kv/admin/reports/${id}/review`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  /* Kaam-Vaani consent + matching + hire outcomes (Stage 6). Behind
+   * KV_CONSENT. Worker profile, per-employer consent, ranked consented
+   * candidates, shortlist, contact requests, hire outcomes. */
+  kvConsentStatus: () => request<KvConsentStatus>("/api/v1/kv/consent/status"),
+  kvWorkerProfileGet: () => request<{ profile: KvWorkerProfile }>("/api/v1/kv/worker-profile"),
+  kvWorkerProfileSave: (body: {
+    skills: string[];
+    education?: string;
+    city?: string;
+    district?: string;
+    income_monthly?: number | null;
+    income_text?: string;
+    goal_type?: string;
+    interests?: string;
+    language?: string;
+  }) =>
+    request<{ profile: KvWorkerProfile }>("/api/v1/kv/worker-profile", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  kvConsentGrant: (body: {
+    employer_id: number;
+    listing_id?: number | null;
+    fields?: KvConsentFieldName[] | null;
+    duration_days?: number;
+  }) =>
+    request<{ consent: KvConsent; explanation: string; employer_name: string }>(
+      "/api/v1/kv/consent/grant",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  kvConsentRevoke: (id: number) =>
+    request<{ consent: KvConsent }>(`/api/v1/kv/consent/${id}/revoke`, { method: "POST" }),
+  kvConsentMine: () => request<{ consents: KvConsent[] }>("/api/v1/kv/consent/mine"),
+  kvConsentAudit: (limit?: number) =>
+    request<{ events: KvConsentAuditEvent[] }>(
+      `/api/v1/kv/consent/audit${limit ? `?limit=${limit}` : ""}`,
+    ),
+  kvContactRequestsReceived: () =>
+    request<{ requests: KvContactRequest[] }>("/api/v1/kv/consent/contact-requests"),
+  kvMatchingCandidates: (body: { listing_id: number; city?: string; limit?: number }) =>
+    request<{
+      listing: KvListing;
+      candidates: KvCandidate[];
+      count: number;
+      sample_data: boolean;
+    }>("/api/v1/kv/employers/matching/candidates", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvShortlistGet: (listingId: number) =>
+    request<{ shortlist: KvShortlistEntry[] }>(
+      `/api/v1/kv/employers/matching/shortlist?listing_id=${listingId}`,
+    ),
+  kvShortlistAdd: (body: { listing_id: number; worker_user_id: string }) =>
+    request<{
+      shortlist: Pick<
+        KvShortlistEntry,
+        "id" | "employer_id" | "listing_id" | "worker_user_id" | "created_at"
+      >;
+    }>("/api/v1/kv/employers/matching/shortlist", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvShortlistRemove: (listingId: number, workerUserId: string) =>
+    request<{ deleted: boolean }>(
+      `/api/v1/kv/employers/matching/shortlist?listing_id=${listingId}&worker_user_id=${encodeURIComponent(workerUserId)}`,
+      { method: "DELETE" },
+    ),
+  kvContactRequestSend: (body: { listing_id: number; worker_user_id: string; message?: string }) =>
+    request<{ request: KvContactRequest }>("/api/v1/kv/employers/matching/contact-request", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvContactRequestsSent: (listingId?: number) =>
+    request<{ requests: KvContactRequest[] }>(
+      `/api/v1/kv/employers/matching/contact-requests${listingId ? `?listing_id=${listingId}` : ""}`,
+    ),
+  kvEmployerAudit: (limit?: number) =>
+    request<{ events: KvConsentAuditEvent[] }>(
+      `/api/v1/kv/employers/matching/audit${limit ? `?limit=${limit}` : ""}`,
+    ),
+  kvHireOutcomeReport: (body: {
+    listing_id: number;
+    worker_user_id: string;
+    outcome: "hired" | "interviewed" | "not_hired";
+    note?: string;
+  }) =>
+    request<{ outcome: KvHireOutcome }>("/api/v1/kv/hire-outcomes", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvHireOutcomeFollowup: (id: number, body: { day: 30 | 90; status: string }) =>
+    request<{ outcome: KvHireOutcome }>(`/api/v1/kv/hire-outcomes/${id}/followup`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  kvEmployerOutcomes: (listingId?: number) =>
+    request<KvOutcomeSummary>(
+      `/api/v1/kv/employers/hire-outcomes${listingId ? `?listing_id=${listingId}` : ""}`,
+    ),
+  kvMyOutcomes: () => request<{ outcomes: KvHireOutcome[] }>("/api/v1/kv/hire-outcomes/mine"),
   chat: (runId: number, message: string) =>
     request<ChatResponse>("/api/v1/chat", {
       method: "POST",

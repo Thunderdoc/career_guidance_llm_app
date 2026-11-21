@@ -10,9 +10,11 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import {
   GoogleAuthProvider,
+  RecaptchaVerifier,
   createUserWithEmailAndPassword,
   getAuth,
   getRedirectResult,
+  linkWithPhoneNumber,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -20,6 +22,7 @@ import {
   signInWithRedirect,
   signOut,
   type Auth,
+  type ConfirmationResult,
   type User as FirebaseUser,
 } from "firebase/auth";
 
@@ -169,6 +172,47 @@ export const firebaseSignOut = async () => {
 
 export const currentFirebaseUser = (): FirebaseUser | null => (firebaseConfigured ? firebaseAuth().currentUser : null);
 
+// ---- Phone linking (Kaam-Vaani Stage 5) -------------------------------------
+/**
+ * Link a phone number to the signed-in Firebase account (employer
+ * verification). The user must already be signed in with Firebase
+ * (Google / email) with the SAME e-mail as their app account — the
+ * backend checks the token's e-mail against the session user (A36).
+ *
+ * Flow: `startPhoneLink(phone)` sends the SMS code (invisible
+ * reCAPTCHA), then `confirmPhoneLink(result, code)` confirms it and
+ * returns a fresh ID token carrying the `phone_number` claim, which
+ * the caller posts to /api/v1/kv/employers/mine/verify-phone.
+ *
+ * NOT live-verified: phone sign-in must first be enabled in the
+ * Firebase console (owner step, L38/L44), and the SMS step needs a
+ * real phone. The UI surfaces Firebase's own errors honestly.
+ */
+let phoneVerifier: RecaptchaVerifier | null = null;
+
+export async function startPhoneLink(phoneE164: string): Promise<ConfirmationResult> {
+  const auth = firebaseAuth();
+  const user = auth.currentUser;
+  if (!user) throw Object.assign(new Error("Sign in with Firebase first."), { code: "app/no-firebase-user" });
+  if (!phoneVerifier) {
+    phoneVerifier = new RecaptchaVerifier(auth, "kv-phone-recaptcha", { size: "invisible" });
+  }
+  return linkWithPhoneNumber(user, phoneE164, phoneVerifier);
+}
+
+export async function confirmPhoneLink(result: ConfirmationResult, code: string): Promise<string> {
+  const cred = await result.confirm(code);
+  const token = await cred.user.getIdToken(true);
+  phoneVerifier?.clear();
+  phoneVerifier = null;
+  return token;
+}
+
+export function clearPhoneVerifier(): void {
+  phoneVerifier?.clear();
+  phoneVerifier = null;
+}
+
 // ---- Errors -----------------------------------------------------------------
 /**
  * Human-readable message for every Firebase error code the sign-in screen can
@@ -206,6 +250,15 @@ export function friendlyFirebaseError(e: unknown): string {
     "auth/invalid-action-code": "That verification link is invalid or was already used.",
     "auth/account-exists-with-different-credential": "An account with this e-mail already exists using a different sign-in method.",
     "app/not-configured": "Sign-in is not configured on this deployment (missing NEXT_PUBLIC_FIREBASE_* variables).",
+    "app/no-firebase-user": "Sign in with Google using the same e-mail address first, then link your phone number.",
+    "auth/invalid-phone-number": "That phone number doesn't look right — use the full international format, e.g. +919876543210.",
+    "auth/missing-phone-number": "Please enter your phone number.",
+    "auth/quota-exceeded": "The SMS quota is used up for today (auth/quota-exceeded). Firebase's free plan allows a limited number of verifications a day — try again tomorrow.",
+    "auth/captcha-check-failed": "The security check failed (auth/captcha-check-failed). Please reload the page and try again.",
+    "auth/invalid-verification-code": "That code is wrong — check the SMS and try again.",
+    "auth/code-expired": "That code has expired — request a new one.",
+    "auth/credential-already-in-use": "This phone number is already linked to another account.",
+    "auth/provider-already-linked": "A phone number is already linked to this account.",
   };
   if (map[code]) return map[code];
   if (code) return `Sign-in failed (${code})`;

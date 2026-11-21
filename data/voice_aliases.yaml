@@ -1,0 +1,67 @@
+# Spoken-form skill aliases for the voice flow — the single source of truth
+# for both the frontend vocabulary generator (scripts/gen_voice_vocab.py)
+# and the backend deterministic extractor (career_guidance/kaamvaani/extract.py),
+# so both paths agree by construction (Stage 2).
+#
+# Curated spoken forms school-leavers actually say ("farming", "tailoring",
+# "mobile repair", ...) mapped to canonicals that exist in
+# data/skill_synonyms.yaml. Devanagari / Tamil-script forms included:
+# Chrome's hi-IN / ta-IN recognition returns native script, not
+# transliteration. Every value must be a canonical in the YAML — both
+# consumers fail loudly if one is not, so the vocabulary can never
+# invent a skill.
+#
+# After editing: regenerate the frontend vocabulary with
+#   python scripts/gen_voice_vocab.py
+# and re-run the Kaam-Vaani eval (python -m eval.run_kv).
+extra_aliases:
+  bijli ka kaam: electrical technician
+  bijli work: electrical technician
+  bike repair: automotive
+  can type: attention to detail
+  computer: computer literacy
+  computer repair: electronics engineering
+  computer repairing: electronics engineering
+  cooking: hospitality
+  dairy farming: agricultural science
+  driving: automotive
+  electric work: electrical technician
+  electrical work: electrical technician
+  farm work: agricultural science
+  gaadi chalaana: automotive
+  gaadi chalana: automotive
+  khana banana: hospitality
+  kheti: agricultural science
+  kheti baari: agricultural science
+  min velai: electrical technician
+  mobile repair: electronics engineering
+  mobile repairing: electronics engineering
+  phone repair: electronics engineering
+  plumbing work: plumbing
+  samayal: hospitality
+  sewing: fashion design
+  silaai: fashion design
+  silai: fashion design
+  stitching: fashion design
+  tailor: fashion design
+  tailoring: fashion design
+  thaiyal: fashion design
+  tractor repair: automotive
+  two wheeler repair: automotive
+  typing: attention to detail
+  vandi ottudhal: automotive
+  vivasaaya: agricultural science
+  vivasaayam: agricultural science
+  टाइपिंग: attention to detail
+  खाना बनाना: hospitality
+  खेती: agricultural science
+  गाड़ी चलाना: automotive
+  दर्जी: fashion design
+  बिजली का काम: electrical technician
+  सिलाई: fashion design
+  சமையல்: hospitality
+  தட்டச்சு: attention to detail
+  தையல்: fashion design
+  தையல்காரர்: fashion design
+  மின் வேலை: electrical technician
+  வண்டி ஓட்டுதல்: automotive

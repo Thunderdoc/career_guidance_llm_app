@@ -253,7 +253,7 @@ skills:
   # ------------------------------------------------------------- healthcare
   nursing:
     expands: ["medicine and dentistry", "therapy and counseling", "patient care"]
-    aliases: ["staff nurse", "gnm", "bsc nursing", "icu nursing", "bedside care", "nurse practitioner", "செவிலியர்", "नर्सिंग"]
+    aliases: ["nurse", "staff nurse", "gnm", "bsc nursing", "icu nursing", "bedside care", "nurse practitioner", "செவிலியர்", "नर्स", "नर्सिंग"]
   patient care:
     expands: ["medicine and dentistry", "therapy and counseling"]
     aliases: ["patient handling", "clinical care", "vital signs", "caregiving", "elderly care", "home care", "நோயாளி பராமரிப்பு", "रोगी देखभाल"]
@@ -311,7 +311,27 @@ skills:
     aliases: ["plumber", "pipe fitting", "sanitary fitting", "குழாய் வேலை", "प्लंबर"]
   automotive:
     expands: ["mechanical", "repairing", "troubleshooting"]
-    aliases: ["automobile", "auto mechanic", "vehicle maintenance", "two wheeler mechanic", "ev technician", "tractor mechanic", "வாகன பழுது"]
+    aliases: ["automobile", "auto mechanic", "vehicle maintenance", "two wheeler mechanic", "ev technician", "tractor mechanic", "mechanic", "bus driver", "truck driver", "cab driver", "auto driver", "வாகன பழுது", "ஓட்டுநர்"]
+  # --- common local trades (Kaam-Vaani Stage 2): school-leavers name these
+  # trades in voice transcripts; without canonicals they extracted no skill.
+  carpentry:
+    expands: ["building and construction", "design", "repairing"]
+    aliases: ["carpenter", "woodwork", "wood working", "woodworking", "furniture making", "தச்சர்", "மரவேலை", "बढ़ई"]
+  masonry:
+    expands: ["building and construction", "operation and control"]
+    aliases: ["mason", "bricklaying", "brick laying", "stone masonry", "கொத்தனார்", "राजमिस्त्री", "मिस्त्री"]
+  painting:
+    expands: ["fine arts", "building and construction"]
+    aliases: ["painter", "house painting", "wall painting", "பெயிண்டர்", "पेंटर", "रंगाई"]
+  hairdressing:
+    expands: ["customer and personal service", "sales and marketing"]
+    aliases: ["hairdresser", "hair stylist", "barber", "beautician", "salon work", "முடி வெட்டுதல்", "नाई", "ब्यूटीशियन"]
+  security services:
+    expands: ["public safety and security"]
+    aliases: ["security guard", "watchman", "காவலர்", "सुरक्षा गार्ड", "चौकीदार"]
+  construction:
+    expands: ["building and construction", "mechanical"]
+    aliases: ["construction worker", "construction labour", "construction labor", "site work", "கட்டுமான வேலை", "निर्माण कार्य", "मजदूर"]
   hvac:
     expands: ["equipment maintenance", "installation", "mechanical"]
     aliases: ["air conditioning", "refrigeration", "ac technician", "hvac technician", "குளிர்பதனம்"]

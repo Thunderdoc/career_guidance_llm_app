@@ -21,6 +21,12 @@
   --color-success: #22c55e;
   --color-status-active: #3b82f6;
   --color-status-pending: #6b7280;
+  /* Kaam-Vaani accents (additive — the dark system above stays the base).
+     Used as per-question / per-category tints with pastel icon chips:
+     teal (accent) + gold already exist; coral/sky/violet complete the set. */
+  --color-kv-coral: #ff8a66;
+  --color-kv-sky: #38bdf8;
+  --color-kv-violet: #a78bfa;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -50,6 +56,9 @@
   --color-ok: var(--color-success);
   --color-active: var(--color-status-active);
   --color-pending: var(--color-status-pending);
+  --color-kv-coral: var(--color-kv-coral);
+  --color-kv-sky: var(--color-kv-sky);
+  --color-kv-violet: var(--color-kv-violet);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -91,6 +100,22 @@ body {
   0% { transform: translate(-10%, -10%) scale(1); }
   50% { transform: translate(10%, 5%) scale(1.15); }
   100% { transform: translate(-10%, -10%) scale(1); }
+}
+/* Kaam-Vaani voice UI: waveform bars (listening indicator), a gentle
+   float for the hero mic, and an expanding ring for the live mic.
+   All three are killed by the global prefers-reduced-motion and
+   low-bandwidth rules below (bars render statically instead). */
+@keyframes kvWave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+@keyframes kvFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes kvRing {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
 }
 
 .status-pulse { animation: statusPulse 1.6s ease-in-out infinite; }
@@ -137,6 +162,11 @@ body {
 .glow-accent { box-shadow: 0 0 0 1px rgba(0, 212, 170, 0.35), 0 0 32px rgba(0, 212, 170, 0.18); }
 .font-serif { font-family: var(--font-serif); }
 .mono { font-family: var(--font-mono); }
+
+/* Kaam-Vaani voice UI helpers (see keyframes above). */
+.kv-wave-bar { animation: kvWave 0.9s ease-in-out infinite; transform-origin: center; }
+.kv-float { animation: kvFloat 4s ease-in-out infinite; }
+.kv-ring { animation: kvRing 1.8s ease-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

@@ -23,3 +23,11 @@ class RateLimiter:
                 return False
             q.append(now)
             return True
+
+    def reset(self) -> None:
+        """Drop all recorded hits. Used by the test suite (an
+        autouse fixture resets every registered limiter before
+        each test so tests never trip each other's limits) and
+        by ops tooling. Never called in a request path."""
+        with self._lock:
+            self._hits.clear()
