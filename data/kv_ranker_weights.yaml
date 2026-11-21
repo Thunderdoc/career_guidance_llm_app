@@ -1,0 +1,31 @@
+# Kaam-Vaani ranker weights (Step 8.1).
+#
+# The five scoring features for occupation matching, measured on the
+# Stage 4 probe profiles (a farming/computer demo, an electrician, a
+# tailor, a bus driver and a high-income computer profile — see
+# career_guidance/kaamvaani/matching.py). Weights must sum to 1.0; the
+# loader (RankerConfig) rejects any file that does not.
+#
+# Aspirational features the execution prompt names — distance,
+# availability, language — stay at weight 0: no occupation carries
+# per-occupation location, shift or language data (LIMITATIONS.md L30),
+# so a non-zero weight would be a fake signal. They are listed here so
+# the gap is visible, not hidden; when real data lands, the weight and
+# the feature computation change together.
+weights:
+  skill: 0.30 # IDF-weighted overlap with the occupation's core competencies
+  title: 0.40 # phrase-AND title match — the strongest signal for trade users
+  base: 0.10 # MatcherV2 score, kept as a tiebreak signal
+  zone: 0.10 # job-zone fit against the target zone from the user's education
+  income: 0.10 # market-seed band vs the user's monthly need (coarse gate)
+  distance: 0.0 # NO DATA — no per-occupation location (L30)
+  availability: 0.0 # NO DATA — no per-occupation shift data (L30)
+  language: 0.0 # NO DATA — no per-occupation language requirement (L30)
+
+# Zone handling (Stage 4, unchanged by the refactor):
+# occupations more than `filter_slack` zones above the user's target
+# zone are excluded outright; the rest lose `gap_penalty` per zone of
+# gap, capped at `gap_penalty_cap`.
+zone_filter_slack: 1.0
+zone_gap_penalty: 0.15
+zone_gap_penalty_cap: 0.5

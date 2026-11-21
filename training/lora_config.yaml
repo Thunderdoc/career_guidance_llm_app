@@ -1,0 +1,45 @@
+# LoRA fine-tune config for Kaam-Vaani profile extraction (Step 8.8).
+#
+# NOT RUN HERE — this sandbox has no GPU. Run via
+# training/train_lora_colab.ipynb on a free Colab T4 (see
+# docs/LORA_RUNBOOK.md). These values are standard small-model LoRA
+# defaults for a 0.5B base, CHOSEN not tuned: no training run has
+# validated them. If the first run diverges or underfits, change
+# the learning rate / epochs first and record what worked in the
+# runbook.
+base_model: Qwen/Qwen2.5-0.5B-Instruct
+train_file: training/data/kv_lora_train.jsonl
+val_file: training/data/kv_lora_val.jsonl
+output_dir: training/output/kv-lora-0.5b
+
+lora:
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  # Attention + MLP projections: the usual full-coverage set for a
+  # small model. (Qwen2.5 uses q/k/v/o + gate/up/down.)
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4 # effective batch 16
+  learning_rate: 0.0002
+  # The system prompt alone is ~1200 tokens; 2048 covers prompt +
+  # transcript + the JSON reply for every example in the set.
+  max_length: 2048
+  logging_steps: 5
+  save_strategy: epoch
+  bf16: true
+  gradient_checkpointing: true
+  # Completion-only loss: the model learns to PRODUCE the profile
+  # JSON, not to repeat the (constant) system prompt. The notebook
+  # converts messages -> prompt/completion pairs for this.
+  completion_only_loss: true

@@ -13,6 +13,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 
 from career_guidance.config import Settings
 from career_guidance.models import CareerRecommendation, CareerSuggestion, ProviderError
@@ -206,12 +207,96 @@ class OllamaCompleter(ChatCompleter):
         return text
 
 
+class LlamaCppCompleter(ChatCompleter):
+    """Local GGUF model via the llama-cpp-python binding (Step 8.7).
+
+    No server, no key, no network at inference time: the model file
+    (``LLAMACPP_MODEL_PATH``) loads in-process. Measured in this
+    sandbox 21 Nov 2026 (Qwen2.5-0.5B-Instruct Q4_K_M, 469 MB):
+    loads in 0.4 s, peaks at ~670 MB RSS at n_ctx 2048, generates
+    ~10 tokens/s on 4 CPU threads — see ``docs/LOCAL_LLM_SETUP.md``.
+    The 0.5B model follows the JSON schema reliably but makes
+    semantic field errors on unseen input (it put the goal value in
+    ``interests`` and answered ``goal_type`` "explore" for a person
+    who explicitly wants a job), and Pydantic validation does NOT
+    catch them (the types are all valid) — so the deterministic
+    fallback and the voice flow's confirm step stay mandatory (L60).
+
+    The model loads LAZILY on the first ``complete()`` call, not at
+    construction, so building a router never pays the load cost and
+    a misconfigured path fails on first use with a clear error, not
+    at import. ``llama_cpp`` is an OPTIONAL dependency: it is
+    imported lazily inside ``_load``, so this module imports fine
+    without it. ``model`` is injectable for tests (any object with
+    ``create_chat_completion``).
+    """
+
+    name = "llamacpp"
+    display_name = "llama.cpp (local)"
+
+    def __init__(self, settings: Settings, model=None) -> None:
+        self._settings = settings
+        self._model = model
+        self._loaded = model is not None
+
+    def _load(self):
+        """Load (once) and return the model, or raise ProviderError."""
+        if self._loaded:
+            return self._model
+        try:
+            from llama_cpp import Llama
+        except ImportError as error:
+            raise ProviderError(
+                "The 'llama-cpp-python' package is not installed. See docs/LOCAL_LLM_SETUP.md."
+            ) from error
+        path = self._settings.llamacpp_model_path
+        if not path:
+            raise ProviderError("LLAMACPP_MODEL_PATH is not set — no local model file configured.")
+        if not Path(path).is_file():
+            raise ProviderError(f"LLM model file not found: {path}")
+        try:
+            self._model = Llama(
+                model_path=path,
+                n_ctx=self._settings.llamacpp_n_ctx,
+                n_threads=self._settings.llamacpp_n_threads,
+                verbose=False,
+            )
+        except Exception as error:  # noqa: BLE001 - normalised to ProviderError
+            raise ProviderError(f"Could not load the local model ({path}): {error}") from error
+        self._loaded = True
+        return self._model
+
+    def complete(self, system_prompt: str, user_content: str) -> str:
+        model = self._load()
+        try:
+            out = model.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                max_tokens=self._settings.llamacpp_max_tokens,
+                temperature=0.0,  # deterministic: extraction must not vary run to run
+            )
+        except ProviderError:
+            raise
+        except Exception as error:  # noqa: BLE001 - normalised to ProviderError
+            raise ProviderError(f"Local model completion failed: {error}") from error
+        try:
+            text = str(out["choices"][0]["message"]["content"])
+        except (KeyError, IndexError, TypeError) as error:
+            raise ProviderError("Could not parse the llama.cpp response.") from error
+        if not text.strip():
+            raise ProviderError("The llama.cpp response was empty.")
+        return text
+
+
 class ProviderFactory:
     """Selects the LLM backend from configuration (Phase 7).
 
     Selection rules:
-    * ``LLM_PROVIDER=openai|gemini|ollama`` wins when set (openai/gemini
-      additionally require their key; ollama needs no key).
+    * ``LLM_PROVIDER=openai|gemini|ollama|llamacpp`` wins when set
+      (openai/gemini additionally require their key; ollama needs no
+      key; llamacpp additionally requires ``LLAMACPP_MODEL_PATH``).
     * Unset: the pre-Phase-7 behaviour first — OpenAI when
       ``OPENAI_API_KEY`` is set — then Gemini when only its key is set.
     * Nothing configured → ``None`` → callers use the offline provider.
@@ -220,10 +305,12 @@ class ProviderFactory:
     @staticmethod
     def selected_name(settings: Settings) -> str | None:
         explicit = (settings.llm_provider or "").strip().lower()
-        if explicit in {"openai", "gemini", "ollama"}:
+        if explicit in {"openai", "gemini", "ollama", "llamacpp"}:
             if explicit == "openai" and not settings.openai_api_key:
                 return None
             if explicit == "gemini" and not settings.gemini_api_key:
+                return None
+            if explicit == "llamacpp" and not settings.llamacpp_model_path:
                 return None
             return explicit
         if explicit:
@@ -244,6 +331,8 @@ class ProviderFactory:
             return GeminiCompleter(settings, transport=transport)
         if name == "ollama":
             return OllamaCompleter(settings, transport=transport)
+        if name == "llamacpp":
+            return LlamaCppCompleter(settings)
         return None
 
     @staticmethod
@@ -256,6 +345,8 @@ class ProviderFactory:
             return GeminiProvider(settings, transport=transport)
         if name == "ollama":
             return OllamaProvider(settings, transport=transport)
+        if name == "llamacpp":
+            return LlamaCppProvider(settings)
         return None
 
 
@@ -499,6 +590,18 @@ class OllamaProvider(_CompleterProvider):
     def __init__(self, settings: Settings, transport=None) -> None:
         self._settings = settings
         self._completer = OllamaCompleter(settings, transport=transport)
+
+
+class LlamaCppProvider(_CompleterProvider):
+    """Provider backed by an in-process GGUF model (Step 8.7) with
+    schema-validated output. Same JSON parsing + validation as every
+    other provider — only the transport differs."""
+
+    name = "llama.cpp (local)"
+
+    def __init__(self, settings: Settings, transport=None) -> None:
+        self._settings = settings
+        self._completer = LlamaCppCompleter(settings)
 
 
 def _strip_code_fence(payload: str) -> str:

@@ -15,7 +15,7 @@ from career_guidance.institutes import (
     compute_cohort,
     parse_invite_csv,
 )
-from career_guidance.migrations import applied_versions, migrate
+from career_guidance.migrations import LATEST_VERSION, applied_versions, migrate
 from career_guidance.models import CareerRecommendation
 from career_guidance.storage import Database
 from career_guidance.users import UserStore
@@ -33,9 +33,9 @@ def _mk_user(store: UserStore, email: str, name: str = "User") -> str:
 # ------------------------------------------------------------------ migrations
 def test_migration_v6_applies_and_is_idempotent(tmp_path):
     path = str(tmp_path / "fresh.db")
-    assert migrate(path) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert migrate(path) == list(range(1, LATEST_VERSION + 1))
     assert migrate(path) == []
-    assert applied_versions(path) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert applied_versions(path) == list(range(1, LATEST_VERSION + 1))
     with sqlite3.connect(path) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         cols = {r[1] for r in conn.execute("PRAGMA table_info(users)")}
@@ -58,7 +58,7 @@ def test_migration_v5_to_v6_preserves_users(tmp_path, monkeypatch):
             " '2026-11-01T00:00:00+00:00', 'old-user')"
         )
     monkeypatch.undo()
-    assert migrate(path) == [6, 7, 8, 9, 10]
+    assert migrate(path) == list(range(6, LATEST_VERSION + 1))
     with sqlite3.connect(path) as conn:
         row = conn.execute(
             "SELECT email, handle, institute_id, institute_role FROM users WHERE id='u-old'"

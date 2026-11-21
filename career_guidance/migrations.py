@@ -99,7 +99,13 @@ _V2 = [
         user_id TEXT PRIMARY KEY,
         persona TEXT NOT NULL DEFAULT '',
         education TEXT NOT NULL DEFAULT '',
-        current_role TEXT NOT NULL DEFAULT '',
+        -- "current_role" is quoted: CURRENT_ROLE is a reserved word in
+        -- PostgreSQL (unquoted DDL fails there with a syntax error —
+        -- found by the Step 7C live Postgres test). Quoted identifiers
+        -- work identically in SQLite, and the column name is the same
+        -- lowercase string either way, so already-migrated SQLite DBs
+        -- are unaffected (v2 never re-runs on them).
+        "current_role" TEXT NOT NULL DEFAULT '',
         experience_level TEXT NOT NULL DEFAULT '',
         skills_json TEXT NOT NULL DEFAULT '[]',
         goals TEXT NOT NULL DEFAULT '',
@@ -590,6 +596,242 @@ _V10 = [
     "CREATE INDEX IF NOT EXISTS idx_inst_api_keys_institute ON institute_api_keys (institute_id)",
 ]
 
+# --- v11: Kaam-Vaani Stage 1 (roles + OTP scaffolding) ----------------------
+_V11 = [
+    # Role values are enforced server-side (career_guidance.users.VALID_ROLES:
+    # user | admin | employer | coordinator) — SQLite cannot add a CHECK
+    # constraint via ALTER TABLE, and a table rebuild is not worth the data
+    # risk for a value the code already validates. This migration adds the
+    # OTP scaffolding columns + a role index instead.
+    #
+    # phone_e164 / phone_verified_at: Firebase Phone Auth (Stage 5 employer
+    # verification) records the verified number here. Firebase does the
+    # verification; the backend only stores the result. Both stay empty
+    # until the owner enables phone sign-in in the Firebase console
+    # (see docs/KAAM_VAANI_PLAN.md Stage 1 + ASSUMPTIONS.md A5/A12).
+    "ALTER TABLE users ADD COLUMN phone_e164 TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN phone_verified_at TEXT NOT NULL DEFAULT ''",
+    "CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)",
+]
+
+# --- v12: Kaam-Vaani Stage 2 (RAG knowledge-base chunks) --------------------
+# One row per ingested chunk. Every chunk carries its full source citation
+# (URL, title, date, licence, language) so no answer can ever cite a
+# source the store does not record. The employers table planned for
+# Stage 5 moves to v13 — see docs/KAAM_VAANI_PLAN.md Stage 2.
+_V12 = [
+    """CREATE TABLE IF NOT EXISTS kv_rag_chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT NULL,
+        source_url TEXT NOT NULL DEFAULT '',
+        source_title TEXT NOT NULL DEFAULT '',
+        source_date TEXT NOT NULL DEFAULT '',
+        licence TEXT NOT NULL DEFAULT '',
+        language TEXT NOT NULL DEFAULT 'en',
+        topic TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT '',
+        district TEXT NOT NULL DEFAULT '',
+        chunk_index INTEGER NOT NULL DEFAULT 0,
+        text TEXT NOT NULL,
+        tokens INTEGER NOT NULL DEFAULT 0,
+        snapshot_version TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_rag_chunks_source ON kv_rag_chunks (source_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_rag_chunks_topic ON kv_rag_chunks (topic)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_rag_chunks_language ON kv_rag_chunks (language)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_rag_chunks_snapshot ON kv_rag_chunks (snapshot_version)",
+]
+
+# --- v13: Kaam-Vaani Stage 5 (employer portal + listings + reports) ---------
+# Employers and listings carry verification states (pending / verified /
+# rejected / flagged) — workers see verified listings only, and a listing
+# can only be verified when its employer is verified. No FOREIGN KEY
+# constraints (follows the v12 pattern): the store layer enforces
+# ownership and the routers enforce roles server-side.
+#
+# kv_employers.endorsed_by / endorsed_by_type: the ITI / skilling-centre /
+# panchayat endorsement badge (F3). In Stage 5 an admin records the
+# endorsement on the endorser's behalf; coordinator endorsement moves to
+# the Stage 8 pilot console.
+#
+# kv_listings.risk_score / risk_flags: the Stage 5 scam checker's output
+# (deterministic rules; LLM score only when a completer is configured).
+# is_sample marks seeded demo data — the API and UI always label it.
+#
+# kv_listing_reports: worker reports (guest reports allowed, so
+# reporter_user_id is nullable). Three open reports auto-flag the
+# listing (see career_guidance/kaamvaani/employers.py).
+_V13 = [
+    """CREATE TABLE IF NOT EXISTS kv_employers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL UNIQUE,
+        business_name TEXT NOT NULL DEFAULT '',
+        contact_name TEXT NOT NULL DEFAULT '',
+        phone_e164 TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        district TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT 'Tamil Nadu',
+        business_type TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        endorsed_by TEXT NOT NULL DEFAULT '',
+        endorsed_by_type TEXT NOT NULL DEFAULT '',
+        endorsement_note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        reviewed_by TEXT NOT NULL DEFAULT '',
+        reviewed_at TEXT NOT NULL DEFAULT '',
+        review_note TEXT NOT NULL DEFAULT ''
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_employers_user ON kv_employers (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_employers_status ON kv_employers (status)",
+    """CREATE TABLE IF NOT EXISTS kv_listings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employer_id INTEGER NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        role_category TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        district TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT 'Tamil Nadu',
+        pay_monthly_min INTEGER,
+        pay_monthly_max INTEGER,
+        pay_text TEXT NOT NULL DEFAULT '',
+        work_type TEXT NOT NULL DEFAULT 'full-time',
+        shift TEXT NOT NULL DEFAULT '',
+        openings INTEGER NOT NULL DEFAULT 1,
+        requirements TEXT NOT NULL DEFAULT '',
+        contact_info TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        risk_score INTEGER NOT NULL DEFAULT 0,
+        risk_flags TEXT NOT NULL DEFAULT '[]',
+        is_sample INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        reviewed_by TEXT NOT NULL DEFAULT '',
+        reviewed_at TEXT NOT NULL DEFAULT '',
+        review_note TEXT NOT NULL DEFAULT ''
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_listings_employer ON kv_listings (employer_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_listings_status ON kv_listings (status)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_listings_city ON kv_listings (city)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_listings_sample ON kv_listings (is_sample)",
+    """CREATE TABLE IF NOT EXISTS kv_listing_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        listing_id INTEGER NOT NULL,
+        reporter_user_id TEXT NOT NULL DEFAULT '',
+        reason TEXT NOT NULL DEFAULT '',
+        details TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TEXT NOT NULL,
+        reviewed_by TEXT NOT NULL DEFAULT '',
+        reviewed_at TEXT NOT NULL DEFAULT '',
+        review_note TEXT NOT NULL DEFAULT ''
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_listing_reports_listing ON kv_listing_reports (listing_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_listing_reports_status ON kv_listing_reports (status)",
+]
+
+# --- v14: Kaam-Vaani Stage 6 (consent, worker profiles, audit, shortlists,
+# contact requests, hire outcomes + 30/90-day retention) -----------------------
+# No FOREIGN KEY constraints (v12/v13 pattern): the store layer enforces
+# ownership and the routers enforce roles. kv_consent_audit is append-only
+# by construction — the store exposes no update/delete for it (Stage 6,
+# execution prompt 6.2; a test proves it).
+_V14 = [
+    """CREATE TABLE IF NOT EXISTS kv_worker_profiles (
+        user_id TEXT PRIMARY KEY,
+        skills_json TEXT NOT NULL DEFAULT '[]',
+        education TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        district TEXT NOT NULL DEFAULT '',
+        income_monthly INTEGER,
+        income_text TEXT NOT NULL DEFAULT '',
+        goal_type TEXT NOT NULL DEFAULT 'explore',
+        interests TEXT NOT NULL DEFAULT '',
+        language TEXT NOT NULL DEFAULT 'en',
+        is_sample INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_worker_profiles_city ON kv_worker_profiles (city)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_worker_profiles_sample ON kv_worker_profiles (is_sample)",
+    """CREATE TABLE IF NOT EXISTS kv_consents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        worker_user_id TEXT NOT NULL,
+        employer_id INTEGER NOT NULL,
+        listing_id INTEGER,
+        fields_json TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'granted',
+        duration_days INTEGER NOT NULL DEFAULT 30,
+        granted_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        revoked_at TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consents_worker ON kv_consents (worker_user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consents_employer ON kv_consents (employer_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consents_pair ON kv_consents (worker_user_id, employer_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consents_expiry ON kv_consents (status, expires_at)",
+    """CREATE TABLE IF NOT EXISTS kv_consent_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        consent_id INTEGER NOT NULL,
+        worker_user_id TEXT NOT NULL,
+        employer_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        actor TEXT NOT NULL DEFAULT '',
+        detail TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consent_audit_consent ON kv_consent_audit (consent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consent_audit_worker ON kv_consent_audit (worker_user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_consent_audit_employer ON kv_consent_audit (employer_id)",
+    """CREATE TABLE IF NOT EXISTS kv_shortlists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employer_id INTEGER NOT NULL,
+        listing_id INTEGER NOT NULL,
+        worker_user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (employer_id, listing_id, worker_user_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_shortlists_employer ON kv_shortlists (employer_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_shortlists_listing ON kv_shortlists (listing_id)",
+    """CREATE TABLE IF NOT EXISTS kv_contact_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employer_id INTEGER NOT NULL,
+        listing_id INTEGER NOT NULL,
+        worker_user_id TEXT NOT NULL,
+        message TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_contact_requests_worker"
+    " ON kv_contact_requests (worker_user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_contact_requests_employer"
+    " ON kv_contact_requests (employer_id)",
+    """CREATE TABLE IF NOT EXISTS kv_hire_outcomes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employer_id INTEGER NOT NULL,
+        listing_id INTEGER NOT NULL,
+        worker_user_id TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        reported_by_user_id TEXT NOT NULL DEFAULT '',
+        reporter_role TEXT NOT NULL DEFAULT '',
+        note TEXT NOT NULL DEFAULT '',
+        day30_status TEXT NOT NULL DEFAULT '',
+        day30_reported_at TEXT NOT NULL DEFAULT '',
+        day90_status TEXT NOT NULL DEFAULT '',
+        day90_reported_at TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_kv_hire_outcomes_listing"
+    " ON kv_hire_outcomes (employer_id, listing_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kv_hire_outcomes_worker ON kv_hire_outcomes (worker_user_id)",
+]
+
 MIGRATIONS: list[tuple[int, str, list[str]]] = [
     (1, "baseline (runs, users, progress, feedback, overrides, audit)", _V1),
     (2, "journey, content, admin, gamification stores", _V2),
@@ -601,6 +843,15 @@ MIGRATIONS: list[tuple[int, str, list[str]]] = [
     (8, "phase 8: shareable report links (hashed tokens)", _V8),
     (9, "phase 9: subscriptions, coupons, referrals, report schedule", _V9),
     (10, "phase 10: per-user index review + institute public API keys", _V10),
+    (11, "kaam-vaani stage 1: phone columns (OTP scaffolding) + role index", _V11),
+    (12, "kaam-vaani stage 2: RAG knowledge-base chunks", _V12),
+    (13, "kaam-vaani stage 5: employers, listings, listing reports", _V13),
+    (
+        14,
+        "kaam-vaani stage 6: worker profiles, consents, consent audit,"
+        " shortlists, contact requests, hire outcomes",
+        _V14,
+    ),
 ]
 
 LATEST_VERSION = max(v for v, _, _ in MIGRATIONS)

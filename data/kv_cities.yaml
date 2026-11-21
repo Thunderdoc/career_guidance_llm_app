@@ -1,0 +1,455 @@
+# City vocabulary for the deterministic profile extractor
+# (career_guidance/kaamvaani/extract.py). The English names are the same
+# list the frontend voice flow uses (frontend/lib/voice-profile.ts
+# CITIES — a test pins the parity), plus native-script (Tamil/Hindi)
+# aliases for the GAVS audience (Tamil Nadu cities first) and major
+# metros, so a transcript in Tamil or Hindi script still resolves to
+# the canonical English city name. Add aliases by editing this file.
+cities:
+- name: Madurai
+  aliases:
+  - மதுரை
+  - मदुरै
+- name: Chennai
+  aliases:
+  - சென்னை
+  - चेन्नई
+- name: Coimbatore
+  aliases:
+  - கோயம்புத்தூர்
+  - கோயம்புத்தூரில்
+  - कोयंबटूर
+- name: Tiruchirappalli
+  aliases:
+  - திருச்சிராப்பள்ளி
+  - तिरुचिरापल्ली
+- name: Trichy
+  aliases:
+  - திருச்சி
+  - त्रिची
+- name: Salem
+  aliases:
+  - சேலம்
+  - சேலத்தில்
+  - सेलम
+- name: Tirunelveli
+  aliases:
+  - திருநெல்வேலி
+  - तिरुनेलवेली
+- name: Thoothukudi
+  aliases:
+  - தூத்துக்குடி
+  - तूत्तुक्कुडी
+- name: Tuticorin
+  aliases:
+  - தூத்துக்குடி
+  - तूत्तुक्कुडी
+- name: Erode
+  aliases:
+  - ஈரோடு
+  - ஈரோட்டில்
+  - इरोड
+- name: Vellore
+  aliases:
+  - வேலூர்
+  - வேலூரில்
+  - वेल्लोर
+- name: Thanjavur
+  aliases:
+  - தஞ்சாவூர்
+  - தஞ்சாவூரில்
+  - तंजावुर
+- name: Dindigul
+  aliases:
+  - திண்டுக்கல்
+  - डिंडीगुल
+- name: Cuddalore
+  aliases:
+  - கடலூர்
+  - கடலூரில்
+  - कुडलोर
+- name: Kanchipuram
+  aliases:
+  - காஞ்சிபுரம்
+  - காஞ்சிபுரத்தில்
+  - कांचीपुरम
+- name: Tiruppur
+  aliases:
+  - திருப்பூர்
+  - திருப்பூரில்
+  - तिरुप्पुर
+- name: Nagercoil
+  aliases:
+  - நாகர்கோவில்
+  - नागरकोइल
+- name: Karur
+  aliases:
+  - கரூர்
+  - கரூரில்
+  - करुर
+- name: Namakkal
+  aliases:
+  - நாமக்கல்
+  - नमक्कल
+- name: Villupuram
+  aliases:
+  - விழுப்புரம்
+  - விழுப்புரத்தில்
+  - विल्लुपुरम
+- name: Virudhunagar
+  aliases:
+  - விருதுநகர்
+  - விருதுநகரில்
+  - विरुधुनगर
+- name: Sivakasi
+  aliases:
+  - சிவகாசி
+  - शिवकाशी
+- name: Srivilliputtur
+  aliases:
+  - ஸ்ரீவில்லிபுத்தூர்
+  - ஸ்ரீவில்லிபுத்தூரில்
+  - श्रीविल्लिपुत्तुर
+- name: Rajapalayam
+  aliases:
+  - ராஜபாளையம்
+  - ராஜபாளையத்தில்
+  - राजपालयम
+- name: Theni
+  aliases:
+  - தேனி
+  - तेनी
+- name: Ramanathapuram
+  aliases:
+  - ராமநாதபுரம்
+  - ராமநாதபுரத்தில்
+  - रामनाथपुरम
+- name: Pudukkottai
+  aliases:
+  - புதுக்கோட்டை
+  - पुदुक्कोट्टई
+- name: Nagapattinam
+  aliases:
+  - நாகப்பட்டினம்
+  - நாகப்பட்டினத்தில்
+  - नागपट्टिनम
+- name: Dharmapuri
+  aliases:
+  - தர்மபுரி
+  - धर्मपुरी
+- name: Krishnagiri
+  aliases:
+  - கிருஷ்ணகிரி
+  - कृष्णगिरि
+- name: Ariyalur
+  aliases:
+  - அரியலூர்
+  - அரியலூரில்
+  - अरियालुर
+- name: Perambalur
+  aliases:
+  - பெரம்பலூர்
+  - பெரம்பலூரில்
+  - पेरम्बलुर
+- name: Kanyakumari
+  aliases:
+  - கன்னியாகுமரி
+  - कन्याकुमारी
+- name: Udhagamandalam
+  aliases:
+  - உதகமண்டலம்
+  - உதகமண்டலத்தில்
+  - उधगमंडलम
+- name: Ooty
+  aliases:
+  - ஊட்டி
+  - ऊटी
+- name: Kodaikanal
+  aliases:
+  - கொடைக்கானல்
+  - कोडैकनाल
+- name: Hosur
+  aliases:
+  - ஓசூர்
+  - ஓசூரில்
+  - होसुर
+- name: Ambur
+  aliases:
+  - ஆம்பூர்
+  - ஆம்பூரில்
+  - अम्बुर
+- name: Arakkonam
+  aliases:
+  - அரக்கோணம்
+  - அரக்கோணத்தில்
+  - अरक्कोणम
+- name: Delhi
+  aliases:
+  - டெல்லி
+  - दिल्ली
+- name: New Delhi
+  aliases:
+  - புது டெல்லி
+  - नई दिल्ली
+- name: Mumbai
+  aliases:
+  - மும்பை
+  - मुंबई
+- name: Bengaluru
+  aliases:
+  - பெங்களூரு
+  - बेंगलुरु
+- name: Bangalore
+  aliases:
+  - பெங்களூரு
+  - बेंगलुरु
+- name: Hyderabad
+  aliases:
+  - ஹைதராபாத்
+  - ஹைதராபாதில்
+  - ஹைதராபாதத்தில்
+  - हैदराबाद
+- name: Kolkata
+  aliases:
+  - கொல்கத்தா
+  - कोलकाता
+- name: Pune
+  aliases:
+  - புனே
+  - पुणे
+- name: Ahmedabad
+  aliases:
+  - அகமதாபாத்
+  - அகமதாபாதில்
+  - அகமதாபாதத்தில்
+  - अहमदाबाद
+- name: Jaipur
+  aliases:
+  - ஜெய்ப்பூர்
+  - ஜெய்ப்பூரில்
+  - जयपुर
+- name: Lucknow
+  aliases:
+  - லக்னோ
+  - लखनऊ
+- name: Patna
+  aliases:
+  - பாட்னா
+  - पटना
+- name: Bhopal
+  aliases:
+  - போபால்
+  - भोपाल
+- name: Kochi
+  aliases:
+  - கொச்சி
+  - कोच्चि
+- name: Thiruvananthapuram
+  aliases:
+  - திருவனந்தபுரம்
+  - திருவனந்தபுரத்தில்
+  - तिरुवनंतपुरम
+- name: Visakhapatnam
+  aliases:
+  - விசாகப்பட்டினம்
+  - விசாகப்பட்டினத்தில்
+  - विशाखापत्तनम
+- name: Vijayawada
+  aliases:
+  - விஜயவாடா
+  - विजयवाड़ा
+- name: Guwahati
+  aliases:
+  - குவஹாத்தி
+  - गुवाहाटी
+- name: Bhubaneswar
+  aliases:
+  - புவனேஸ்வர்
+  - புவனேஸ்வரில்
+  - भुवनेश्वर
+- name: Indore
+  aliases:
+  - இந்தூர்
+  - இந்தூரில்
+  - इंदौर
+- name: Nagpur
+  aliases:
+  - நாக்பூர்
+  - நாக்பூரில்
+  - नागपुर
+- name: Surat
+  aliases:
+  - சூரத்
+  - சூரதில்
+  - சூரதத்தில்
+  - सूरत
+- name: Vadodara
+- name: Mysuru
+  aliases:
+  - மைசூரு
+  - मैसूरु
+- name: Mysore
+  aliases:
+  - மைசூரு
+  - मैसूरु
+- name: Mangaluru
+  aliases:
+  - மங்களூரு
+  - मंगलुरु
+- name: Mangalore
+  aliases:
+  - மங்களூரு
+  - मंगलुरु
+- name: Hubballi
+- name: Warangal
+- name: Guntur
+- name: Nellore
+- name: Amritsar
+  aliases:
+  - அமிர்தசரஸ்
+  - அமிர்தசரஸில்
+  - अमृतसर
+- name: Ludhiana
+  aliases:
+  - லூதியானா
+  - लुधियाना
+- name: Chandigarh
+  aliases:
+  - சண்டிகர்
+  - சண்டிகரில்
+  - चंडीगढ़
+- name: Dehradun
+  aliases:
+  - டெஹ்ராடூன்
+  - டெஹ்ராடூனில்
+  - देहरादून
+- name: Ranchi
+  aliases:
+  - ராஞ்சி
+  - रांची
+- name: Raipur
+  aliases:
+  - ராய்ப்பூர்
+  - ராய்ப்பூரில்
+  - रायपुर
+- name: Jodhpur
+- name: Udaipur
+- name: Kota
+- name: Agra
+  aliases:
+  - ஆக்ரா
+  - आगरा
+- name: Varanasi
+  aliases:
+  - வாரணாசி
+  - वाराणसी
+- name: Kanpur
+  aliases:
+  - கான்பூர்
+  - கான்பூரில்
+  - कानपुर
+- name: Meerut
+- name: Prayagraj
+  aliases:
+  - பிரயாக்ராஜ்
+  - பிரயாக்ராஜில்
+  - प्रयागराज
+- name: Allahabad
+  aliases:
+  - அலகாபாத்
+  - அலகாபாதில்
+  - அலகாபாதத்தில்
+  - इलाहाबाद
+- name: Gorakhpur
+- name: Jamshedpur
+- name: Dhanbad
+- name: Asansol
+- name: Siliguri
+- name: Kozhikode
+  aliases:
+  - கோழிக்கோடு
+  - கோழிக்கோட்டில்
+  - कोझिकोड
+- name: Thrissur
+  aliases:
+  - திருச்சூர்
+  - திருச்சூரில்
+  - त्रिशूर
+- name: Kollam
+  aliases:
+  - கொல்லம்
+  - கொல்லத்தில்
+  - कोल्लम
+- name: Alappuzha
+- name: Malappuram
+- name: Kannur
+- name: Kottayam
+- name: Palakkad
+- name: Belagavi
+- name: Davanagere
+- name: Ballari
+- name: Tumakuru
+- name: Shivamogga
+- name: Kalaburagi
+- name: Vijayapura
+- name: Udupi
+- name: Chikkamagaluru
+- name: Hassan
+- name: Mandya
+- name: Raichur
+- name: Bidar
+- name: Kolar
+- name: Chitradurga
+- name: Noida
+  aliases:
+  - நொய்டா
+  - नोएडा
+- name: Gurugram
+  aliases:
+  - குருகிராம்
+  - குருகிராமத்தில்
+  - गुरुग्राम
+- name: Gurgaon
+  aliases:
+  - குருகிராம்
+  - குருகிராமத்தில்
+  - गुरुग्राम
+- name: Faridabad
+- name: Ghaziabad
+- name: Aurangabad
+- name: Nashik
+- name: Kolhapur
+- name: Solapur
+- name: Amravati
+- name: Jalgaon
+- name: Rajkot
+- name: Bhavnagar
+- name: Jamnagar
+- name: Junagadh
+- name: Anand
+- name: Gandhinagar
+- name: Moradabad
+- name: Bareilly
+- name: Aligarh
+- name: Saharanpur
+- name: Muzaffarnagar
+- name: Mathura
+- name: Jhansi
+- name: Faizabad
+- name: Ayodhya
+- name: Basti
+- name: Deoria
+- name: Ballia
+- name: Gaya
+- name: Muzaffarpur
+- name: Bhagalpur
+- name: Darbhanga
+- name: Purnia
+- name: Arrah
+- name: Hajipur
+- name: Katihar
+- name: Munger
+- name: Chapra
+- name: Sasaram
+- name: Siwan
+- name: Motihari

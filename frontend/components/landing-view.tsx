@@ -15,9 +15,10 @@
  * via p6_* i18n keys (EN/TA/HI); plan names/features come from the API.
  */
 import { motion } from "motion/react";
-import { ArrowRight, BadgeCheck, CalendarRange, Check, Compass, FileText, Languages, Route, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
+import { ArrowRight, BadgeCheck, Briefcase, Building2, CalendarRange, Check, Compass, FileText, Languages, Mic, Route, Search, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, billingApi, type BillingPlan } from "@/lib/api";
+import { kvFlags } from "@/lib/flags";
 import { BandwidthToggle } from "./bandwidth-toggle";
 import { LOCALES, useI18n, type Key } from "@/lib/i18n";
 import type { Recommendation } from "@/lib/types";
@@ -256,6 +257,26 @@ export function LandingView() {
           <a href="/start" className="flex min-h-[44px] items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-medium text-black transition hover:bg-white/90">
             {t("p1_start_title")} <ArrowRight size={16} />
           </a>
+          {kvFlags.voice && (
+            <a href="/voice" className="flex min-h-[44px] items-center gap-2 rounded-xl border border-accent/50 px-6 py-3 text-sm font-medium text-accent transition hover:bg-white/5">
+              <Mic size={16} /> {t("voice_cta")}
+            </a>
+          )}
+          {kvFlags.employers && (
+            <>
+              <a href="/jobs" className="flex min-h-[44px] items-center gap-2 rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition hover:bg-white/5">
+                <Briefcase size={16} /> Verified jobs
+              </a>
+              <a href="/employers" className="flex min-h-[44px] items-center gap-2 rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition hover:bg-white/5">
+                <Building2 size={16} /> For employers
+              </a>
+            </>
+          )}
+          {kvFlags.rag && (
+            <a href="/rights" className="flex min-h-[44px] items-center gap-2 rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition hover:bg-white/5">
+              <ShieldCheck size={16} /> Rights &amp; safety help
+            </a>
+          )}
           <a href="#sample" className="min-h-[44px] rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition hover:bg-white/5">{t("p6_cta_sample")}</a>
         </div>
         <p className="mt-4 flex items-center justify-center gap-2 text-sm text-fg-2">

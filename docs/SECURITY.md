@@ -153,3 +153,88 @@ Graduation path:
    `default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; frame-src https://accounts.google.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self'`
    (i.e. today's report-only value minus `'unsafe-inline'` for scripts
    once step 2 lands).
+
+## Kaam-Vaani hardening (Step 9.4, 2026-11-21)
+
+### Rate limits (new)
+
+Before Step 9.4, only the video check had a rate limit. Every
+other Kaam-Vaani POST was unmetered. All limits are enforced by
+the shared `backend/kv_ratelimit.py` (one `RateLimiter` per
+router, registered so the test suite can reset them between
+tests — `tests/conftest.py` autouse fixture). A 429 carries the
+same message everywhere: "Too many requests — please wait a
+minute."
+
+| Endpoints | Budget | Key |
+|---|---|---|
+| `POST /api/v1/kv/rag/search`, `/kv/rag/ask` | 30/min | IP |
+| `POST /api/v1/kv/rights/ask` | 30/min | IP |
+| `POST /api/v1/kv/voice/extract`, `/kv/voice/confirm` | 30/min | IP |
+| `POST /api/v1/kv/matches`, `/kv/gap-learning` | 30/min | IP |
+| `POST /api/v1/kv/listings/{id}/report` | 10/min | IP |
+| `POST /api/v1/kv/consent/*`, `/kv/employers/matching/*`, `/kv/hire-outcomes*`, `DELETE /api/v1/kv/me/data` | 60/min | user |
+| `POST /api/v1/kv/employers/register`, `/kv/employers/listings`, `/kv/employers/listings/check` | 60/min | user |
+| `POST /api/v1/kv/employers/mine/verify-phone` (OTP) | 5/hour | user |
+| `POST /api/v1/kv/video/check` | 5/hour | user |
+
+Unmetered by design: admin/coordinator-only endpoints
+(`kv_pilot`, `kv_traces`, admin review) — authenticated,
+attributable, low volume. Honest limits (A65/L67): the
+limiters are per-process in-memory (a multi-worker deploy has
+one budget per worker, not one global budget) and the per-IP
+key trusts the first `X-Forwarded-For` entry, which a client
+can spoof to rotate keys. This is friction against casual
+abuse, not a hard abuse boundary — true protection belongs at
+the platform edge.
+
+### OWASP Top 10 review — Kaam-Vaani surface (2026-11-21)
+
+| # | Risk | Kaam-Vaani posture |
+|---|---|---|
+| A01 | Broken access control | Role-scoped deps on every signed-in route (`current_user` / `employer_user` / `admin_user` / `coordinator_user` / `pilot_user`); consent-gated matching enforced in the query layer, not the UI; a worker's own data only (ownership checked per call). Verified by the Stage 6 + 9.2 tests. |
+| A02 | Cryptographic failures | No secrets in the KV layer (no API keys by design); session cookie `SameSite=Lax`, signed; share tokens hashed; no PII in URLs. |
+| A03 | Injection | All SQL values are bound parameters. 12 f-string SQL sites exist in `consent.py` (4) / `employers.py` (8), each marked `# noqa: S608` — every one interpolates only fixed clause fragments (`"status = 'verified'"`, `"role_category = ?"`) or dict keys from the method's own fixed field set; no request data is ever interpolated. Verified by reading all 12 sites on 2026-11-21. No shell injection: ffmpeg/ffprobe are invoked with an argv list, never a shell string. |
+| A04 | Insecure design | Consent is per-employer, time-boxed, revocable, one active per pair; the audit trail is append-only; the video check cannot certify skill (labelled indicative). |
+| A05 | Security misconfiguration | Security headers middleware ships (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP-Report-Only — see `backend/main.py`; no HSTS header is set by the app — the platform must provide it); Step 9.4 fixed `Permissions-Policy` from `microphone=()` to `microphone=(self)` because the Phase 6 value blocked the Kaam-Vaani voice flow's mic on the Render-served origin (camera and geolocation stay blocked). CORS default is `*` with credentials off — lock `CORS_ALLOW_ORIGINS` to the production front-end origin at deploy (deploy-checklist item); every KV router sits behind an env feature flag, default ON except in production. |
+| A06 | Vulnerable components | See the dependency audit below (2026-11-21). |
+| A07 | Auth failures | Firebase ID tokens + magic links + signed sessions (base app); OTP is Firebase's, not ours — the backend only stores a Firebase-verified number, and the endpoint is rate-limited 5/hour/user. |
+| A08 | Data integrity failures | No deserialisation of untrusted data (no pickle anywhere in the KV path); uploads are size-capped and type-checked by probe, not extension. |
+| A09 | Logging failures | The timing middleware logs method / redacted path / status / duration only — never bodies, e-mails, tokens or profile text. The agent trace log stores questions/transcripts as 16-hex SHA-256 hashes only (Step 8.9). |
+| A10 | SSRF | The KV backend makes no outbound requests on behalf of user input (no URL fetch from a user-supplied URL anywhere in the KV surface). |
+
+### Upload limits (Kaam-Vaani)
+
+- Video check: 50 MB cap enforced DURING streaming (413 past
+  the cap), empty file → 422, duration probed by ffprobe
+  (30–60 s), temp file deleted in a `finally`, never stored.
+- Resume upload (base app): 5 MB cap, 413 past it.
+- No other KV endpoint accepts file uploads.
+
+### Dependency audit (2026-11-21, pip-audit 2.10.1)
+
+97 packages audited. Before: **9 known vulnerabilities in 5
+packages**. Fixed by version bumps (verified by re-audit +
+`pip check` clean):
+
+| Package | Was | Now | CVEs fixed |
+|---|---|---|---|
+| pypdf | 6.21.3 | 6.21.4 | CVE-2026-119203, -119204, -119205 (crafted-PDF infinite loop / memory exhaustion — REAL exposure: `resume.py` parses user-uploaded PDFs) |
+| dnspython | 2.9.0 | 2.9.2 | CVE-2026-128089 (zone-file DoS; transitive, app never parses zone files) |
+| opentelemetry-api | 1.45.1 | 1.45.2 | CVE-2026-126360 (traceparent ReDoS; transitive, app does not use OTel) |
+
+After: **4 known vulnerabilities in 2 packages**, both
+accepted with reasons (not ignored):
+
+- **diskcache 5.6.3** — PYSEC-2026-2447 (×2): pickle RCE if an
+  attacker has write access to the cache directory. NO fix
+  version exists. The app never imports diskcache and creates
+  no cache directory — no exposure.
+- **pytest 8.4.2** — PYSEC-2026-1845 (×2): `/tmp/pytest-of-*`
+  local DoS/privilege issue. Dev-only dependency; the fix
+  (9.0.3) is a major-version bump, deliberately NOT taken
+  mid-project (risk to the 1100-test suite). Single-user VM,
+  negligible exposure; revisit after the hackathon.
+
+**npm audit** — still cannot run from this sandbox (see the
+2026-11-06 note above); CI runs it as a non-blocking step.

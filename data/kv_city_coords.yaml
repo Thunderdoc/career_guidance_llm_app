@@ -1,0 +1,36 @@
+# City-centre coordinates for the Kaam-Vaani radius filter (Step 8.3).
+#
+# SOURCE: geocoded 21 Nov 2026 via the map geocoder (state Tamil
+# Nadu, country India) — every entry matched at CITY level,
+# relevance 100. Sanity-checked by rough distance: Madurai–
+# Virudhunagar ~40 km, Madurai–Dindigul ~49 km, Madurai–
+# Tirunelveli ~133 km, Chennai–Madurai ~350 km — all consistent
+# with known road distances.
+#
+# SCOPE: only the 6 cities the seed listings use. Listings carry a
+# city name only (no street address), so the radius is city-centre
+# to city-centre — approximate by design (ASSUMPTIONS.md A57). A
+# listing in a city with no entry here is EXCLUDED from radius
+# results (it still appears in the plain city filter), and a radius
+# search centred on an unmapped city is a 400 with the mapped
+# cities listed (LIMITATIONS.md L57). Add cities by geocoding
+# them the same way and appending here — never from memory.
+cities:
+  Madurai:
+    lat: 9.92422
+    lon: 78.12418
+  Tiruppur:
+    lat: 11.08938
+    lon: 77.36258
+  Dindigul:
+    lat: 10.36206
+    lon: 77.96947
+  Tirunelveli:
+    lat: 8.7264
+    lon: 77.73348
+  Chennai:
+    lat: 13.08404
+    lon: 80.28274
+  Virudhunagar:
+    lat: 9.58919
+    lon: 77.95368

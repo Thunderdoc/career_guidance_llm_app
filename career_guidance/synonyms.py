@@ -153,6 +153,15 @@ class SkillNormalizer:
                     out.setdefault(variant, None)
         return list(out)
 
+    def aliases_for(self, canonical: str) -> list[str]:
+        """The aliases of one canonical skill (lowercase, as authored in
+        the YAML / admin store) — the phrases a user might actually say
+        for this skill ("data entry" for "attention to detail"). Empty
+        when the canonical is unknown. Kaam-Vaani matching uses these
+        as title-match phrases (Stage 4)."""
+        entry = self._entries.get((canonical or "").strip().lower())
+        return list(entry.aliases) if entry else []
+
     def known_aliases(self) -> list[str]:
         return sorted(self._alias_index)
 

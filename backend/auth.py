@@ -243,8 +243,13 @@ def _safe_next(path: str) -> str:
     return path if path.startswith("/") and not path.startswith("//") else "/"
 
 
-def build_router(auth: Auth) -> tuple[APIRouter, object, object]:
-    """Return (router, current_user_dep, admin_dep)."""
+def build_router(auth: Auth) -> tuple[APIRouter, object, object, object, object]:
+    """Return (router, current_user_dep, admin_dep, employer_dep, coordinator_dep).
+
+    The Kaam-Vaani role deps (Stage 1) match their role exactly — an admin
+    is NOT an employer/coordinator (one role per account, ASSUMPTIONS.md
+    A10); admins reach employer/coordinator data through admin routes.
+    """
     router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
     def current_user(request: Request) -> User:
@@ -259,6 +264,20 @@ def build_router(auth: Auth) -> tuple[APIRouter, object, object]:
     def admin_user(user: User = Depends(current_user)) -> User:  # noqa: B008
         if not user.is_admin:
             raise HTTPException(403, "Admin only.")
+        return user
+
+    def employer_user(user: User = Depends(current_user)) -> User:  # noqa: B008
+        """Kaam-Vaani employer role (Stage 5 portal). 401 if signed out,
+        403 for any other role."""
+        if not user.is_employer:
+            raise HTTPException(403, "Employer only.")
+        return user
+
+    def coordinator_user(user: User = Depends(current_user)) -> User:  # noqa: B008
+        """Kaam-Vaani coordinator role (Stage 8 pilot console). 401 if
+        signed out, 403 for any other role."""
+        if not user.is_coordinator:
+            raise HTTPException(403, "Coordinator only.")
         return user
 
     @router.get("/providers")
@@ -361,4 +380,4 @@ def build_router(auth: Auth) -> tuple[APIRouter, object, object]:
         auth.store.audit(user.email, "login", "google")
         return resp
 
-    return router, current_user, admin_user
+    return router, current_user, admin_user, employer_user, coordinator_user

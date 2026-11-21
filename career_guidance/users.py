@@ -70,6 +70,24 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+# Kaam-Vaani Stage 1: platform roles. "user" is the default (a worker /
+# school-leaver); "employer" and "coordinator" are the Kaam-Vaani roles
+# (Stage 5 employer portal, Stage 8 pilot console). One role per account
+# for the prototype (see ASSUMPTIONS.md A10). The DB stores role as free
+# TEXT (SQLite cannot add a CHECK via ALTER TABLE), so every write goes
+# through validate_role() — never trust a raw string.
+VALID_ROLES: frozenset[str] = frozenset({"user", "admin", "employer", "coordinator"})
+
+
+def validate_role(role: str) -> str:
+    """Normalise + validate a role value. Raises ValueError on anything
+    outside VALID_ROLES."""
+    role = (role or "").strip().lower()
+    if role not in VALID_ROLES:
+        raise ValueError(f"Unknown role: {role!r} (expected one of {sorted(VALID_ROLES)})")
+    return role
+
+
 @dataclass(frozen=True)
 class User:
     id: str
@@ -95,10 +113,29 @@ class User:
     # only (never a full date of birth). is_minor is derived from these.
     age_band: str = ""
     birth_year: int | None = None
+    # Kaam-Vaani Stage 1 (migration v11): verified phone for OTP login /
+    # employer verification (Firebase Phone Auth). Empty until verified.
+    phone_e164: str = ""
+    phone_verified_at: str = ""
 
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+    @property
+    def is_employer(self) -> bool:
+        """Kaam-Vaani employer role (Stage 5 portal)."""
+        return self.role == "employer"
+
+    @property
+    def is_coordinator(self) -> bool:
+        """Kaam-Vaani coordinator role (Stage 8 pilot console)."""
+        return self.role == "coordinator"
+
+    @property
+    def phone_verified(self) -> bool:
+        """True when a phone number has been verified (both fields set)."""
+        return bool(self.phone_e164 and self.phone_verified_at)
 
     def public(self) -> dict:
         d = asdict(self)
@@ -136,6 +173,16 @@ class UserStore:
                 ("is_minor", "ALTER TABLE users ADD COLUMN is_minor INTEGER NOT NULL DEFAULT 0"),
                 ("age_band", "ALTER TABLE users ADD COLUMN age_band TEXT NOT NULL DEFAULT ''"),
                 ("birth_year", "ALTER TABLE users ADD COLUMN birth_year INTEGER"),
+                # Kaam-Vaani v11 columns (migration v11 adds them on the
+                # app path; self-heal here too for standalone use).
+                (
+                    "phone_e164",
+                    "ALTER TABLE users ADD COLUMN phone_e164 TEXT NOT NULL DEFAULT ''",
+                ),
+                (
+                    "phone_verified_at",
+                    "ALTER TABLE users ADD COLUMN phone_verified_at TEXT NOT NULL DEFAULT ''",
+                ),
             ):
                 if col not in ucols:
                     conn.execute(ddl)
@@ -170,6 +217,8 @@ class UserStore:
             institute_role=row["institute_role"] if "institute_role" in keys else "",
             age_band=row["age_band"] if "age_band" in keys else "",
             birth_year=row["birth_year"] if "birth_year" in keys else None,
+            phone_e164=row["phone_e164"] if "phone_e164" in keys else "",
+            phone_verified_at=row["phone_verified_at"] if "phone_verified_at" in keys else "",
         )
 
     def upsert_login(self, email: str, provider: str, name: str = "", picture: str = "") -> User:
@@ -196,6 +245,23 @@ class UserStore:
     def get(self, user_id: str) -> User | None:
         with self._connect() as conn:
             return self._row(conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
+
+    def get_by_phone(self, phone_e164: str) -> User | None:
+        """Find a user by their verified phone number (E.164).
+
+        Used by the Kaam-Vaani pilot console's bulk onboarding (Step
+        9.2): a coordinator at a camp knows workers' phone numbers,
+        not their account ids. The number must match exactly what
+        Firebase Phone Auth stored (``set_phone_verified``) — callers
+        normalise with ``kaamvaani.pilot.normalise_phone`` first.
+        Returns None when no account carries the number."""
+        phone = (phone_e164 or "").strip()
+        if not phone:
+            return None
+        with self._connect() as conn:
+            return self._row(
+                conn.execute("SELECT * FROM users WHERE phone_e164=?", (phone,)).fetchone()
+            )
 
     def list_users(self, q: str = "", limit: int = 200) -> list[dict]:
         with self._connect() as conn:
@@ -225,8 +291,33 @@ class UserStore:
         return {"total": total, "new_7d": new7, "active_7d": active7}
 
     def set_role(self, user_id: str, role: str) -> None:
+        """Set a user's platform role. Raises ValueError on an unknown role."""
+        role = validate_role(role)
         with self._connect() as conn:
             conn.execute("UPDATE users SET role=? WHERE id=?", (role, user_id))
+
+    def set_phone_verified(self, user_id: str, phone_e164: str) -> User:
+        """Record a phone number verified by Firebase Phone Auth.
+
+        The caller must have already verified the number (Firebase does
+        the OTP check; this method only stores the result). The number
+        must be E.164 (``+`` + country code + digits, e.g. ``+919876543210``).
+        Raises ValueError on a malformed number. Returns the updated user.
+        """
+        import re
+
+        phone = (phone_e164 or "").strip()
+        if not re.fullmatch(r"\+[1-9]\d{7,14}", phone):
+            raise ValueError("Phone number must be E.164 (e.g. +919876543210).")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET phone_e164 = ?, phone_verified_at = ? WHERE id = ?",
+                (phone, _now(), user_id),
+            )
+            user = self._row(conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone())
+            if user is None:
+                raise ValueError("User not found.")
+            return user
 
     def set_disabled(self, user_id: str, disabled: bool) -> None:
         with self._connect() as conn:

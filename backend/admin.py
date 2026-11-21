@@ -32,7 +32,9 @@ class FeedbackBody(BaseModel):
     tool: str = ""
 
 
-def build_me_router(store: UserStore, db: Database, current_user) -> APIRouter:
+def build_me_router(
+    store: UserStore, db: Database, current_user, kv_target: str | None = None
+) -> APIRouter:
     me = APIRouter(prefix="/api/v1/me", tags=["account"])
 
     @me.get("/runs")
@@ -89,6 +91,15 @@ def build_me_router(store: UserStore, db: Database, current_user) -> APIRouter:
     @me.delete("")
     def delete_me(user: User = Depends(current_user)) -> dict:  # noqa: B008
         store.audit(user.email, "self-delete", user.id)
+        # Step 9.4: Kaam-Vaani data first (it references the user
+        # id), then the base-app deletion. Before this, self-delete
+        # left every KV row behind — the KV tables postdate
+        # delete_user. If the KV deletion raises, the account
+        # deletion does not run (no half-deleted account).
+        if kv_target is not None:
+            from career_guidance.kaamvaani.consent import delete_all_kv_data
+
+            delete_all_kv_data(kv_target, user.id)
         store.delete_user(user.id)
         return {"deleted": True}
 

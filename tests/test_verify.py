@@ -8,7 +8,7 @@ import random
 import pytest
 
 from career_guidance import notifications, verify
-from career_guidance.migrations import applied_versions, migrate
+from career_guidance.migrations import LATEST_VERSION, applied_versions, migrate
 from career_guidance.roadmap import build_90_day_plan, plan_progress, to_ics_90, to_markdown_90
 
 SECRET = "test-secret"  # noqa: S105 - test-only signing secret
@@ -181,9 +181,9 @@ def test_verified_projection_for_public_profile(store):
 # ------------------------------------------------------------------ migrations
 def test_migration_v5_applies_and_is_idempotent(tmp_path):
     path = str(tmp_path / "fresh.db")
-    assert migrate(path) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert migrate(path) == list(range(1, LATEST_VERSION + 1))
     assert migrate(path) == []
-    assert applied_versions(path) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert applied_versions(path) == list(range(1, LATEST_VERSION + 1))
 
 
 def test_migration_from_phase1_era_db_preserves_users(tmp_path, monkeypatch):
@@ -202,7 +202,7 @@ def test_migration_from_phase1_era_db_preserves_users(tmp_path, monkeypatch):
             "'user', '2026-11-01T00:00:00+00:00', '2026-11-01T00:00:00+00:00')"
         )
     monkeypatch.undo()
-    assert migrate(path) == [5, 6, 7, 8, 9, 10]
+    assert migrate(path) == list(range(5, LATEST_VERSION + 1))
     with sqlite3.connect(path) as conn:
         row = conn.execute(
             "SELECT email, handle, public_profile, is_minor FROM users WHERE id = 'u-old'"

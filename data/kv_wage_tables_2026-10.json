@@ -1,0 +1,397 @@
+{
+  "employments": [
+    {
+      "id": "construction",
+      "keywords": "construction, building work, construction worker, road work, mason, building operations",
+      "rates": [
+        {
+          "A": {
+            "basic": 523,
+            "total": 840,
+            "vda": 317
+          },
+          "B": {
+            "basic": 437,
+            "total": 704,
+            "vda": 267
+          },
+          "C": {
+            "basic": 350,
+            "total": 565,
+            "vda": 215
+          },
+          "category": "Unskilled"
+        },
+        {
+          "A": {
+            "basic": 579,
+            "total": 933,
+            "vda": 354
+          },
+          "B": {
+            "basic": 494,
+            "total": 794,
+            "vda": 300
+          },
+          "C": {
+            "basic": 410,
+            "total": 661,
+            "vda": 251
+          },
+          "category": "Semi-skilled / unskilled supervisory"
+        },
+        {
+          "A": {
+            "basic": 637,
+            "total": 1024,
+            "vda": 387
+          },
+          "B": {
+            "basic": 579,
+            "total": 933,
+            "vda": 354
+          },
+          "C": {
+            "basic": 494,
+            "total": 794,
+            "vda": 300
+          },
+          "category": "Skilled / clerical"
+        },
+        {
+          "A": {
+            "basic": 693,
+            "total": 1111,
+            "vda": 418
+          },
+          "B": {
+            "basic": 637,
+            "total": 1024,
+            "vda": 387
+          },
+          "C": {
+            "basic": 579,
+            "total": 933,
+            "vda": 354
+          },
+          "category": "Highly skilled"
+        }
+      ],
+      "title": "Construction or maintenance of roads, runways and buildings",
+      "unit": "per day"
+    },
+    {
+      "id": "agriculture",
+      "keywords": "agriculture, farm worker, farm labour, farming, agricultural work",
+      "rates": [
+        {
+          "A": {
+            "basic": 333,
+            "total": 537,
+            "vda": 204
+          },
+          "B": {
+            "basic": 303,
+            "total": 491,
+            "vda": 188
+          },
+          "C": {
+            "basic": 300,
+            "total": 486,
+            "vda": 186
+          },
+          "category": "Unskilled"
+        },
+        {
+          "A": {
+            "basic": 364,
+            "total": 587,
+            "vda": 223
+          },
+          "B": {
+            "basic": 335,
+            "total": 539,
+            "vda": 204
+          },
+          "C": {
+            "basic": 307,
+            "total": 496,
+            "vda": 189
+          },
+          "category": "Semi-skilled / unskilled supervisory"
+        },
+        {
+          "A": {
+            "basic": 395,
+            "total": 637,
+            "vda": 242
+          },
+          "B": {
+            "basic": 364,
+            "total": 587,
+            "vda": 223
+          },
+          "C": {
+            "basic": 334,
+            "total": 538,
+            "vda": 204
+          },
+          "category": "Skilled / clerical"
+        },
+        {
+          "A": {
+            "basic": 438,
+            "total": 705,
+            "vda": 267
+          },
+          "B": {
+            "basic": 407,
+            "total": 655,
+            "vda": 248
+          },
+          "C": {
+            "basic": 364,
+            "total": 587,
+            "vda": 223
+          },
+          "category": "Highly skilled"
+        }
+      ],
+      "title": "Agriculture",
+      "unit": "per day"
+    },
+    {
+      "id": "sweeping-cleaning",
+      "keywords": "sweeping, cleaning, housekeeping, cleaner, sweeper, sanitation work",
+      "note": "Excludes activities prohibited under the Manual Scavengers Act, 1993.",
+      "rates": [
+        {
+          "A": {
+            "basic": 523,
+            "total": 840,
+            "vda": 317
+          },
+          "B": {
+            "basic": 437,
+            "total": 704,
+            "vda": 267
+          },
+          "C": {
+            "basic": 350,
+            "total": 565,
+            "vda": 215
+          },
+          "category": "Unskilled"
+        }
+      ],
+      "title": "Sweeping and cleaning",
+      "unit": "per day"
+    },
+    {
+      "id": "loading-unloading",
+      "keywords": "loading, unloading, loading work, goods shed, warehouse, dock work, port work, airport cargo",
+      "note": "In railway goods sheds and parcel offices, other goods sheds, godowns and warehouses, docks and ports, and passenger/goods/cargo work at airports.",
+      "rates": [
+        {
+          "A": {
+            "basic": 523,
+            "total": 840,
+            "vda": 317
+          },
+          "B": {
+            "basic": 437,
+            "total": 704,
+            "vda": 267
+          },
+          "C": {
+            "basic": 350,
+            "total": 565,
+            "vda": 215
+          },
+          "category": "Unskilled"
+        }
+      ],
+      "title": "Loading and unloading",
+      "unit": "per day"
+    },
+    {
+      "id": "watch-ward",
+      "keywords": "security guard, watchman, watch and ward, guard, security",
+      "rates": [
+        {
+          "A": {
+            "basic": 637,
+            "total": 1024,
+            "vda": 387
+          },
+          "B": {
+            "basic": 579,
+            "total": 933,
+            "vda": 354
+          },
+          "C": {
+            "basic": 494,
+            "total": 794,
+            "vda": 300
+          },
+          "category": "Without arms"
+        },
+        {
+          "A": {
+            "basic": 693,
+            "total": 1111,
+            "vda": 418
+          },
+          "B": {
+            "basic": 637,
+            "total": 1024,
+            "vda": 387
+          },
+          "C": {
+            "basic": 579,
+            "total": 933,
+            "vda": 354
+          },
+          "category": "With arms"
+        }
+      ],
+      "title": "Watch and ward (security guards)",
+      "unit": "per day"
+    },
+    {
+      "id": "mines",
+      "keywords": "mine worker, mining, mines, quarry, granite mines, iron ore mines",
+      "note": "Gypsum, barytes, bauxite, manganese, china clay, kyanite, copper, clay, magnesite, white clay, stone, steatite, ochre, asbestos, fire clay, chromite, quartzite, quartz, silica, graphite, felspar, laterite, dolomite, red oxide, wolfram, iron ore, granite, rock phosphate, hematite, marble and calcite, uranium, mica, lignite, gravel, slate and magnetite mines.",
+      "rates": [
+        {
+          "above_ground": {
+            "basic": 350,
+            "total": 565,
+            "vda": 215
+          },
+          "below_ground": {
+            "basic": 437,
+            "total": 704,
+            "vda": 267
+          },
+          "category": "Unskilled"
+        },
+        {
+          "above_ground": {
+            "basic": 437,
+            "total": 704,
+            "vda": 267
+          },
+          "below_ground": {
+            "basic": 523,
+            "total": 840,
+            "vda": 317
+          },
+          "category": "Semi-skilled / unskilled supervisory"
+        },
+        {
+          "above_ground": {
+            "basic": 523,
+            "total": 840,
+            "vda": 317
+          },
+          "below_ground": {
+            "basic": 610,
+            "total": 979,
+            "vda": 369
+          },
+          "category": "Skilled / clerical"
+        },
+        {
+          "above_ground": {
+            "basic": 610,
+            "total": 979,
+            "vda": 369
+          },
+          "below_ground": {
+            "basic": 683,
+            "total": 1095,
+            "vda": 412
+          },
+          "category": "Highly skilled"
+        }
+      ],
+      "title": "Mines (32 named minerals)",
+      "unit": "per day"
+    },
+    {
+      "id": "stone-mines-piece",
+      "keywords": "stone mines, stone breaking, stone crushing, stone quarry, excavation",
+      "note": "PIECE RATES, not daily rates. Excavation and removal items are per 2.831 cubic metres (100 cubic feet); stone breaking/crushing items are per truck load of 5.662 cubic metres (200 cubic feet). Workers on the minimum guaranteed time rate get the unskilled above-ground time rate for stone mines plus any special allowance.",
+      "rates": [
+        {
+          "basic": 351,
+          "category": "Excavation & removal of overburden — soft soil",
+          "total": 569,
+          "vda": 218
+        },
+        {
+          "basic": 531,
+          "category": "Excavation & removal of overburden — soft soil with rock",
+          "total": 854,
+          "vda": 323
+        },
+        {
+          "basic": 703,
+          "category": "Excavation & removal of overburden — rock",
+          "total": 1131,
+          "vda": 428
+        },
+        {
+          "basic": 283,
+          "category": "Removal and stacking of rejected stones",
+          "total": 457,
+          "vda": 174
+        },
+        {
+          "basic": 2171,
+          "category": "Stone breaking/crushing — 1.0 to 1.5 inches",
+          "total": 3468,
+          "vda": 1297
+        },
+        {
+          "basic": 1857,
+          "category": "Stone breaking/crushing — above 1.5 to 3.0 inches",
+          "total": 2966,
+          "vda": 1109
+        },
+        {
+          "basic": 1088,
+          "category": "Stone breaking/crushing — above 3.0 to 5.0 inches",
+          "total": 1742,
+          "vda": 654
+        },
+        {
+          "basic": 893,
+          "category": "Stone breaking/crushing — above 5.0 inches",
+          "total": 1432,
+          "vda": 539
+        }
+      ],
+      "title": "Stone mines — piece rates",
+      "unit": "piece rate (see note)"
+    }
+  ],
+  "notes": {
+    "areas": "Area A: Ahmedabad, Bengaluru, Chennai, Delhi, Faridabad complex, Ghaziabad, Greater Mumbai, Gurgaon, Hyderabad, Kanpur, Kolkata, Lucknow, Nagpur, Navi Mumbai, Noida, Pune, Secunderabad. Area B: about 85 other cities including Coimbatore, Madurai, Tiruchirappalli, Salem, Tiruppur, Erode (Tamil Nadu), Agra, Bhopal, Chandigarh, Indore, Jaipur, Kochi, Patna, Surat, Vadodara, Visakhapatnam. Area C: everywhere else. The class follows where the work is done.",
+    "monthly": "Daily rate x 26 working days = monthly minimum. Hourly rate = daily rate / 8.",
+    "revision": "VDA is revised twice a year, from 1 April and 1 October, on the average Consumer Price Index for Industrial Workers (CPI-IW)."
+  },
+  "provenance": {
+    "effective_from": "2026-10-01",
+    "licence": "Public information (Government of India)",
+    "next_revision_due": "2027-04-01",
+    "order": "File No. 6/1/2026-VDA, dated 30 September 2026",
+    "read_method": "OCR of the official scanned PDF (RapidOCR/onnxruntime, 150 DPI, 21 Nov 2026) — the PDF carries no text layer (pypdf extracts 1,915 chars from 30 pages). Every total below was read as an explicit 'basic+VDA=total' sum printed in the order.",
+    "scope_note": "CENTRAL SPHERE ONLY: these rates apply where the Central Government is the 'appropriate Government' (railways, mines, oilfields, banks, establishments under central authority, and contractors supplying workers to them). A private shop, restaurant, clinic or factory in a state follows THAT STATE's minimum wages — Tamil Nadu state rates are NOT in this file (the TN Labour Department's G.O. PDFs return 404; see LIMITATIONS.md L18/L39).",
+    "source": "Labour Bureau, Ministry of Labour & Employment, Government of India",
+    "source_date": "2026-09-30",
+    "source_url": "https://labourbureau.gov.in/uploads/public/notice/VDA-orders-October-2026-1pdf-f1c4d10c67a017bf34cd65319b294b99.pdf",
+    "verification": "All totals cross-checked 21 Nov 2026 against three independent readings of the same order (factohr.com, shiftelio.com, in.scrolljob.org) — all agree. CPI-IW average 431.42 (base 2016=100), up 6.62 points from 424.80. VDA rounded up to the next rupee per the Minimum Wages Advisory Board."
+  }
+}

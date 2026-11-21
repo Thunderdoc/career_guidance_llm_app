@@ -1,0 +1,42 @@
+{
+    "helplines": [
+        {
+            "for": [
+                "scam",
+                "fraud"
+            ],
+            "hours": "24x7",
+            "licence": "Public information (Government of India)",
+            "name": "National Cyber Crime Helpline",
+            "number": "1930",
+            "portal": "https://cybercrime.gov.in",
+            "purpose": "Report financial cyber fraud and other cybercrime; get help lodging a complaint on the National Cyber Crime Reporting Portal.",
+            "run_by": "Indian Cyber Crime Coordination Centre (I4C), Ministry of Home Affairs",
+            "source_date": "2022-04-06",
+            "source_title": "PIB press release: National Cyber Crime Helpline number 1930 operationalised",
+            "source_url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=1814120&reg=48&lang=2",
+            "toll_free": true,
+            "verified_date": "2026-11-21"
+        },
+        {
+            "for": [
+                "employment",
+                "career"
+            ],
+            "hours": null,
+            "licence": "Public information (Ministry of Labour & Employment)",
+            "name": "National Career Service (NCS) Toll Free Helpline",
+            "number": "1514",
+            "portal": "https://www.ncs.gov.in/",
+            "purpose": "Employment and career services: job search, career guidance, NCS portal help.",
+            "run_by": "National Career Service, Ministry of Labour & Employment",
+            "source_date": "2026-11-21",
+            "source_title": "National Career Service (NCS)",
+            "source_url": "https://www.ncs.gov.in/",
+            "toll_free": true,
+            "verified_date": "2026-11-21"
+        }
+    ],
+    "note": "Verified helpline numbers the Kaam-Vaani rights assistant may quote. Every number here was checked against the official source listed \u2014 never typed from memory. The escalation selector (career_guidance/kaamvaani/rights.py) only ever quotes numbers from this file; a number not in this file can never reach a worker. Last verified: 2026-11-21.",
+    "version": 1
+}

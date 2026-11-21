@@ -126,11 +126,14 @@ class ProfileStore:
         data["updated_at"] = _now()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO profiles (user_id, persona, education, current_role, experience_level, "  # noqa: E501
+                # "current_role" is quoted: CURRENT_ROLE is a reserved
+                # word in PostgreSQL (see migrations.py v2). Quoted
+                # identifiers work identically in SQLite.
+                'INSERT INTO profiles (user_id, persona, education, "current_role", experience_level, '  # noqa: E501
                 "skills_json, goals, interests, hours_per_week, language, country, onboarded, "
                 "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) "
                 "DO UPDATE SET persona=excluded.persona, education=excluded.education, "
-                "current_role=excluded.current_role, experience_level=excluded.experience_level, "
+                '"current_role"=excluded."current_role", experience_level=excluded.experience_level, '  # noqa: E501
                 "skills_json=excluded.skills_json, goals=excluded.goals, interests=excluded.interests, "  # noqa: E501
                 "hours_per_week=excluded.hours_per_week, language=excluded.language, "
                 "country=excluded.country, onboarded=excluded.onboarded, updated_at=excluded.updated_at",  # noqa: E501

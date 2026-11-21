@@ -24,6 +24,9 @@ lint:
 eval:
 	python -m eval.run --min-hit 0.75
 	python -m eval.run_chat_eval
+	# Kaam-Vaani eval gate (Stage 2+): runs once eval/run_kv.py exists;
+	# until then an honest no-op (never faked green by a stub).
+	if [ -f eval/run_kv.py ]; then python -m eval.run_kv --min-profile 0.90 --min-recall5 0.85 --min-faithfulness 0.90; else echo "eval/run_kv.py not yet built (Stage 2) — Kaam-Vaani eval gate pending"; fi
 
 # Phase 7 eval expansion only (faithfulness + chat grounding, offline).
 eval-chat:

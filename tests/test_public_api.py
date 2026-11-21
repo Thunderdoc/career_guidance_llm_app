@@ -9,7 +9,7 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from career_guidance.migrations import applied_versions, migrate
+from career_guidance.migrations import LATEST_VERSION, applied_versions, migrate
 from career_guidance.models import CareerRecommendation
 from career_guidance.storage import Database
 from tests.conftest import login
@@ -86,9 +86,9 @@ def test_migration_v10_from_v9_idempotent(tmp_path, monkeypatch):
     monkeypatch.setattr(migrations, "MIGRATIONS", migrations.MIGRATIONS[:9])
     assert migrate(path) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
     monkeypatch.undo()
-    assert migrate(path) == [10]
+    assert migrate(path) == list(range(10, LATEST_VERSION + 1))
     assert migrate(path) == []  # idempotent
-    assert applied_versions(path)[-1] == 10
+    assert applied_versions(path)[-1] == LATEST_VERSION
     with sqlite3.connect(path) as conn:
         indexes = {r[1] for r in conn.execute("PRAGMA index_list('recommendation_runs')")}
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}

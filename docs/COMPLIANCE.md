@@ -33,6 +33,44 @@
   product should use, and whether verifiable parental consent is
   required for the exact services offered (DPDP §9) before launch.
 
+## 1a. Kaam-Vaani worker consent (Stage 6) — a separate consent domain
+
+The parental-consent system above (migration v7, `consent_records`)
+is NOT reused for worker–employer sharing: Stage 6 has its own
+tables (migration v14: `kv_consents`, `kv_consent_audit`) and its
+own rules, because the data principal, purpose and lifecycle differ.
+
+- [x] Consent is per-employer, time-limited (7/30/90 days, default
+  30), revocable at any time, and specific: the worker picks the
+  exact fields shared from a fixed set (skills, education, city,
+  income, goal, interests, contact). One active consent per
+  (worker, employer); re-grant only after revoke/expire.
+- [x] Purpose limitation is enforced server-side: an employer sees
+  a worker's fields only under an active consent, only for
+  matching/shortlist/contact about verified listings, and only the
+  consented fields (`filter_profile` allow-list). No consent means
+  no data — enforced in the API, not just the UI (negative tests).
+- [x] The explanation is a deterministic template, never
+  LLM-paraphrased, so it cannot misstate which fields are shared
+  or for how long. It is also spoken aloud (Listen button).
+- [x] Revocation is immediate and final; expiry is lazy but
+  enforced on every read path (an overdue grant flips to expired
+  with a `system` audit event before any data is returned).
+- [x] The audit log (`kv_consent_audit`) is append-only: the only
+  write is an INSERT; there is no update/delete path anywhere,
+  and re-seeding sample data deliberately keeps old audit rows.
+  Every grant, revoke, expiry and profile access is recorded,
+  visible to the worker on `/sharing` and to the employer in
+  their own audit view.
+- [x] Contact sharing is minimal: `contact` shares the sign-in
+  e-mail plus the verified phone only — an unverified phone is
+  never shared.
+- [ ] **Owner/lawyer:** confirm the DPDP notice text for worker
+  sharing (what is shared, with whom, for how long, how to
+  revoke), the retention policy for the audit log (today: kept
+  forever, L49), and whether worker profiles need a
+  deletion/erasure path beyond account deletion.
+
 ## 2. Minor protections (under-18 accounts)
 
 Age is established by a **least-data declaration** — an `age_band`
@@ -91,6 +129,52 @@ For a minor **without** granted parental consent
 - [ ] **Owner/lawyer:** confirm the anonymised-retention choices and set
   a backup-retention period; deleted data persists in old backups until
   they rotate.
+
+### 4a. Kaam-Vaani deletion (Step 9.4)
+
+`DELETE /api/v1/kv/me/data` (signed-in) erases the caller's
+Kaam-Vaani data; full account deletion (`DELETE /api/v1/me`,
+and the admin user delete) runs the same erasure first, then
+the base-app deletion above. Before Step 9.4, account deletion
+left every KV row behind — the KV tables postdate
+`delete_user`. One helper is the single entry point:
+`delete_all_kv_data` (`career_guidance/kaamvaani/consent.py`).
+
+- **Deleted:** worker profile, every consent naming the worker
+  (all statuses), shortlists and contact requests naming the
+  worker; the employer row and all its listings (when the
+  account is an employer); consents/shortlists/contact requests
+  naming the deleted employer.
+- **Anonymised, not deleted:** hire outcomes about the worker —
+  the row stays (aggregate retention stats must stay valid) but
+  the worker link becomes a one-way tombstone
+  `deleted-{sha256(user_id)[:12]}` (unique per worker, so the
+  (listing, worker) dedup still holds; unlinkable once the
+  account row is gone), the reporter link is cleared when the
+  worker reported it, and the worker's note is cleared. The
+  employer's reporter link/note on outcomes is cleared the same
+  way when the employer deletes.
+- **Retained:** listing reports (workers' safety records naming
+  no employer PII — deleting them would destroy scam evidence)
+  and the consent audit trail (`kv_consent_audit`), which is
+  NEVER deleted: it is the append-only consent-evidence log
+  (Stage 6 invariant, execution prompt 6.2). Its rows hold only
+  user-id tokens (random, unlinkable after the account row is
+  gone) plus the employer's e-mail as the `actor` on
+  `accessed` events — the e-mail is the identifier the worker
+  recognises, and it is the consent evidence itself.
+- **Retention policy (Step 9.4, recorded, NOT automated):**
+  audit rows are retained for **365 days**. No automated prune
+  exists — the append-only invariant means pruning is a
+  deliberate future ops decision (a migration + an explicit
+  ops action), not a code path. At pilot scale the log is
+  small; the prune decision is a deploy-checklist item.
+- [ ] **Owner/lawyer:** confirm (a) the 365-day audit
+  retention, (b) that retaining the employer's e-mail as the
+  audit actor is acceptable as consent evidence, (c) the
+  outcome-tombstone anonymisation, (d) the backup-retention
+  period (deleted KV data persists in old backups until they
+  rotate, same as §4).
 
 ## 5. Breach-response runbook (engineering steps)
 

@@ -200,14 +200,35 @@ factory, DDL translation) live only there.
 | Concurrency | One writer at a time — fine for this app's load | Full concurrent writes |
 | Ops burden | None | Connection string rotation, add-on lifecycle |
 
-**Current boundary (honest):** the per-feature stores (users, journey,
-billing, verification, institutes, consent, …) still open the SQLite
-file directly. Running with `DATABASE_URL=postgres://…` today migrates
-and serves the recommendation-runs `Database` on Postgres while the
-remaining stores keep using `DATABASE_PATH`. A full cutover is a
-store-by-store migration behind the same dialect layer — do not point
-production at Postgres until that lands. The option exists now so the
-schema, migrations and core store are proven portable ahead of it.
+**Current boundary (honest, verified Step 7C, 21 Nov 2026):** the
+migration runner, the core storage layer (`Database`) and ALL
+Kaam-Vaani stores (`career_guidance/kaamvaani/rag.py`,
+`employers.py`, `consent.py` — RAG chunks, employers/listings,
+consents/audit) are dialect-aware and were verified live against
+Postgres 16.2: migrations 1..14 apply in one call, the re-run is a
+no-op, and the KV stores round-trip (RagStore snapshot load,
+employer + listing create with `RETURNING id`, consent grant +
+audit event). The verification is committed as
+`tests/test_kv_step7c.py` (live part runs when
+`KV_TEST_POSTGRES_URL` is set). The remaining per-feature stores
+still open the SQLite file directly — users, profiles, journey,
+billing, verification, institutes, legacy consent, content,
+coupons, gamification, RIASEC, roadmap, settings, sharing,
+synonyms, api_keys, admin console — so a `DATABASE_URL` deployment
+today runs the core store + migrations + Kaam-Vaani on Postgres
+while those stores keep using `DATABASE_PATH`. A full cutover is a
+store-by-store migration behind the same dialect layer — do not
+point production at Postgres until that lands. The option exists
+now so the schema, migrations, core store and Kaam-Vaani stores
+are proven portable ahead of it.
+
+**Step 7C fix (21 Nov 2026):** the live test found v2's profiles
+DDL failing on Postgres — `current_role` is a reserved word there
+(SQLite accepts it silently). The column is now quoted in the v2
+DDL and in the profiles upsert SQL (quoted identifiers work
+identically in SQLite; already-migrated SQLite DBs are
+unaffected). `tests/test_kv_step7c.py` guards the whole migration
+set against unquoted reserved-word identifiers.
 
 To enable (staging first):
 
@@ -222,7 +243,10 @@ To enable (staging first):
    `POST /api/v1/recommend`, and confirm a row landed:
    `psql "$DATABASE_URL" -c "SELECT count(*) FROM recommendation_runs;"`
    and `psql "$DATABASE_URL" -c "SELECT version FROM schema_migrations ORDER BY 1;"`
-   (expect versions 1..7).
+   (expect versions 1..14). Also run the committed live check
+   against a scratch database before cutover:
+   `KV_TEST_POSTGRES_URL=<scratch-url> pytest tests/test_kv_step7c.py -q`
+   (needs `psycopg` installed — see `requirements-postgres.txt`).
 5. Roll back by unsetting `DATABASE_URL` and redeploying; the SQLite
    file was never modified by the Postgres path.
 

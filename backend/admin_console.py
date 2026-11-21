@@ -70,7 +70,9 @@ ENV_KEYS = (
 # Request models
 # --------------------------------------------------------------------------- #
 class RoleBody(BaseModel):
-    role: str = Field(pattern="^(user|admin)$")
+    # Kaam-Vaani Stage 1: employer + coordinator join user/admin.
+    # Server-side validation also lives in users.set_role (validate_role).
+    role: str = Field(pattern="^(user|admin|employer|coordinator)$")
 
 
 class DisabledBody(BaseModel):
@@ -379,6 +381,11 @@ def build_router(settings, users, db, admin_user) -> APIRouter:
             raise HTTPException(400, "You cannot delete yourself.")
         if users.get(user_id) is None:
             raise HTTPException(404, "User not found.")
+        # Step 9.4: Kaam-Vaani data first (same erasure as
+        # self-delete), then the base-app deletion.
+        from career_guidance.kaamvaani.consent import delete_all_kv_data
+
+        delete_all_kv_data(settings.database_target, user_id)
         users.delete_user(user_id)
         journey.purge_user(user_id)
         profiles.delete(user_id)
