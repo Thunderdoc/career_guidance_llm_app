@@ -240,19 +240,17 @@ make blackbox     # 43-check HTTP round against a running API (add API=https://�
 make blackbox-prod  # the same round against Render and the Vercel origin
 ```
 
-Current numbers (Phase 8 gate run, 2026-11-06): **468 pytest passed · skills Hit@5 1.0
-(MRR 0.827) · interests Hit@5 1.0 · eval p95 ≈ 128 ms · coverage 91 % (91.23 %; new
-Phase 8 modules: `career_guidance/sharing.py` 96 %, `backend/sharing.py` 97 %)** ·
-faithfulness 4/4, chat grounding 8/8 (`eval/run_chat_eval.py`). Semantic blend
-(Phase 7, opt-in `SEMANTIC_MATCHING_ENABLED`, TF-IDF w=0.25) measured separately:
-Hit@5 1.0, MRR 0.888 — ships OFF by default (see `career_guidance/semantic.py`).
-First-load JS (export build table): `/` 257 kB, `/report/[runId]` 259 kB (chat +
-share panels code-split into lazy chunks), **`/shared/[token]` 218 kB and
-`/offline` 155 kB — within the 245 kB budget**. Most other app routes sit at
-**253–268 kB — over the 245 kB budget** — driven by the ~103 kB shared bundle
-(i18n dictionary included); within budget: `/methodology` 206 kB, `/p/[handle]` 211 kB,
-`/start` 216 kB, `/privacy` 149 kB. Splitting the shared i18n bundle is the known
-Phase 10 fix; the overage is structural and pre-dates Phase 6.
+Current numbers (v1.5.0 final gate run, 2026-11-06): **514 pytest passed ·
+skills Hit@5 1.0 (MRR 0.827) · interests Hit@5 1.0 · eval p95 ≈ 128 ms ·
+coverage 91.93 %** · faithfulness 4/4, chat grounding 8/8
+(`eval/run_chat_eval.py`). Semantic blend (Phase 7, opt-in
+`SEMANTIC_MATCHING_ENABLED`, TF-IDF w=0.25) measured separately: Hit@5 1.0,
+MRR 0.888 — ships OFF by default (see `career_guidance/semantic.py`).
+First-load JS (export build table): **every route is now ≤245 kB** — worst
+`/login` 224 kB, most routes ~192 kB (`/` 187 kB, `/report/[runId]` 190 kB,
+`/shared/[token]` 186 kB, `/offline` 122 kB). The Phase 10 fix split the
+per-locale i18n dictionaries out of the shared bundle and lazy-loads Firebase
+(full before/after table in `docs/UPGRADE_PLAN.md` §5).
 CI (`.github/workflows/ci.yml`) runs lint, tests, the coverage gate and the eval on
 every push and PR, and fails if Hit@5 drops below 0.75.
 
@@ -351,4 +349,5 @@ public course pages.
 
 ## License
 
-No license file has been added yet — all rights reserved by the repository owner until one is chosen.
+MIT — see [`LICENSE`](LICENSE). (O*NET data itself stays under its own Creative
+Commons licence, as noted above.)
