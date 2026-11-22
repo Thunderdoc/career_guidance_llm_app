@@ -54,8 +54,8 @@ def _aggregate_cohort(store: InstituteStore, db, institute_id: int) -> dict:
 
 def build_router(settings, current_user, users, db) -> APIRouter:
     router = APIRouter(tags=["public-api"])
-    store = InstituteStore(settings.database_path)
-    keys = InstituteApiKeyStore(settings.database_path)
+    store = InstituteStore(settings.database_target)
+    keys = InstituteApiKeyStore(settings.database_target)
 
     # ------------------------------------------------------- key admin
     def _require_key_admin(user: User, institute_id: int) -> dict:

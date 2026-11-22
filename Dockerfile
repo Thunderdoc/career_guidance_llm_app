@@ -21,6 +21,12 @@ RUN npm run build
 FROM python:3.11-slim AS api
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 APP_ENV=production
 WORKDIR /app
+# ffmpeg + ffprobe for the Kaam-Vaani video skill check (career_guidance/kaamvaani/video.py
+# resolves both via shutil.which; without them /video-check answers 503).
+# Debian's `ffmpeg` package ships both binaries; --no-install-recommends
+# keeps the image lean, and the apt lists are removed in the same layer.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY career_guidance ./career_guidance

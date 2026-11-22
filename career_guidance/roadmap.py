@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import json
 import math
-import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.learning import resources_for
 from career_guidance.migrations import migrate
 from career_guidance.models import LearningResource
@@ -514,30 +514,44 @@ class Plan90Store:
     """Persistence for 90-day plans (table from migration v5)."""
 
     def __init__(self, path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL. A URL has no
+        # parent directory to create — Path("postgresql://...").parent
+        # would mkdir junk.
         self._path = str(path)
-        Path(self._path).parent.mkdir(parents=True, exist_ok=True)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
+        if not self._config.is_postgres:
+            Path(self._path).parent.mkdir(parents=True, exist_ok=True)
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def save(self, user_id: str, plan: dict) -> dict:
         created = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        insert = (
+            "INSERT INTO plans_90day (user_id, run_id, created_at, hours_per_week, plan_json) "
+            "VALUES (?, ?, ?, ?, ?)"
+        )
+        params = (
+            user_id,
+            plan.get("run_id"),
+            created,
+            int(plan.get("hours_per_week", DEFAULT_HOURS)),
+            json.dumps(plan),
+        )
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO plans_90day (user_id, run_id, created_at, hours_per_week, plan_json) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    user_id,
-                    plan.get("run_id"),
-                    created,
-                    int(plan.get("hours_per_week", DEFAULT_HOURS)),
-                    json.dumps(plan),
-                ),
-            )
-            plan_id = int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                plan_id = int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            else:
+                plan_id = int(conn.execute(insert, params).lastrowid or 0)
         return {**plan, "plan_id": plan_id, "created_at": created}
 
     def latest(self, user_id: str) -> dict | None:

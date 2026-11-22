@@ -7,10 +7,10 @@ dashboard, the plan page and the admin console read from one place.
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 from career_guidance.roadmap import Roadmap, generate
 from career_guidance.skillgap import Readiness, evaluate
@@ -22,13 +22,20 @@ def _now() -> str:
 
 class JourneyStore:
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     # ------------------------------------------------------- skill ratings
     def ratings(self, user_id: str, career_id: str) -> dict[str, int]:
@@ -65,22 +72,26 @@ class JourneyStore:
         payload = roadmap.to_dict()
         ratings = self.ratings(user_id, career_id)
         payload["ratings"] = ratings
+        insert = (
+            "INSERT INTO plans (user_id, career_id, created_at, hours_per_week, readiness, weeks, "  # noqa: E501
+            "eta, plan_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        params = (
+            user_id,
+            career_id,
+            _now(),
+            roadmap.hours_per_week,
+            round(readiness.readiness_weighted, 1),
+            roadmap.weeks,
+            roadmap.eta,
+            json.dumps(payload),
+        )
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO plans (user_id, career_id, created_at, hours_per_week, readiness, weeks, "  # noqa: E501
-                "eta, plan_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    user_id,
-                    career_id,
-                    _now(),
-                    roadmap.hours_per_week,
-                    round(readiness.readiness_weighted, 1),
-                    roadmap.weeks,
-                    roadmap.eta,
-                    json.dumps(payload),
-                ),
-            )
-            plan_id = int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                plan_id = int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            else:
+                plan_id = int(conn.execute(insert, params).lastrowid or 0)
         payload["plan_id"] = plan_id
         payload["created_at"] = _now()
         return payload
@@ -177,9 +188,11 @@ class JourneyStore:
     def toggle_saved(self, user_id: str, resource_id: int, saved: bool) -> bool:
         with self._connect() as conn:
             if saved:
+                # Bare ON CONFLICT DO NOTHING is the portable spelling
+                # of INSERT OR IGNORE (works on both engines).
                 conn.execute(
-                    "INSERT OR IGNORE INTO saved_resources (user_id, resource_id, saved_at) "
-                    "VALUES (?, ?, ?)",
+                    "INSERT INTO saved_resources (user_id, resource_id, saved_at) "
+                    "VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
                     (user_id, resource_id, _now()),
                 )
             else:
@@ -208,13 +221,16 @@ class JourneyStore:
 
     # ------------------------------------------------------ interview notes
     def save_interview(self, user_id: str, career_id: str, seconds: int, notes: dict) -> int:
+        insert = (
+            "INSERT INTO interview_sessions (user_id, career_id, created_at, seconds, notes_json) "  # noqa: E501
+            "VALUES (?, ?, ?, ?, ?)"
+        )
+        params = (user_id, career_id, _now(), int(seconds), json.dumps(notes))
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO interview_sessions (user_id, career_id, created_at, seconds, notes_json) "  # noqa: E501
-                "VALUES (?, ?, ?, ?, ?)",
-                (user_id, career_id, _now(), int(seconds), json.dumps(notes)),
-            )
-            return int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            return int(conn.execute(insert, params).lastrowid or 0)
 
     def interview_sessions(self, user_id: str, limit: int = 20) -> list[dict]:
         with self._connect() as conn:
@@ -266,9 +282,7 @@ class JourneyStore:
             "consent_records",
         ]
         with self._connect() as conn:
-            existing = {
-                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            }
+            existing = db_layer.table_names(conn, self._config.dialect)
             for table in tables:
                 if table in existing:
                     conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
@@ -288,9 +302,7 @@ class JourneyStore:
         hashes are never exported (they are credentials, not user data).
         """
         with self._connect() as conn:
-            existing = {
-                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            }
+            existing = db_layer.table_names(conn, self._config.dialect)
 
             def rows(sql: str, params=()) -> list[dict]:
                 return [dict(r) for r in conn.execute(sql, params)]

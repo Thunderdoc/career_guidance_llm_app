@@ -8,11 +8,11 @@ back to the defaults declared in :data:`DEFAULTS`.
 from __future__ import annotations
 
 import json
-import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 # Keys are dotted so the console can group them. ``None`` means "unset".
@@ -59,13 +59,20 @@ class SettingsStore:
     """Key/value store for runtime-tunable application settings."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     # ------------------------------------------------------------------ #
     def overrides(self) -> dict[str, Any]:
@@ -191,20 +198,27 @@ class SettingsStore:
 
     def counts(self) -> dict[str, int]:
         """Aggregate counters used by the admin overview."""
-        week_ago = (datetime.now(timezone.utc).replace(microsecond=0)).isoformat()[:10]
+        # The 7-day cutoff is computed in Python: SQLite's date(?, '-7 day')
+        # has no Postgres equivalent, and substr(created_at, 1, 10) works
+        # identically on both engines (Postgres substr is 1-based too).
+        week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).date().isoformat()
         with self._connect() as conn:
 
             def count(sql: str, params: tuple = ()) -> int:
-                return int(conn.execute(sql, params).fetchone()[0])
+                # Named column, not fetchone()[0]: dict rows on the
+                # Postgres facade do not support positional indexing.
+                return int(conn.execute(sql, params).fetchone()["n"])
 
             return {
-                "tools": count("SELECT COUNT(*) FROM tool_events"),
+                "tools": count("SELECT COUNT(*) AS n FROM tool_events"),
                 "tools_7d": count(
-                    "SELECT COUNT(*) FROM tool_events WHERE substr(created_at, 1, 10) >= date(?, '-7 day')",  # noqa: E501
+                    "SELECT COUNT(*) AS n FROM tool_events WHERE substr(created_at, 1, 10) >= ?",
                     (week_ago,),
                 ),
-                "errors": count("SELECT COUNT(*) FROM error_events"),
-                "cold_starts": count("SELECT COUNT(*) FROM system_events WHERE kind = 'startup'"),
+                "errors": count("SELECT COUNT(*) AS n FROM error_events"),
+                "cold_starts": count(
+                    "SELECT COUNT(*) AS n FROM system_events WHERE kind = 'startup'"
+                ),
             }
 
     def tool_usage(self, limit: int = 20) -> list[tuple[str, int]]:
@@ -227,13 +241,16 @@ class SettingsStore:
     def add_announcement(
         self, title: str, body: str, level: str = "info", pinned: bool = False, actor: str = ""
     ) -> int:
+        insert = (
+            "INSERT INTO announcements (title, body, level, active, pinned, created_at, "
+            "created_by) VALUES (?, ?, ?, 1, ?, ?, ?)"
+        )
+        params = (title, body, level, int(pinned), _now(), actor)
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO announcements (title, body, level, active, pinned, created_at, "
-                "created_by) VALUES (?, ?, ?, 1, ?, ?, ?)",
-                (title, body, level, int(pinned), _now(), actor),
-            )
-            return int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            return int(conn.execute(insert, params).lastrowid or 0)
 
     def update_announcement(self, aid: int, **fields: Any) -> None:
         allowed = {"title", "body", "level", "active", "pinned"}
@@ -261,12 +278,13 @@ class SettingsStore:
             ]
 
     def start_job(self, kind: str, detail: str = "") -> int:
+        insert = "INSERT INTO jobs (kind, status, created_at, detail) VALUES (?, 'running', ?, ?)"
+        params = (kind, _now(), detail[:300])
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO jobs (kind, status, created_at, detail) VALUES (?, 'running', ?, ?)",
-                (kind, _now(), detail[:300]),
-            )
-            return int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            return int(conn.execute(insert, params).lastrowid or 0)
 
     def finish_job(self, job_id: int, status: str = "done", detail: str = "") -> None:
         with self._connect() as conn:

@@ -31,12 +31,12 @@ import hashlib
 import hmac
 import json
 import random
-import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 PASS_PERCENT = 70.0
@@ -298,16 +298,23 @@ class Verification:
 
 
 class VerificationStore:
-    """SQLite store for verification state (tables from migration v5)."""
+    """Store for verification state (tables from migration v5)."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     # ------------------------------------------------------------- cooldown
     def cooldown_remaining(self, user_id: str, skill: str, now: datetime | None = None) -> float:
@@ -401,7 +408,7 @@ class VerificationStore:
 
     # ---------------------------------------------------------------- reads
     @staticmethod
-    def _status_row(conn: sqlite3.Connection, user_id: str, skill: str):
+    def _status_row(conn, user_id: str, skill: str):
         return conn.execute(
             "SELECT * FROM skill_verifications WHERE user_id = ? AND skill = ?",
             (user_id, skill),

@@ -3,8 +3,8 @@
 The bundled catalog (``data/catalog/occupations.json``) and the curated course
 list (``data/learning_resources.yaml``) are read-only defaults. Everything an
 admin changes — India salary overrides, Indian job titles, hidden or custom
-careers, courses, interview templates — lives in SQLite so the catalog can be
-edited without a redeploy.
+careers, courses, interview templates — lives in the database so the catalog
+can be edited without a redeploy.
 """
 
 from __future__ import annotations
@@ -12,11 +12,11 @@ from __future__ import annotations
 import csv
 import io
 import json
-import sqlite3
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 from career_guidance.models import LearningResource
 from career_guidance.taxonomy import Occupation, load_taxonomy
@@ -31,13 +31,20 @@ def _now() -> str:
 
 class ContentStore:
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     # ------------------------------------------------- career overrides
     def career_overrides(self) -> dict[str, dict]:
@@ -67,8 +74,11 @@ class ContentStore:
         if not data:
             return
         with self._connect() as conn:
+            # Bare ON CONFLICT DO NOTHING is the portable spelling of
+            # INSERT OR IGNORE (works on both engines).
             conn.execute(
-                "INSERT OR IGNORE INTO career_overrides (career_id, updated_at) VALUES (?, ?)",
+                "INSERT INTO career_overrides (career_id, updated_at) VALUES (?, ?) "
+                "ON CONFLICT DO NOTHING",
                 (career_id, _now()),
             )
             sets = ", ".join(f"{key} = ?" for key in data)
@@ -173,7 +183,10 @@ class ContentStore:
                     ],  # noqa: E501
                 )
                 imported += 1
-            except sqlite3.IntegrityError:
+            # Each row gets its own connection (add_custom_career opens
+            # one per call), so a failed INSERT aborts only that row's
+            # transaction on Postgres — the loop continues safely.
+            except db_layer.integrity_error_types(self._config.dialect):
                 skipped += 1
         return imported, skipped
 
@@ -210,10 +223,12 @@ class ContentStore:
                 return 0
             for skill, items in resources.items():
                 for item in items:
+                    # Bare ON CONFLICT DO NOTHING is the portable
+                    # spelling of INSERT OR IGNORE (both engines).
                     conn.execute(
-                        "INSERT OR IGNORE INTO resources (skill, title, url, provider, level, "
+                        "INSERT INTO resources (skill, title, url, provider, level, "
                         "language, free, duration_minutes, status, created_at) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?) ON CONFLICT DO NOTHING",
                         (
                             skill,
                             item.get("title", ""),
@@ -244,7 +259,12 @@ class ContentStore:
         sql = "SELECT * FROM resources WHERE 1=1"
         params: list = []
         if q:
-            sql += " AND (title LIKE ? OR skill LIKE ? OR provider LIKE ?)"
+            # LOWER() on both sides: SQLite LIKE is case-insensitive
+            # for ASCII by default, Postgres LIKE is case-sensitive.
+            sql += (
+                " AND (LOWER(title) LIKE LOWER(?) OR LOWER(skill) LIKE LOWER(?) "
+                "OR LOWER(provider) LIKE LOWER(?))"
+            )
             params += [f"%{q}%"] * 3
         if skill:
             sql += " AND skill = ?"
@@ -253,7 +273,7 @@ class ContentStore:
             sql += " AND language = ?"
             params.append(language)
         if provider:
-            sql += " AND provider LIKE ?"
+            sql += " AND LOWER(provider) LIKE LOWER(?)"
             params.append(f"%{provider}%")
         if level:
             sql += " AND level = ?"
@@ -270,7 +290,7 @@ class ContentStore:
         return [self._resource_dict(row) for row in rows]
 
     @staticmethod
-    def _resource_dict(row: sqlite3.Row) -> dict:
+    def _resource_dict(row) -> dict:
         return {
             "id": row["id"],
             "skill": row["skill"],
@@ -334,13 +354,16 @@ class ContentStore:
             raise ValueError("skill, title and url are required")
         with self._connect() as conn:
             if resource_id is None:
-                cur = conn.execute(
+                insert = (
                     "INSERT INTO resources (skill, title, url, provider, level, language, free, "
                     "duration_minutes, status, created_at, updated_by) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)",
-                    (*fields.values(), _now(), actor),
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)"
                 )
-                return int(cur.lastrowid or 0)
+                params = (*fields.values(), _now(), actor)
+                # Postgres has no lastrowid — RETURNING id is the equivalent.
+                if self._config.is_postgres:
+                    return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+                return int(conn.execute(insert, params).lastrowid or 0)
             conn.execute(
                 "UPDATE resources SET skill=?, title=?, url=?, provider=?, level=?, language=?, "
                 "free=?, duration_minutes=?, updated_by=? WHERE id=?",
@@ -425,19 +448,22 @@ class ContentStore:
     def add_interview_template(
         self, kind: str, template: str, skill: str = "", career_id: str = ""
     ) -> int:  # noqa: E501
+        insert = (
+            "INSERT INTO interview_templates (kind, template, skill, career_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?)"
+        )
+        params = (
+            kind if kind in {"behavioural", "technical"} else "behavioural",
+            template,
+            skill,
+            career_id,
+            _now(),
+        )
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO interview_templates (kind, template, skill, career_id, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    kind if kind in {"behavioural", "technical"} else "behavioural",
-                    template,
-                    skill,
-                    career_id,
-                    _now(),
-                ),  # noqa: E501
-            )
-            return int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            return int(conn.execute(insert, params).lastrowid or 0)
 
     def delete_interview_template(self, template_id: int) -> None:
         with self._connect() as conn:

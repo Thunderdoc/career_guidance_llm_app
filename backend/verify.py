@@ -97,8 +97,8 @@ def _valid_project_link(link: str) -> bool:
 
 def build_router(settings, current_user, admin_user, users, db, secret: str) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["verify"])
-    store = VerificationStore(settings.database_path)
-    plans = Plan90Store(settings.database_path)
+    store = VerificationStore(settings.database_target)
+    plans = Plan90Store(settings.database_target)
 
     # ---------------------------------------------------------- verification
     @router.get("/skills/verify/quizzes")
@@ -167,7 +167,7 @@ def build_router(settings, current_user, admin_user, users, db, secret: str) -> 
         if not allowed:
             from career_guidance.institutes import InstituteStore
 
-            institutes = InstituteStore(settings.database_path)
+            institutes = InstituteStore(settings.database_target)
             mine = institutes.membership_of(reviewer.id)
             target = institutes.membership_of(body.user_id)
             allowed = bool(

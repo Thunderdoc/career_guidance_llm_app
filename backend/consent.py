@@ -52,7 +52,7 @@ class ConsentRequestBody(BaseModel):
 
 def build_router(settings, current_user, users, public_url: str = "") -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["consent"])
-    store = ConsentStore(settings.database_path)
+    store = ConsentStore(settings.database_target)
     provider = ManualEmailConsentProvider(store, base_url=public_url)
 
     def _status_payload(user: User) -> dict:

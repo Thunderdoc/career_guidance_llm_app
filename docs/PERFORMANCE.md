@@ -83,3 +83,54 @@ assessment runs across 50 users (index dropped vs present, same data):
 See the per-route table in `docs/UPGRADE_PLAN.md` §5 Phase 10 status:
 the per-locale i18n split + lazy Firebase brought **every route to
 ≤245 kB** (worst route `/login` at 224 kB).
+
+## Kaam-Vaani load test (Step 9.5, 21 Nov 2026)
+
+Script: `eval/kv_load.py` (httpx async; k6/Locust were not needed —
+the script starts a real uvicorn server and drives it). Report:
+`eval/kv_load_report.json`. Setup, chosen to match the deployment
+shape honestly rather than to flatter the numbers:
+
+- **One uvicorn worker** — the Render free-tier shape (one process,
+  512 MB). No multi-worker scaling is claimed.
+- **20 virtual users × 5 rounds = 500 requests** through the five
+  anonymous AI endpoints (`/rag/ask`, `/rag/search`, `/rights/ask`,
+  `/voice/extract`, `/matches`).
+- **Distinct questions per request** (cycled from the 115 golden
+  retrieval cases), so the Step 8.6 caches do NOT dominate — this
+  measures the uncached path under concurrency.
+- **Distinct X-Forwarded-For per virtual user**, so the Step 9.4
+  rate limiters see distinct users; no limiter was disabled.
+  Per-user counts stayed under the limits (rag 10, rights 5,
+  voice 5, matching 5 per user).
+- One warm-up request per endpoint first, so the timed run does
+  not pay the ~4.3 s first retriever build.
+
+Results (500 requests, **0 errors**, 27.08 s wall, 18.46 req/s):
+
+| Endpoint | n | p50 | p95 | p99 | mean | max |
+|---|---|---|---|---|---|---|
+| /rag/ask | 100 | 579.7 ms | 1830.2 ms | 2509.2 ms | 781.9 ms | 2509.2 ms |
+| /rag/search | 100 | 503.0 ms | 1506.7 ms | 2417.6 ms | 562.6 ms | 2417.6 ms |
+| /rights/ask | 100 | 549.6 ms | 1267.9 ms | 1876.3 ms | 620.6 ms | 1876.3 ms |
+| /voice/extract | 100 | 423.0 ms | 1140.8 ms | 1170.4 ms | 553.8 ms | 1170.4 ms |
+| /matches | 100 | 2505.4 ms | 4204.9 ms | 4415.7 ms | 2521.2 ms | 4415.7 ms |
+
+Memory (server process RSS): 266 MB before, 285 MB after, **293 MB
+peak sampled** — fits the 512 MB free instance with headroom. (This
+is the sandbox measurement, not Render; the shape is the same
+single-worker process.)
+
+Honest reading — these numbers are **much slower than the
+single-user latencies**, and the reason is structural, not a bug:
+every endpoint here is CPU-bound pure-Python work (BM25 + TF-IDF
+over 1,048 chunks; the MatcherV2 pass over the full taxonomy),
+and one worker serialises all 20 concurrent users behind the
+GIL. `/matches` degrades most: p50 2.51 s under load vs ~380 ms
+single-user (COMPLEXITY.md §17). The pilot will not see 20
+simultaneous `/matches` calls (a human-paced voice flow), but
+`/matches` is the first endpoint to degrade under concurrency.
+The fix direction is caching base scores per profile signature
+or more workers — the latter is a paid-tier decision, out of
+scope for the free-only pilot. No 429s appeared: the rate
+limiters never tripped at this (realistic) per-user volume.

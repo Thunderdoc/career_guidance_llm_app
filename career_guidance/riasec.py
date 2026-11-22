@@ -8,7 +8,6 @@ matcher's interest term.
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -16,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 ITEMS_PATH = Path(__file__).resolve().parent.parent / "data" / "assessment_items.yaml"
@@ -162,39 +162,54 @@ class AssessmentStore:
     """Persist assessment runs so users can retake the test and compare history."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def save(self, user_id: str | None, answers: dict[str, int], result: dict) -> int:
         import json
 
+        insert = (
+            "INSERT INTO assessment_runs (user_id, created_at, answers_json, scores_json, "
+            "holland_code) VALUES (?, ?, ?, ?, ?)"
+        )
+        params = (
+            user_id,
+            _now(),
+            json.dumps(answers),
+            json.dumps(result["scores"]),
+            result["holland_code"],
+        )
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO assessment_runs (user_id, created_at, answers_json, scores_json, "
-                "holland_code) VALUES (?, ?, ?, ?, ?)",
-                (
-                    user_id,
-                    _now(),
-                    json.dumps(answers),
-                    json.dumps(result["scores"]),
-                    result["holland_code"],
-                ),
-            )
-            return int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            return int(conn.execute(insert, params).lastrowid or 0)
 
     def history(self, user_id: str | None, limit: int = 20) -> list[dict]:
         import json
 
+        # Postgres rejects "IS $1" (IS takes only NULL/TRUE/FALSE), so
+        # the NULL case gets its own SQL; SQLite accepts both forms.
+        if user_id is None:
+            sql = "SELECT * FROM assessment_runs WHERE user_id IS NULL ORDER BY id DESC LIMIT ?"
+            params: tuple = (limit,)
+        else:
+            sql = "SELECT * FROM assessment_runs WHERE user_id = ? ORDER BY id DESC LIMIT ?"
+            params = (user_id, limit)
         with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM assessment_runs WHERE user_id IS ? ORDER BY id DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
+            rows = conn.execute(sql, params).fetchall()
         return [
             {
                 "id": row["id"],

@@ -8,7 +8,7 @@ Design decisions (deliberate, owner-aligned):
 - **Discounts are computed server-side** from the coupon row and the
   plan's configured price. Client-supplied amounts are never trusted.
 - **Redemption is transactional**: the redemption row is written in the
-  SAME SQLite transaction as the payment row (see
+  SAME transaction as the payment row (see
   :meth:`career_guidance.billing.BillingStore.create_payment`), after a
   re-check of every limit inside that transaction, so a race cannot
   over-redeem.
@@ -23,10 +23,10 @@ Design decisions (deliberate, owner-aligned):
 from __future__ import annotations
 
 import secrets
-import sqlite3
 import string
 from datetime import datetime, timezone
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 #: A discounted order must still charge at least ₹1 (Razorpay's minimum
@@ -74,7 +74,7 @@ def compute_discount(coupon: dict, amount_paise: int) -> int:
 
 
 def coupon_rejection(
-    conn: sqlite3.Connection, coupon: dict | None, user_id: str, now: datetime | None = None
+    conn, coupon: dict | None, user_id: str, now: datetime | None = None
 ) -> str | None:
     """Why ``coupon`` cannot be redeemed by ``user_id`` right now, or None.
 
@@ -117,7 +117,7 @@ def coupon_rejection(
 
 
 def insert_redemption(
-    conn: sqlite3.Connection,
+    conn,
     coupon: dict,
     user_id: str,
     order_ref: str,
@@ -135,9 +135,7 @@ def insert_redemption(
     )
 
 
-def insert_attribution(
-    conn: sqlite3.Connection, referrer_user_id: str, referred_user_id: str, order_ref: str
-) -> None:
+def insert_attribution(conn, referrer_user_id: str, referred_user_id: str, order_ref: str) -> None:
     """Record a referral attribution + a pending, valueless reward row."""
     conn.execute(
         "INSERT INTO referral_attributions (referrer_user_id, referred_user_id, order_ref,"
@@ -152,16 +150,23 @@ def insert_attribution(
 
 
 class CouponStore:
-    """SQLite store for coupons and their redemptions."""
+    """Store for coupons and their redemptions."""
 
     def __init__(self, db_path: str) -> None:
+        # ``db_path`` is a filesystem path or a DATABASE_URL.
         self._path = str(db_path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def create(
         self,
@@ -184,23 +189,26 @@ class CouponStore:
         with self._connect() as conn:
             if conn.execute("SELECT 1 FROM coupons WHERE code=?", (code,)).fetchone():
                 raise ValueError("A coupon with this code already exists.")
-            cur = conn.execute(
+            insert = (
                 "INSERT INTO coupons (code, kind, value, max_redemptions, per_user_limit,"
-                " expires_at, active, created_by, created_at) VALUES (?,?,?,?,?,?,1,?,?)",
-                (
-                    code,
-                    kind,
-                    int(value),
-                    max_redemptions,
-                    int(per_user_limit),
-                    (expires_at or "").strip(),
-                    created_by,
-                    _now(),
-                ),
+                " expires_at, active, created_by, created_at) VALUES (?,?,?,?,?,?,1,?,?)"
             )
-            row = conn.execute(
-                "SELECT * FROM coupons WHERE id=?", (int(cur.lastrowid or 0),)
-            ).fetchone()
+            params = (
+                code,
+                kind,
+                int(value),
+                max_redemptions,
+                int(per_user_limit),
+                (expires_at or "").strip(),
+                created_by,
+                _now(),
+            )
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                new_id = conn.execute(insert + " RETURNING id", params).fetchone()["id"]
+            else:
+                new_id = conn.execute(insert, params).lastrowid
+            row = conn.execute("SELECT * FROM coupons WHERE id=?", (int(new_id or 0),)).fetchone()
         return dict(row)
 
     def get_by_code(self, code: str) -> dict | None:
@@ -244,13 +252,20 @@ class ReferralStore:
     """One referral code per user; attribution + counts (no values)."""
 
     def __init__(self, db_path: str) -> None:
+        # ``db_path`` is a filesystem path or a DATABASE_URL.
         self._path = str(db_path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def code_for(self, user_id: str) -> str:
         """The user's referral code, created on first use (stable after)."""
@@ -260,17 +275,21 @@ class ReferralStore:
             ).fetchone()
             if row:
                 return str(row["code"])
-            alphabet = string.ascii_uppercase + string.digits
-            for _ in range(8):
-                code = "CG-" + "".join(secrets.choice(alphabet) for _ in range(8))
-                try:
+        alphabet = string.ascii_uppercase + string.digits
+        for _ in range(8):
+            code = "CG-" + "".join(secrets.choice(alphabet) for _ in range(8))
+            try:
+                # One connection per attempt: on Postgres a failed INSERT
+                # aborts the whole transaction, so retrying in the same
+                # connection would fail with InFailedSqlTransaction.
+                with self._connect() as conn:
                     conn.execute(
                         "INSERT INTO referral_codes (user_id, code, created_at) VALUES (?,?,?)",
                         (user_id, code, _now()),
                     )
-                    return code
-                except sqlite3.IntegrityError:
-                    continue  # code collision — mint another
+                return code
+            except db_layer.integrity_error_types(self._config.dialect):
+                continue  # code collision — mint another
         raise RuntimeError("Could not mint a unique referral code.")
 
     def owner_of(self, code: str) -> str | None:

@@ -41,7 +41,7 @@ def build_router(settings, optional_user, db) -> APIRouter:
     try:
         from career_guidance.roadmap import Plan90Store
 
-        plans = Plan90Store(settings.database_path)
+        plans = Plan90Store(settings.database_target)
     except Exception:  # noqa: BLE001 - plan context is additive only
         logger.warning("90-day plan store unavailable for chat", exc_info=True)
 

@@ -1,0 +1,23 @@
+{
+  "gold_path": "eval/kv_golden.json",
+  "gold_sha256": "ecc5cf1c1ee1d760eb5741fcf3b8c98b15714cf33db83cc118193f676e381538",
+  "prompt_version": "1.0.0",
+  "examples": 55,
+  "train": 49,
+  "val": 6,
+  "val_fraction": 0.1,
+  "seed": 42,
+  "languages": {
+    "en": 17,
+    "hi-roman": 9,
+    "hi": 10,
+    "ta": 10,
+    "ta-roman": 5,
+    "en-noisy": 4
+  },
+  "skipped": [],
+  "train_file": "training/data/kv_lora_train.jsonl",
+  "val_file": "training/data/kv_lora_val.jsonl",
+  "train_sha256": "2b7116499e9e6e0ed8a3da1bc7d9a48381073bc63584e03937ccb1c12a5a67d2",
+  "val_sha256": "e1f8e6f1c4fdd73dd0bf8875489eef5f8ac619e31918dc6b3a11d1b8a95467e3"
+}

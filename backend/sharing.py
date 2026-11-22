@@ -48,7 +48,7 @@ class ShareCreateBody(BaseModel):
 def build_router(settings, optional_user, db) -> APIRouter:
     """``optional_user(request) -> User | None`` (guest = None)."""
     router = APIRouter(prefix="/api/v1", tags=["sharing"])
-    store = ShareStore(settings.database_path)
+    store = ShareStore(settings.database_target)
 
     def _find_run(run_id: int):
         return next((r for r in db.list_runs(limit=1000) if r.id == run_id), None)

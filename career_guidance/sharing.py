@@ -38,11 +38,11 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 from career_guidance.models import CareerRecommendation
 from career_guidance.storage import StoredRun
@@ -158,19 +158,26 @@ class ShareRecord:
 
 
 class ShareStore:
-    """SQLite store for share tokens (table from migration v8)."""
+    """Store for share tokens (table from migration v8)."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     @staticmethod
-    def _row(row: sqlite3.Row | None) -> ShareRecord | None:
+    def _row(row) -> ShareRecord | None:
         if row is None:
             return None
         return ShareRecord(
@@ -190,21 +197,26 @@ class ShareStore:
         days = validate_expiry_days(expiry_days)
         now = _now()
         token = secrets.token_urlsafe(32)
+        insert = (
+            "INSERT INTO share_tokens (token_hash, run_id, created_by, created_at, "
+            "expires_at, revoked_at, fields_scope) VALUES (?, ?, ?, ?, ?, '', ?)"
+        )
+        params = (
+            _hash_token(token),
+            int(run_id),
+            created_by or GUEST_CREATOR,
+            _iso(now),
+            _iso(now + timedelta(days=days)),
+            SHARE_SCOPE,
+        )
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO share_tokens (token_hash, run_id, created_by, created_at, "
-                "expires_at, revoked_at, fields_scope) VALUES (?, ?, ?, ?, ?, '', ?)",
-                (
-                    _hash_token(token),
-                    int(run_id),
-                    created_by or GUEST_CREATOR,
-                    _iso(now),
-                    _iso(now + timedelta(days=days)),
-                    SHARE_SCOPE,
-                ),
-            )
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                new_id = conn.execute(insert + " RETURNING id", params).fetchone()["id"]
+            else:
+                new_id = conn.execute(insert, params).lastrowid
             row = conn.execute(
-                "SELECT * FROM share_tokens WHERE id = ?", (int(cur.lastrowid or 0),)
+                "SELECT * FROM share_tokens WHERE id = ?", (int(new_id or 0),)
             ).fetchone()
         return self._row(row), token  # type: ignore[return-value]
 

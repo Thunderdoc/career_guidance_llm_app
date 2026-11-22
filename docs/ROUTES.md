@@ -43,6 +43,13 @@ link or exported reference breaks.
 | `/shared/[token]` | Phase 8: public read-only view of a shared report (static-export placeholder pattern, token resolved client-side). Renders ONLY the share-safe allowlist payload — never owner identity, constraints or profile text. `noindex`. |
 | `/offline` | Phase 8: localised offline page (EN/TA/HI). The service worker's offline fallback is the separate dependency-free `frontend/public/sw-offline.html` (see README → PWA). |
 | `/status` | Phase 10: live service status — checks `/api/v1/health` + `/api/v1/ready` from the visitor's browser at view time (checking/ok/down states, nothing cached), localised EN/TA/HI, `noindex`. |
+| `/voice` | Kaam-Vaani (Stage 3): voice-first guided flow — speak, confirm the extracted profile, see matches. Public (anonymous); sign-in only to save. |
+| `/jobs` | Kaam-Vaani (Stage 5): verified local listings, public read. Reporting a listing needs sign-in. |
+| `/employers` | Kaam-Vaani (Stage 5): employer portal — register, post listings, view matches. Sign-in + employer role. |
+| `/sharing` | Kaam-Vaani (Stage 6): worker consent + sharing controls. Sign-in required. |
+| `/rights` | Kaam-Vaani (Step 9.1): rights/scam assistant — grounded answers with citations, escalation only from sourced helplines. Public (anonymous). |
+| `/pilot` | Kaam-Vaani (Step 9.2): pilot/institute operations console — metrics, bulk onboarding, review queue. Coordinators + admins only. Reached directly, not linked from the landing. |
+| `/video-check` | Kaam-Vaani (Step 9.3, EXPERIMENTAL): 30–60 s clip validity check — indicative only, never a certificate. Sign-in required. Reached directly, no landing link. |
 
 ## Old route → new surface redirects
 
@@ -83,3 +90,25 @@ canonical navigation targets.
 | Signed-in only, Phase 9 billing | `POST /api/v1/billing/subscribe` (501 while Razorpay keys unset, 409 while the plan's plan-id env is unset), `POST /api/v1/billing/coupon/validate` (preview only, no state change), `GET /api/v1/me/referral` (own code + attribution counts) |
 | Institute API keys (Phase 10) | Key management `POST/GET/DELETE /api/v1/institutes/{id}/api-keys` — institute_admin of that institute or a platform admin (401 anonymous, 403 other roles; audit-logged; raw key shown once at creation, SHA-256 hash at rest). Public reads `GET /api/v1/public/institutes/{slug}/cohort` + `…/top-careers` — `X-API-Key` header ONLY (session cookies do not authenticate), key bound to the slug's institute (mismatch → 404), 401 missing/wrong/revoked, 30/min per-key rate limit, aggregates only (needs-attention reduced to a count; no e-mails/names/user ids) |
 | Public webhook (HMAC-verified, no session) | `POST /api/v1/billing/webhook` — Razorpay; signature verified before any row is touched (401 on mismatch, 501 while keys unset). Handles `payment.captured` and `subscription.*` (idempotent via the `webhook_events` ledger) |
+
+## Kaam-Vaani API (Stages 2–6, Steps 9.1–9.4)
+
+Every Kaam-Vaani router sits behind an env feature flag (`KV_VOICE`,
+`KV_RAG`, `KV_EMPLOYERS`, `KV_CONSENT`, `KV_VIDEO_CHECK`, `KV_PILOT`;
+default ON unless `APP_ENV=production`) — a flag-off router answers
+404. Rate limits (Step 9.4, `backend/kv_ratelimit.py`): anonymous AI
+endpoints 30/min per IP, reports 10/min per IP, signed-in mutations
+60/min per user, OTP + video check 5/hour per user; admin/coordinator
+endpoints unmetered. All 429s carry "Too many requests — please wait
+a minute."
+
+| Access | Routes |
+| --- | --- |
+| Public, rate-limited, anonymous (30/min/IP) | `POST /api/v1/kv/rag/search`, `POST /api/v1/kv/rag/ask` (share one limiter), `POST /api/v1/kv/rights/ask`, `POST /api/v1/kv/voice/extract`, `POST /api/v1/kv/voice/confirm`, `POST /api/v1/kv/matches`, `POST /api/v1/kv/gap-learning` |
+| Public (status, unmetered) | `GET /api/v1/kv/rag/status`, `GET /api/v1/kv/rights/status`, `GET /api/v1/kv/voice/status`, `GET /api/v1/kv/consent/status`, `GET /api/v1/kv/employers/status`, `GET /api/v1/kv/pilot/status`, `GET /api/v1/kv/video/status` |
+| Public read | `GET /api/v1/kv/listings`, `GET /api/v1/kv/listings/{listing_id}` (verified listings only) |
+| Signed-in only (401 anonymous) | `GET/PUT /api/v1/kv/worker-profile`, `POST /api/v1/kv/consent/grant`, `POST /api/v1/kv/consent/{id}/revoke`, `GET /api/v1/kv/consent/mine`, `GET /api/v1/kv/consent/audit`, `GET /api/v1/kv/consent/contact-requests`, `POST /api/v1/kv/hire-outcomes`, `POST /api/v1/kv/hire-outcomes/{id}/followup`, `GET /api/v1/kv/hire-outcomes/mine`, `DELETE /api/v1/kv/me/data` (own KV data erasure, 60/min), `POST /api/v1/kv/video/check` (5/hour, 50 MB cap) |
+| Signed-in, report (10/min/IP) | `POST /api/v1/kv/listings/{id}/report` |
+| Employer role only | `POST /api/v1/kv/employers/register`, `GET/PUT /api/v1/kv/employers/mine`, `POST /api/v1/kv/employers/mine/verify-phone` (5/hour), `POST /api/v1/kv/employers/listings/check`, `POST/GET/PUT/DELETE /api/v1/kv/employers/listings[/{id}]`, `POST /api/v1/kv/employers/matching/candidates`, `GET/POST/DELETE /api/v1/kv/employers/matching/shortlist`, `POST /api/v1/kv/employers/matching/contact-request`, `GET /api/v1/kv/employers/matching/contact-requests`, `GET /api/v1/kv/employers/matching/audit`, `GET /api/v1/kv/employers/hire-outcomes` |
+| Admin only | `GET /api/v1/kv/admin/review-queue`, `POST /api/v1/kv/admin/employers/{id}/review`, `POST /api/v1/kv/admin/listings/{id}/review`, `POST /api/v1/kv/admin/employers/{id}/endorse`, `GET /api/v1/kv/admin/reports`, `POST /api/v1/kv/admin/reports/{id}/review`, `GET /api/v1/kv/traces`, `GET /api/v1/kv/traces/{id}` (agent trace log, admin-only; questions/transcripts stored as hashes only) |
+| Coordinator or admin (pilot console) | `GET /api/v1/kv/pilot/metrics`, `GET /api/v1/kv/pilot/metrics.csv`, `GET /api/v1/kv/pilot/workers`, `GET /api/v1/kv/pilot/workers.csv`, `POST /api/v1/kv/pilot/workers/bulk` (max 100 rows), `GET /api/v1/kv/pilot/review-queue`, `POST /api/v1/kv/pilot/employers/{id}/review`, `POST /api/v1/kv/pilot/listings/{id}/review`, `POST /api/v1/kv/pilot/employers/{id}/endorse`, `POST /api/v1/kv/pilot/reports/{id}/review` |

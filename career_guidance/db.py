@@ -17,13 +17,15 @@ scatters dialect checks:
   once, in the SQLite dialect.
 
 Scope (honest boundary): the dialect layer backs the core
-``career_guidance.storage.Database`` and the migration runner. The
-remaining per-feature stores still open the SQLite file directly — they
-share the same portable SQL (``?`` placeholders, no SQLite-only functions)
-and are migrated store-by-store behind this layer; see
-``docs/DEPLOY.md`` § "Choosing Postgres" for the smoke procedure and the
-current boundary. The Postgres password is never stored on the config
-object's repr or logged — only in the raw DSN handed to psycopg.
+``career_guidance.storage.Database``, the migration runner and — since
+the queue-item-7 port — the per-feature stores, which are migrated
+store-by-store behind this layer. The helpers below
+(:func:`table_names`, :func:`column_names`,
+:func:`integrity_error_types`) exist so no store re-implements a
+dialect difference; see ``docs/DEPLOY.md`` § "Choosing Postgres" for
+the smoke procedure and the current boundary. The Postgres password is
+never stored on the config object's repr or logged — only in the raw
+DSN handed to psycopg.
 """
 
 from __future__ import annotations
@@ -175,6 +177,50 @@ def alter_add_column(statement: str) -> tuple[str, str] | None:
     return match.group("table"), match.group("column")
 
 
+def table_names(conn, dialect: str) -> set[str]:
+    """Every user-table name in the database, on either engine.
+
+    SQLite reads ``sqlite_master``; Postgres reads
+    ``information_schema.tables`` (public schema only). Both spellings
+    return the bare table name under the ``name`` key. ``conn`` is a
+    :func:`connect` connection (real ``sqlite3`` or the Postgres
+    facade), never a raw psycopg connection.
+    """
+    if dialect == "postgres":
+        rows = conn.execute(
+            "SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'public'"
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    return {row["name"] for row in rows}
+
+
+def column_names(conn, table: str, dialect: str) -> set[str]:
+    """Column names of ``table`` (``PRAGMA table_info`` vs
+    ``information_schema.columns``). Empty set when the table does not
+    exist, on either engine. ``table`` is always an internal constant
+    at the call sites, never user input."""
+    if dialect == "postgres":
+        rows = conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = ? AND table_schema = 'public'",
+            (table,),
+        ).fetchall()
+        return {row["column_name"] for row in rows}
+    return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def integrity_error_types(dialect: str) -> tuple[type[BaseException], ...]:
+    """Exception types raised for unique/constraint violations on this
+    dialect — an ``except``-clause operand. psycopg is imported lazily
+    so SQLite-only installs never need it."""
+    if dialect == "postgres":
+        import psycopg
+
+        return (psycopg.IntegrityError,)
+    return (sqlite3.IntegrityError,)
+
+
 # --------------------------------------------------------------------------- #
 # Connections
 # --------------------------------------------------------------------------- #
@@ -222,6 +268,19 @@ class PostgresConnection:
         cursor.execute(translate_placeholders(sql, "postgres"), params or None)
         return _PgCursor(cursor)
 
+    def executemany(self, sql: str, params_seq) -> _PgCursor:
+        """Run ``sql`` once per parameter set (the sqlite3
+        ``executemany`` shape). psycopg has no connection-level
+        executemany, so this loops over :meth:`execute` (each call
+        translates placeholders). Returns the cursor of the last
+        execution, like sqlite3 does."""
+        cursor = None
+        for params in params_seq:
+            cursor = self.execute(sql, params)
+        if cursor is None:
+            cursor = _PgCursor(self._raw.cursor())
+        return cursor
+
     def executescript(self, script: str) -> None:
         cursor = self._raw.cursor()
         for chunk in script.split(";"):
@@ -236,11 +295,22 @@ class PostgresConnection:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
-        if exc_type is None:
+        if exc_type is None and not self._transaction_failed():
             self._raw.commit()
         else:
             self._raw.rollback()
         return False
+
+    def _transaction_failed(self) -> bool:
+        """True when Postgres aborted the open transaction — an error
+        was raised and caught inside the ``with`` block, so the
+        transaction is dead. Committing then would raise
+        ``InFailedSqlTransaction``; only a rollback recovers the
+        connection. (SQLite has no equivalent state: a failed
+        statement there never poisons the transaction.)"""
+        info = getattr(self._raw, "info", None)
+        status = getattr(info, "transaction_status", None)
+        return getattr(status, "name", None) == "INERROR"
 
     def close(self) -> None:
         self._raw.close()

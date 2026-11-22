@@ -68,13 +68,7 @@ class Database:
         return db_layer.connect(self._config)
 
     def _column_names(self, conn, table: str) -> set[str]:
-        if self._config.is_postgres:
-            rows = conn.execute(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
-                (table,),
-            ).fetchall()
-            return {row["column_name"] for row in rows}
-        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        return db_layer.column_names(conn, table, self._config.dialect)
 
     def ping(self) -> bool:
         """Readiness probe: True when a trivial query succeeds."""

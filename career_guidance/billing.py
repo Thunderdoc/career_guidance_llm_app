@@ -26,11 +26,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import httpx
+
+from career_guidance import db as db_layer
 
 FREE_FEATURES = [
     "Career matching across 974 occupations",
@@ -217,15 +218,28 @@ def verify_razorpay_signature(secret: str, body: bytes, signature: str) -> bool:
 
 
 class BillingStore:
-    """Payments ledger (SQLite, same database as the user store)."""
+    """Payments ledger (same database as the user store).
+
+    Unlike the other stores this one does NOT migrate in ``__init__`` —
+    it assumes the payments tables already exist (the core store /
+    migration runner creates them). Kept that way: callers that need
+    the schema run ``migrate()`` first.
+    """
 
     def __init__(self, db_path: str) -> None:
+        # ``db_path`` is a filesystem path or a DATABASE_URL.
         self._path = str(db_path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def create_payment(
         self,
@@ -257,7 +271,7 @@ class BillingStore:
             # The discount/code columns arrive with migration v9; tolerate
             # a pre-v9 ledger (older tests / un-migrated files) by writing
             # only the columns that exist.
-            columns = {r[1] for r in conn.execute("PRAGMA table_info(payments)")}
+            columns = db_layer.column_names(conn, "payments", self._config.dialect)
             extra_cols = [
                 c for c in ("discount_paise", "coupon_code", "referral_code") if c in columns
             ]
@@ -268,22 +282,26 @@ class BillingStore:
             }
             col_sql = "".join(f", {c}" for c in extra_cols)
             val_sql = "".join(", ?" for _ in extra_cols)
-            cur = conn.execute(
+            insert = (
                 "INSERT INTO payments (user_id, provider, provider_order_id, plan,"
                 f" amount_paise, currency, status, created_at, updated_at{col_sql})"
-                f" VALUES (?, 'razorpay', ?, ?, ?, ?, 'created', ?, ?{val_sql})",
-                (
-                    user_id,
-                    provider_order_id,
-                    plan,
-                    amount_paise,
-                    currency,
-                    now,
-                    now,
-                    *[extra_vals[c] for c in extra_cols],
-                ),
+                f" VALUES (?, 'razorpay', ?, ?, ?, ?, 'created', ?, ?{val_sql})"
             )
-            payment_id = int(cur.lastrowid or 0)
+            params = (
+                user_id,
+                provider_order_id,
+                plan,
+                amount_paise,
+                currency,
+                now,
+                now,
+                *[extra_vals[c] for c in extra_cols],
+            )
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                payment_id = int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            else:
+                payment_id = int(conn.execute(insert, params).lastrowid or 0)
             if coupon is not None:
                 insert_redemption(conn, coupon, user_id, provider_order_id, discount_paise)
             if referrer_user_id:
@@ -314,15 +332,22 @@ class SubscriptionStore:
     """Subscriptions ledger + webhook idempotency (migration v9 tables)."""
 
     def __init__(self, db_path: str) -> None:
+        # ``db_path`` is a filesystem path or a DATABASE_URL.
         self._path = str(db_path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         from career_guidance.migrations import migrate
 
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def create(
         self, user_id: str, plan: str, razorpay_subscription_id: str, status: str = "created"
@@ -385,9 +410,12 @@ class SubscriptionStore:
         """True the FIRST time an event key is seen; False on replay."""
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as conn:
+            # Bare ON CONFLICT DO NOTHING is the portable spelling of
+            # INSERT OR IGNORE (works on both engines, needs no
+            # constraint name); rowcount is 1 on insert, 0 on conflict.
             cur = conn.execute(
-                "INSERT OR IGNORE INTO webhook_events (event_key, event, created_at)"
-                " VALUES (?,?,?)",
+                "INSERT INTO webhook_events (event_key, event, created_at)"
+                " VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 (event_key, event, now),
             )
             return cur.rowcount > 0
@@ -461,15 +489,24 @@ def create_subscription(
 class DemoRequestStore:
     """Institute demo-request leads (Phase 1 landing form).
 
-    Stored in the same SQLite database; visible to admins through the
+    Stored in the same database; visible to admins through the
     billing router's admin-only list endpoint. Deliberately minimal:
     validate, store, list — no e-mail is sent and nothing is inferred.
     """
 
     def __init__(self, db_path: str) -> None:
-        self._path = db_path
+        # ``db_path`` is a filesystem path or a DATABASE_URL.
+        self._path = str(db_path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         with self._connect() as conn:
-            conn.execute(
+            # executescript (not execute): only the script path runs the
+            # DDL translator (AUTOINCREMENT -> GENERATED BY DEFAULT AS
+            # IDENTITY on Postgres). The table is NOT in migrations.py —
+            # this store owns its own DDL.
+            conn.executescript(
                 """CREATE TABLE IF NOT EXISTS demo_requests (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at TEXT NOT NULL,
@@ -482,22 +519,27 @@ class DemoRequestStore:
                 )"""
             )
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def create(
         self, name: str, email: str, organisation: str, seats: int | None, message: str
     ) -> int:
         created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        insert = (
+            "INSERT INTO demo_requests (created_at, name, email, organisation, seats, message) "
+            "VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        params = (created_at, name, email, organisation, seats, message)
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO demo_requests (created_at, name, email, organisation, seats, message) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (created_at, name, email, organisation, seats, message),
-            )
-            return int(cur.lastrowid or 0)
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                return int(conn.execute(insert + " RETURNING id", params).fetchone()["id"])
+            return int(conn.execute(insert, params).lastrowid or 0)
 
     def list(self, limit: int = 100) -> list[dict]:
         with self._connect() as conn:

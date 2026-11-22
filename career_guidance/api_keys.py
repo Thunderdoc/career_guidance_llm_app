@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 KEY_PREFIX = "cgk_"
@@ -37,7 +37,7 @@ def _hash_key(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def _public_row(row: sqlite3.Row) -> dict:
+def _public_row(row) -> dict:
     """Key metadata safe to list — never the hash, never a raw key."""
     return {
         "id": row["id"],
@@ -53,26 +53,38 @@ def _public_row(row: sqlite3.Row) -> dict:
 
 class InstituteApiKeyStore:
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self.path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self.path if db_layer.is_postgres_target(self.path) else None,
+            database_path=None if db_layer.is_postgres_target(self.path) else self.path,
+        )
         migrate(self.path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     def create_key(self, institute_id: int, label: str, created_by: str) -> dict:
         """Mint a key; the returned dict carries the RAW key (once only)."""
         raw = KEY_PREFIX + secrets.token_urlsafe(32)
+        insert = (
+            "INSERT INTO institute_api_keys"
+            " (institute_id, key_hash, label, created_by, created_at)"
+            " VALUES (?, ?, ?, ?, ?)"
+        )
+        params = (institute_id, _hash_key(raw), label[:120], created_by, _now())
         with self._connect() as conn:
-            cur = conn.execute(
-                "INSERT INTO institute_api_keys"
-                " (institute_id, key_hash, label, created_by, created_at)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (institute_id, _hash_key(raw), label[:120], created_by, _now()),
-            )
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                new_id = conn.execute(insert + " RETURNING id", params).fetchone()["id"]
+            else:
+                new_id = conn.execute(insert, params).lastrowid
             row = conn.execute(
-                "SELECT * FROM institute_api_keys WHERE id = ?", (int(cur.lastrowid or 0),)
+                "SELECT * FROM institute_api_keys WHERE id = ?", (int(new_id or 0),)
             ).fetchone()
         return {**_public_row(row), "api_key": raw}
 

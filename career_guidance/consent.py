@@ -53,12 +53,12 @@ import logging
 import os
 import re
 import secrets
-import sqlite3
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 logger = logging.getLogger("career_guidance.consent")
@@ -174,19 +174,26 @@ class ConsentRecord:
 
 
 class ConsentStore:
-    """SQLite store for consent records (table from migration v7)."""
+    """Store for consent records (table from migration v7)."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     @staticmethod
-    def _row(row: sqlite3.Row | None) -> ConsentRecord | None:
+    def _row(row) -> ConsentRecord | None:
         if row is None:
             return None
         return ConsentRecord(
@@ -220,28 +227,33 @@ class ConsentStore:
             raise ValueError("A valid guardian e-mail address is required.")
         now = _now()
         token = secrets.token_urlsafe(32)
+        insert = (
+            "INSERT INTO consent_records (user_id, guardian_email, notice_version, "
+            "status, method, token_hash, token_expires_at, requested_at) "
+            "VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)"
+        )
+        params = (
+            user_id,
+            email,
+            notice_version,
+            method,
+            _hash_token(token),
+            _iso(now + timedelta(hours=ttl_hours)),
+            _iso(now),
+        )
         with self._connect() as conn:
             conn.execute(
                 "UPDATE consent_records SET status = 'revoked' "
                 "WHERE user_id = ? AND status = 'pending'",
                 (user_id,),
             )
-            cur = conn.execute(
-                "INSERT INTO consent_records (user_id, guardian_email, notice_version, "
-                "status, method, token_hash, token_expires_at, requested_at) "
-                "VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)",
-                (
-                    user_id,
-                    email,
-                    notice_version,
-                    method,
-                    _hash_token(token),
-                    _iso(now + timedelta(hours=ttl_hours)),
-                    _iso(now),
-                ),
-            )
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                new_id = conn.execute(insert + " RETURNING id", params).fetchone()["id"]
+            else:
+                new_id = conn.execute(insert, params).lastrowid
             row = conn.execute(
-                "SELECT * FROM consent_records WHERE id = ?", (int(cur.lastrowid or 0),)
+                "SELECT * FROM consent_records WHERE id = ?", (int(new_id or 0),)
             ).fetchone()
         return self._row(row), token  # type: ignore[return-value]
 

@@ -24,11 +24,11 @@ from __future__ import annotations
 import csv
 import io
 import re
-import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 #: Conservative default seat limit for a new institute. The Institute plan
@@ -72,16 +72,23 @@ def _parse_time(value: str) -> datetime | None:
 
 
 class InstituteStore:
-    """SQLite store for institutes, membership, invites and run reviews."""
+    """Store for institutes, membership, invites and run reviews."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     # ------------------------------------------------------------ institutes
     def create_institute(
@@ -104,21 +111,26 @@ class InstituteStore:
             slug_final, n = base, 2
             while conn.execute("SELECT 1 FROM institutes WHERE slug=?", (slug_final,)).fetchone():
                 slug_final, n = f"{base}-{n}", n + 1
-            cur = conn.execute(
+            insert = (
                 "INSERT INTO institutes (name, slug, logo_url, accent_color, plan,"
-                " seat_limit, created_by, created_at) VALUES (?,?,?,?,'institute',?,?,?)",
-                (
-                    name,
-                    slug_final,
-                    (logo_url or "").strip(),
-                    accent,
-                    seat_limit,
-                    created_by,
-                    _now(),
-                ),
+                " seat_limit, created_by, created_at) VALUES (?,?,?,?,'institute',?,?,?)"
             )
+            params = (
+                name,
+                slug_final,
+                (logo_url or "").strip(),
+                accent,
+                seat_limit,
+                created_by,
+                _now(),
+            )
+            # Postgres has no lastrowid — RETURNING id is the equivalent.
+            if self._config.is_postgres:
+                new_id = conn.execute(insert + " RETURNING id", params).fetchone()["id"]
+            else:
+                new_id = conn.execute(insert, params).lastrowid
             row = conn.execute(
-                "SELECT * FROM institutes WHERE id=?", (int(cur.lastrowid or 0),)
+                "SELECT * FROM institutes WHERE id=?", (int(new_id or 0),)
             ).fetchone()
         return dict(row)
 

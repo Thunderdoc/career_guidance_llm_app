@@ -74,14 +74,14 @@ class ReviewBody(BaseModel):
 
 def build_router(settings, current_user, users, db) -> APIRouter:
     router = APIRouter(prefix="/api/v1/institutes", tags=["institutes"])
-    store = InstituteStore(settings.database_path)
+    store = InstituteStore(settings.database_target)
 
     # Phase 5: institute membership is guardian/school-mediated, so cohort
     # AGGREGATES keep counting every student — but an unconsented minor
     # must not appear on the individual needs-attention list.
     from career_guidance.consent import ConsentStore, is_unconsented_minor
 
-    consent_store = ConsentStore(settings.database_path)
+    consent_store = ConsentStore(settings.database_target)
 
     def _filter_attention(cohort: dict) -> dict:
         cohort = {**cohort}

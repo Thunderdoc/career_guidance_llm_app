@@ -119,6 +119,31 @@ class Matcher:
         self._tech_idf = {k: math.log((n + 1) / (v + 1)) + 1 for k, v in tech_df.items()}
         self._tech_max_idf = max(self._tech_idf.values(), default=1.0)
 
+        # Precomputed title data for _title_intent: the cleaned title,
+        # cleaned alt titles, head-noun stems and singular/plural head
+        # nouns for every occupation. Titles never change during a
+        # process lifetime, but _title_intent re-cleaned them with
+        # regex on every rank() call — the dominant cost of the base
+        # matcher (~60 ms per call, measured 22 Nov 2026; see
+        # COMPLEXITY.md §4). Each precomputed string is produced by
+        # the exact expression _title_intent used inline, so the
+        # method's results are unchanged (pinned by the equivalence
+        # probe in ~/workspace/tmp/kv_base_probe.py + the golden eval).
+        self._title_head_stems: list[set[str]] = []
+        self._title_clean: list[str] = []
+        self._title_clean_alts: list[list[str]] = []
+        self._title_head_nouns: list[list[str]] = []
+        for occ in taxonomy.occupations:
+            head = occ.title.lower().split(",")[0]
+            self._title_head_stems.append(
+                {_stem(w) for w in re.findall(r"[a-z]+", head) if len(w) >= 5}
+            )
+            clean = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", occ.title.lower())).strip()
+            self._title_clean.append(clean)
+            alts = [re.sub(r"[^a-z0-9 ]+", " ", a.lower()).strip() for a in occ.alt_titles]
+            self._title_clean_alts.append(alts)
+            self._title_head_nouns.append([clean.rstrip("s")] + [a.rstrip("s") for a in alts[:5]])
+
     # ------------------------------------------------------------------ #
 
     def user_terms(self, profile: CareerProfile) -> set[str]:
@@ -224,6 +249,11 @@ class Matcher:
 
         With ``stem=True`` the text is also matched on crude word stems so that
         "welding" / "plumbing" reach "Welders" / "Plumbers".
+
+        The per-occupation strings (cleaned titles, alt titles, head
+        stems, head nouns) are precomputed in ``__init__`` — this
+        method does no regex per occupation, only ``in`` checks and
+        set comparisons against the precomputed data.
         """
         text = re.sub(r"[^a-z0-9 ]+", " ", text)
         text = " " + re.sub(r"\s+", " ", text).strip() + " "
@@ -235,27 +265,23 @@ class Matcher:
                 for oid in ids:
                     hits[oid] = 1.0
         stems = {_stem(w) for w in text.split() if len(w) >= 5} if stem else set()
-        for occ in self.taxonomy.occupations:
+        for idx, occ in enumerate(self.taxonomy.occupations):
             if stems:
-                head = occ.title.lower().split(",")[0]
-                title_stems = {_stem(w) for w in re.findall(r"[a-z]+", head) if len(w) >= 5}
+                title_stems = self._title_head_stems[idx]
                 if title_stems and title_stems <= stems:
                     hits[occ.id] = 0.7
                     continue
-            title = re.sub(r"[^a-z0-9 ]+", " ", occ.title.lower())
-            title = re.sub(r"\s+", " ", title).strip()
+            title = self._title_clean[idx]
             if title and f" {title} " in text:
                 hits[occ.id] = 1.0
                 continue
-            for alt in occ.alt_titles:
-                a = re.sub(r"[^a-z0-9 ]+", " ", alt.lower()).strip()
+            for a in self._title_clean_alts[idx]:
                 if len(a) >= 6 and f" {a} " in text:
                     hits[occ.id] = max(hits.get(occ.id, 0.0), 0.8)
                     break
             else:
                 # Singular / plural tolerant head-noun match ("analyst" in "data analysts")
-                for a in [title, *[x.lower() for x in occ.alt_titles[:5]]]:
-                    a = re.sub(r"[^a-z0-9 ]+", " ", a).strip().rstrip("s")
+                for a in self._title_head_nouns[idx]:
                     if len(a) >= 8 and " " in a and a in text:
                         hits[occ.id] = max(hits.get(occ.id, 0.0), 0.6)
                         break

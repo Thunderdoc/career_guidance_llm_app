@@ -1,0 +1,498 @@
+{
+  "employments": [
+    {
+      "da": {
+        "base_points": 161,
+        "base_year": 2010,
+        "calc": "calculated every year on the first April on the basis of the average of the consumer price indices for the preceding 12 months, that is from January to December",
+        "per_point": 40.18,
+        "per_point_words": "Rupees forty and paise eighteen only",
+        "unit": "per month"
+      },
+      "daily_rule": "To arrive at daily rates of wages, the monthly wages shall be divided by 26.",
+      "go": "G.O.(2D) No.65, Labour Welfare and Skill Development (J1) Department, dated 20.08.2024",
+      "id": "shops",
+      "keywords": "shop worker, shop assistant, salesman, saleswoman, cashier, clerk, shop boy, helper, packer, peon, watchman, sweeper, driver, pharmacist, chemist, beautician, hair dresser, photographer, electrician, tailor shop, petrol bunk, lodge, room boy, store keeper, accountant, supervisor, manager",
+      "licence": "Public information (Government of Tamil Nadu)",
+      "rates": [
+        {
+          "A": 7390,
+          "B": 7328,
+          "C": 7264,
+          "D": 7214,
+          "category": "General: Manager, Sales Manager, Field Officer, Development Officer, Office Incharge"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "General: Assistant Manager, Accountant, Supervisor, Sales Executive, Purchaser, Store Keeper, Agent, Sales Promotion Employees"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "General: Cashier, Clerk, Typist-cum-Clerk, Typist, Stenographer, Salesman, Sales Representative, Auction Bidder, Tradesman, Bill Writer"
+        },
+        {
+          "A": 6767,
+          "B": 6691,
+          "C": 6619,
+          "D": 6553,
+          "category": "General: Bill Collector, Booking Clerk, Bill Clerk, Godown Keeper, Assistant Salesman, Godown Incharge, Accounts Assistant, Receptionist, Lineman, Tally Clerk, Security Guard, Weighman, Driver"
+        },
+        {
+          "A": 6691,
+          "B": 6619,
+          "C": 6541,
+          "D": 6470,
+          "category": "General: Peon, Watchman, Shop Assistant, Helper, Packer, Attender, Delivery Boy, Messenger, Lift Operator, Shop Boy, Water Boy, Sweeper, Gardener, Scavenger"
+        },
+        {
+          "A": 7390,
+          "B": 7328,
+          "C": 7264,
+          "D": 7214,
+          "category": "Chemist and Druggist Shop: Pharmacist, Chemist"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Chemist and Druggist Shop: Compounder"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6675,
+          "category": "Hair Dressing Saloon / Beauty Parlour: Hair Dresser, Hair Cutter, Beautician"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Photo Studios: Photographer, Photo Artist"
+        },
+        {
+          "A": 6767,
+          "B": 6691,
+          "C": 6619,
+          "D": 6553,
+          "category": "Photo Studios: Assistant Photo Artist, Assistant Photographer"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Service Shops (Watch / Radio / Bicycle): Watch Mechanic, Radio Mechanic / Repairer, Audio and Video Mechanic / Repairer"
+        },
+        {
+          "A": 6691,
+          "B": 6619,
+          "C": 6541,
+          "D": 6470,
+          "category": "Service Shops (Watch / Radio / Bicycle): Bicycle Fitter"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Optical Shops: Optical Mechanic / Grinder / Purchaser, Refractionary Man"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Block Making and Rubber Stamp Making: Engraver, Block Maker"
+        },
+        {
+          "A": 6767,
+          "B": 6691,
+          "C": 6619,
+          "D": 6553,
+          "category": "Block Making and Rubber Stamp Making: Assistant Engraver"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Block Making and Rubber Stamp Making: Painter / Artist"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Electrical Light and Sound Services Shop: Electrician / Wireman / Electrical Repairer"
+        },
+        {
+          "A": 6767,
+          "B": 6691,
+          "C": 6619,
+          "D": 6553,
+          "category": "Electrical Light and Sound Services Shop: Assistant Wireman, Mike Operator"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Diagnostic Laboratory: Radiographer, X-Ray Photographer, Laboratory Technician / Analyst"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Chit Funds and Co-operative Societies: Chief Accountant, Office Superintendent, Secretary, Auditor"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Chit Funds and Co-operative Societies: Personal Assistant, Junior Development Officer, Legal Assistant"
+        },
+        {
+          "A": 6691,
+          "B": 6619,
+          "C": 6541,
+          "D": 6470,
+          "category": "Boarding and Lodges: Room Boy, Canvassar"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Boarding and Lodges: Mason, Plumber, Painter, Electrician"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Furniture: Carpenter, Polisher, Rattan Worker"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Miscellaneous Workers: Technician in Musical Instrument Shop; Umbrella Fitting, Stitching and Cutting in Umbrella Shop; Polisher in Automobile Dealer Shop; Suitcase / All Kinds of Bags and Purse makers (other than in leather)"
+        },
+        {
+          "A": 6691,
+          "B": 6619,
+          "C": 6541,
+          "D": 6470,
+          "category": "Miscellaneous Workers: Operator in Petrol Bunks"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Miscellaneous Workers: Photo Frame Worker and Cutter"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Miscellaneous Workers: Skilled Labour in Lift Installing Establishments"
+        },
+        {
+          "A": 6880,
+          "B": 6815,
+          "C": 6753,
+          "D": 6691,
+          "category": "Miscellaneous Workers: Air Condition Plant Operator"
+        },
+        {
+          "A": 6767,
+          "B": 6691,
+          "C": 6619,
+          "D": 6553,
+          "category": "Miscellaneous Workers: Fruit Juice and Lassi Makers in the Shops"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Miscellaneous Workers: Engraver in Steel and Aluminium Vessels Shops"
+        },
+        {
+          "A": 6767,
+          "B": 6691,
+          "C": 6619,
+          "D": 6553,
+          "category": "Miscellaneous Workers: Fire Wood Cutter in Fire Wood Shop"
+        },
+        {
+          "A": 6829,
+          "B": 6753,
+          "C": 6680,
+          "D": 6619,
+          "category": "Miscellaneous Workers: Tyre Grinder in Tyre Resoling, Retreading and Tube Vulcanizing Shops"
+        },
+        {
+          "A": 6691,
+          "B": 6619,
+          "C": 6541,
+          "D": 6470,
+          "category": "Miscellaneous Workers: Workers engaged in Drying, Storing, Washing, Measuring, Loading and Unloading in Pandagasalai, Warehouse, Godown, Store Room and Hill Produce Merchant Shops"
+        },
+        {
+          "A": 6691,
+          "B": 6619,
+          "C": 6541,
+          "D": 6470,
+          "category": "Miscellaneous Workers: General Workers in all Shops and Commercial Establishments other than in Administration and Clerical Cadre and who are not covered in any of the above categories"
+        }
+      ],
+      "source_date": "2024-08-20",
+      "source_url": "https://labour.tn.gov.in/pdf/GO/GO_65_J1_2024.pdf",
+      "title": "Shops and Commercial Establishments",
+      "unit": "per month",
+      "zones": {
+        "A": "All Corporations and Special Grade Municipalities",
+        "B": "All Municipalities other than Special Grade Municipalities",
+        "C": "All Townships, Town Panchayats and Cantonments",
+        "D": "All places other than those mentioned in Zones A, B and C"
+      }
+    },
+    {
+      "da": {
+        "base_points": 218,
+        "base_year": 2013,
+        "calc": "calculated every year on the first April on the basis of the average of the indices for the preceding twelve months, namely from January to December",
+        "per_point": 33.94,
+        "per_point_words": "Thirty three rupees and ninety four paise only",
+        "unit": "per month"
+      },
+      "daily_rule": "To arrive at the daily rates of wages, the monthly wages shall be divided by 26.",
+      "go": "G.O.(2D) No.29, Labour Welfare and Skill Development (J1) Department, dated 31.05.2024",
+      "id": "tailoring",
+      "keywords": "tailor, tailoring, cutter, machine operator, sewing, stitching, khaja master, ironing master, presser, garment factory, export garments, trimmer, checker, packer, helper, trainee, apprentice",
+      "licence": "Public information (Government of Tamil Nadu)",
+      "rates": [
+        {
+          "A": 8568,
+          "B": 8346,
+          "C": 8156,
+          "category": "Tailoring: Cutter"
+        },
+        {
+          "A": 8346,
+          "B": 8156,
+          "C": 7967,
+          "category": "Tailoring: Machine Operator / Tailor"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Tailoring: Khaja Master"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Tailoring: Ironing Master"
+        },
+        {
+          "A": 8819,
+          "B": 8504,
+          "C": 8251,
+          "category": "Export Garments Manufactory: Production Manager"
+        },
+        {
+          "A": 8568,
+          "B": 8346,
+          "C": 8156,
+          "category": "Export Garments Manufactory: Supervisor"
+        },
+        {
+          "A": 8568,
+          "B": 8346,
+          "C": 8156,
+          "category": "Export Garments Manufactory: Cutter-cum-Marker Grade I"
+        },
+        {
+          "A": 8346,
+          "B": 8156,
+          "C": 7967,
+          "category": "Export Garments Manufactory: Cutter-cum-Pattern Maker Grade II"
+        },
+        {
+          "A": 8346,
+          "B": 8156,
+          "C": 7967,
+          "category": "Export Garments Manufactory: Tailor / Machine Operator Grade I"
+        },
+        {
+          "A": 8094,
+          "B": 7905,
+          "C": 7715,
+          "category": "Export Garments Manufactory: Tailor / Machine Operator Grade II"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Export Garments Manufactory: Trimmer"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Export Garments Manufactory: Button and Khaja operator"
+        },
+        {
+          "A": 8568,
+          "B": 8346,
+          "C": 8156,
+          "category": "Export Garments Manufactory: Checker Grade I"
+        },
+        {
+          "A": 8346,
+          "B": 8156,
+          "C": 7967,
+          "category": "Export Garments Manufactory: Checker Grade II"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Export Garments Manufactory: Washing Helper"
+        },
+        {
+          "A": 7936,
+          "B": 7746,
+          "C": 7557,
+          "category": "Export Garments Manufactory: Iron Man or Presser Grade I"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Export Garments Manufactory: Iron Man or Presser Grade II"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Export Garments Manufactory: Packer, Layer (helpers), Helpers (All kinds), Trainee-Apprentice, Any other categories not covered by the above items"
+        },
+        {
+          "A": 8819,
+          "B": 8504,
+          "C": 8251,
+          "category": "Administrative Staff (both Tailoring and Export Garments Manufactory): Manager (Accounts / Shipping / Purchase / Sales)"
+        },
+        {
+          "A": 8030,
+          "B": 7810,
+          "C": 7589,
+          "category": "Administrative Staff (both Tailoring and Export Garments Manufactory): Accountant / Cashier / Clerk / Typist"
+        },
+        {
+          "A": 7936,
+          "B": 7715,
+          "C": 7557,
+          "category": "Administrative Staff (both Tailoring and Export Garments Manufactory): Store Keeper"
+        },
+        {
+          "A": 8189,
+          "B": 7968,
+          "C": 7746,
+          "category": "Administrative Staff (both Tailoring and Export Garments Manufactory): Driver"
+        },
+        {
+          "A": 8030,
+          "B": 7810,
+          "C": 7589,
+          "category": "Administrative Staff (both Tailoring and Export Garments Manufactory): Time-Keeper"
+        },
+        {
+          "A": 7779,
+          "B": 7589,
+          "C": 7400,
+          "category": "Administrative Staff (both Tailoring and Export Garments Manufactory): Security / Watchman, Sweeper"
+        }
+      ],
+      "source_date": "2024-05-31",
+      "source_url": "https://labour.tn.gov.in/pdf/GO/Tailoring%20G.O.29.pdf",
+      "title": "Tailoring Industry",
+      "unit": "per month",
+      "zones": {
+        "A": "All Municipal Corporations",
+        "B": "All Municipalities",
+        "C": "Other areas not covered under Zones A and B"
+      }
+    },
+    {
+      "all_inclusive": true,
+      "da": null,
+      "daily_rule": null,
+      "extra": "The rates are all-inclusive of the basic rate, cost of living allowance and the cash value of concessions, if any. They do not include the cost of food, if any, supplied to the workers, and the cost of food shall not be deducted from the minimum rates of wages. The rates also apply to agricultural labourers employed in Colleges and Research Stations under the Tamil Nadu Agricultural University and Agricultural Farms maintained by the Agriculture, Horticulture and other Government Departments.",
+      "go": "G.O.(2D) No.21, Labour and Employment (J1) Department, dated 07.06.2021",
+      "id": "agriculture",
+      "keywords": "farm worker, farm labourer, agricultural labourer, ploughing, harvest, paddy, reaping, sowing, weeding, planting seedlings, dairy farming, poultry farming, bee-keeping, climbing trees, trimming bunds",
+      "licence": "Public information (Government of Tamil Nadu)",
+      "rates": [
+        {
+          "category": "Employees engaged in ploughing with bullocks and ploughs supplied by him",
+          "note": "per day",
+          "rate": 500
+        },
+        {
+          "category": "Employees engaged in ploughing with bullocks and ploughs not supplied by him",
+          "note": "per day",
+          "rate": 400
+        },
+        {
+          "category": "Employees engaged in harvest of paddy (reaping, carrying to thrashing floor, thrashing, winnowing, measuring and bagging)",
+          "note": "per day for six hours of work, or in kind to the extent of 1/8th of the gross yield of produce, whichever is higher",
+          "rate": 229
+        },
+        {
+          "category": "Employees engaged in harvest of crops other than paddy",
+          "note": "per day for six hours of work",
+          "rate": 229
+        },
+        {
+          "category": "Employees engaged in sowing, plucking of seedling, re-planting of seedling or weeding operations",
+          "note": "per day for six hours of work",
+          "rate": 229
+        },
+        {
+          "category": "Employees engaged in other agricultural operations, namely trimming bunds and fields, bee-keeping, poultry farming, dairy farming and climbing trees",
+          "note": "per day for six hours of work",
+          "rate": 229
+        }
+      ],
+      "source_date": "2021-06-07",
+      "source_url": "https://labour.tn.gov.in/pdf/GO/GO2D_21_Agriculture.pdf",
+      "title": "Agriculture and works ancillary to Agriculture",
+      "unit": "per day",
+      "zones": {}
+    }
+  ],
+  "notes": {
+    "not_covered": "Four further TN G.O.s were downloaded and OCR'd on 22 Nov 2026 but are NOT ingested here (their schedules were not visually verified page by page): Construction (G.O.(2D) No.94, 07.11.2022, DA Rs.2.69 per point per day above 161), Domestic Work (G.O.(2D) No.99, 08.11.2022, DA Rs.32.25 per point per month above 248, base year 2015), Hospitals (G.O.(2D) No.21, 26.05.2025, DA Rs.53.90 per point per month above 161), Security Guards (G.O.(2D) No.81, 19.09.2024, DA Rs.56.00 per point per month above 161). Wage questions about those employments still refuse honestly until their schedules are verified the same way.",
+    "scope": "Tamil Nadu STATE minimum wages for three scheduled employments (Shops and Commercial Establishments; Tailoring Industry; Agriculture and works ancillary to Agriculture), read from the official G.O. PDFs on labour.tn.gov.in. Shops and tailoring give BASIC wages only: the G.O.s print no totals. The dearness allowance (DA) is a formula in each G.O. (a fixed rupee amount per month for every point the average Chennai City Consumer Price Index, base 2001=100, rises above a base figure), calculated every 1 April by the Commissioner of Labour on the preceding January-December average. The Commissioner's annual DA statement for the current year (cited by third parties as Order No. Z3/3459/2026, dated 18.02.2026, effective 01.04.2026) could not be located on any official site on 22 Nov 2026 (TN Labour Department site, TN Government Gazette weekly Part II Section 2 issues 7-18 of 2026, and the 2026 Extraordinary Gazette list were all searched), so NO current DA amount and NO total is stated for shops or tailoring anywhere in this file — the chunk text says so explicitly. Agriculture rates are all-inclusive (basic + cost of living allowance + cash value of concessions), so the printed daily rate IS the total. Third-party aggregator figures were never used, however plausible they look: one aggregator's hospitals DA figure (Rs.44 per point) contradicts the hospitals G.O. itself (Rs.53.90 per point, G.O.(2D) No.21, 26.05.2025).",
+    "verification": "Each G.O. is a scanned PDF with no text layer. Numbers were read by OCR (RapidOCR/onnxruntime, 150 DPI, 22 Nov 2026) and every schedule page was then read visually at 300 DPI to confirm the category-to-figure grouping: the OCR flattens merged table cells, and the visual read corrected the grouping in two places (shops general categories (1)-(5) share one rate, not (1)-(2); (6)-(13) share one rate, not (3)-(10)). The two DA per-point amounts the OCR garbled (shops Rs.40.18, tailoring Rs.33.94) were read visually from the page images, words and figures agreeing. No arithmetic sums exist to re-add: the G.O.s print basic rates only, so the validator checks structure (positive rates, consistent zone sets, DA block present exactly where the G.O. has a DA clause) instead of sums."
+  }
+}

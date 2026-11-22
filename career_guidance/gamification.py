@@ -18,11 +18,11 @@ XP              action
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from career_guidance import db as db_layer
 from career_guidance.migrations import migrate
 
 XP_RULES: dict[str, int] = {
@@ -143,13 +143,20 @@ class GamificationStore:
     """XP, streaks and badges for one database."""
 
     def __init__(self, path: str | Path) -> None:
+        # ``path`` is a filesystem path or a DATABASE_URL.
         self._path = str(path)
+        self._config = db_layer.resolve_database_config(
+            database_url=self._path if db_layer.is_postgres_target(self._path) else None,
+            database_path=None if db_layer.is_postgres_target(self._path) else self._path,
+        )
         migrate(self._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    @property
+    def dialect(self) -> str:
+        return self._config.dialect
+
+    def _connect(self):
+        return db_layer.connect(self._config)
 
     # -------------------------------------------------------------- events
     def award(self, user_id: str, kind: str, detail: str = "", points: int | None = None) -> int:
@@ -278,8 +285,11 @@ class GamificationStore:
         if earned:
             with self._connect() as conn:
                 for badge_id in earned:
+                    # Bare ON CONFLICT DO NOTHING is the portable
+                    # spelling of INSERT OR IGNORE (both engines).
                     conn.execute(
-                        "INSERT OR IGNORE INTO badges (user_id, badge_id, earned_at) VALUES (?, ?, ?)",  # noqa: E501
+                        "INSERT INTO badges (user_id, badge_id, earned_at) VALUES (?, ?, ?) "
+                        "ON CONFLICT DO NOTHING",
                         (user_id, badge_id, _now()),
                     )
         return earned

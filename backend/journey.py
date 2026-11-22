@@ -166,9 +166,9 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     """Journey routes for the signed-in user (session enforced by FastAPI)."""
     router = APIRouter(prefix="/api/v1", tags=["journey"])
 
-    profiles = ProfileStore(settings.database_path)
-    journey = JourneyStore(settings.database_path)
-    gamification = GamificationStore(settings.database_path)
+    profiles = ProfileStore(settings.database_target)
+    journey = JourneyStore(settings.database_target)
+    gamification = GamificationStore(settings.database_target)
 
     # Phase 5 minor protections: XP awards are behavioural nudges, so an
     # unconsented minor earns none and their streak surfaces read zeroed.
@@ -176,7 +176,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
     # and keep working — see docs/COMPLIANCE.md.)
     from career_guidance.consent import ConsentStore, is_unconsented_minor
 
-    consent_store = ConsentStore(settings.database_path)
+    consent_store = ConsentStore(settings.database_target)
 
     def _restricted(user: User) -> bool:
         return is_unconsented_minor(user, consent_store)
@@ -199,9 +199,9 @@ def build_router(settings, current_user, db, users) -> APIRouter:
             }
         return payload
 
-    content = ContentStore(settings.database_path)
-    settings_store = SettingsStore(settings.database_path)
-    assessments = riasec.AssessmentStore(settings.database_path)
+    content = ContentStore(settings.database_target)
+    settings_store = SettingsStore(settings.database_target)
+    assessments = riasec.AssessmentStore(settings.database_target)
     explanations = get_explanations()
 
     def taxonomy():
@@ -968,7 +968,7 @@ def build_router(settings, current_user, db, users) -> APIRouter:
         announcements_payload = settings_store.announcements(active_only=True)
         # Phase 3: "this week" of the 90-day plan, when one exists.
         plan90_payload = None
-        plan90 = Plan90Store(settings.database_path).latest(user.id)
+        plan90 = Plan90Store(settings.database_target).latest(user.id)
         if plan90:
             done_ids = {
                 t["id"]
